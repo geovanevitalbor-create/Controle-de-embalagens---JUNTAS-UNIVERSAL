@@ -815,6 +815,19 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL SELEÇÃO DE OPERADOR E BAIA -->
+<div class="ov hidden" id="ovOperBaia">
+  <div class="md" style="max-width:440px">
+    <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
+    <div class="md-body">
+      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador e a baia para iniciar a sessão.</div>
+      <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
+      <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
+      <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">✔ Confirmar e iniciar</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- OVERLAY GRANDE — aviso de produto já bipado, fecha só com clique em OK -->
 <div class="cooldown-ov hidden" id="cooldownOv">
   <div class="cooldown-box">
@@ -948,7 +961,7 @@ function irPara(id){
   document.getElementById('startScreen').style.display='none';
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('scr-'+id).classList.add('active');
-  if(id==='bip'){validarCampos();setTimeout(focusScan,80);}
+  if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
   if(id==='fat'){carregarFat();}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
@@ -1500,8 +1513,16 @@ function limpar(manterDadosFin){
   document.getElementById('btnFin').disabled=true;
   document.getElementById('cxCount').textContent='0';
   document.getElementById('sessId').textContent=sess.id;
-  validarCampos();
-  focusScan();
+  if(!manterDadosFin){
+    // Limpeza manual (ou nova embalagem): zera operador/baia e pede seleção no popup
+    document.getElementById('selOp').value='';
+    document.getElementById('selBaia').value='';
+    validarCampos();
+    abrirOperBaia();
+  } else {
+    validarCampos();
+    focusScan();
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1881,6 +1902,32 @@ function popularSels(){
   sOp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===opA?' selected':'')+'>'+o+'</option>';}).join('');
   sBa.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===baA?' selected':'')+'>'+b+'</option>';}).join('');
   validarCampos();
+}
+
+// Popup obrigatório de seleção de operador e baia (aparece ao limpar sessão / iniciar)
+function abrirOperBaia(){
+  var sp=document.getElementById('selOpPop'), bp=document.getElementById('selBaiaPop');
+  var curOp=document.getElementById('selOp').value||'', curBa=document.getElementById('selBaia').value||'';
+  sp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===curOp?' selected':'')+'>'+o+'</option>';}).join('');
+  bp.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===curBa?' selected':'')+'>'+b+'</option>';}).join('');
+  document.getElementById('opPopErr').style.display='none';
+  document.getElementById('baPopErr').style.display='none';
+  document.getElementById('ovOperBaia').classList.remove('hidden');
+  setTimeout(function(){sp.focus();},120);
+}
+function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('hidden'); focusScan(); }
+function confirmarOperBaia(){
+  var op=document.getElementById('selOpPop').value, ba=document.getElementById('selBaiaPop').value;
+  var ok=true;
+  if(!op){document.getElementById('opPopErr').style.display='block';ok=false;} else {document.getElementById('opPopErr').style.display='none';}
+  if(!ba){document.getElementById('baPopErr').style.display='block';ok=false;} else {document.getElementById('baPopErr').style.display='none';}
+  if(!ok)return;
+  document.getElementById('selOp').value=op;
+  document.getElementById('selBaia').value=ba;
+  sess.op=op; sess.baia=ba; salvarSess();
+  document.getElementById('ovOperBaia').classList.add('hidden');
+  validarCampos();
+  focusScan();
 }
 function addOp(){
   var inp=document.getElementById('addOpI');var v=inp.value.trim();
