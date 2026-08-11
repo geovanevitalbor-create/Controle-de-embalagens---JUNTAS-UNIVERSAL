@@ -914,7 +914,7 @@ let bipCamStream=null, bipCamInterval=null;
 // Serve para validar as leituras na hora (e offline) sem consultar o banco a cada bipada.
 let produtosCache=null;
 let produtosAdmin=[]; // lista [{codigo,nome}] usada na tela Admin
-try{const _pc=sessionStorage.getItem(PK);if(_pc)produtosCache=JSON.parse(_pc);}catch{}
+try{const _pc=localStorage.getItem(PK);if(_pc)produtosCache=JSON.parse(_pc);}catch{}
 
 // Trava anti-duplo-clique (essencial: resolve duplicação de NF)
 let salvandoFatura=false;
@@ -924,11 +924,11 @@ let fechandoCaixa=false;
 function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',peso:0};}
 let sess=novaSess();
 let cxFech=[], cxAtual={};
-try{const s=sessionStorage.getItem(SK);if(s){const d=JSON.parse(s);sess=d.sess||novaSess();cxFech=d.cxFech||[];cxAtual=d.cxAtual||{};}}catch{}
-let fila=[];try{const f=sessionStorage.getItem(FK);if(f)fila=JSON.parse(f);}catch{}
+try{const s=localStorage.getItem(SK);if(s){const d=JSON.parse(s);sess=d.sess||novaSess();cxFech=d.cxFech||[];cxAtual=d.cxAtual||{};}}catch{}
+let fila=[];try{const f=localStorage.getItem(FK);if(f)fila=JSON.parse(f);}catch{}
 
-function salvarSess(){try{sessionStorage.setItem(SK,JSON.stringify({sess,cxFech,cxAtual}));}catch{}}
-function salvarFila(){try{sessionStorage.setItem(FK,JSON.stringify(fila));}catch{}}
+function salvarSess(){try{localStorage.setItem(SK,JSON.stringify({sess,cxFech,cxAtual}));}catch{}}
+function salvarFila(){try{localStorage.setItem(FK,JSON.stringify(fila));}catch{}}
 
 // ═══════════════════════════════════════
 // CLOCK
@@ -1035,7 +1035,7 @@ function carregarProdutos(){
           produtosCache={};
           produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
           produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
-          try{sessionStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
+          try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           // se a tela Admin estiver aberta, atualiza a lista
           if(document.getElementById('scr-adm').classList.contains('active')) renderProdList();
         }
@@ -1494,7 +1494,7 @@ function novaEmb(){if(!confirm('Nova embalagem?'))return;fecharOv('ovImpr');limp
 function limpar(manterDadosFin){
   sess=novaSess();cxFech=[];cxAtual={};
   if(!manterDadosFin) dadosFin=null;
-  try{sessionStorage.removeItem(SK);}catch{}
+  try{localStorage.removeItem(SK);}catch{}
   renderCxFech();renderTabela(null);renderStats();
   document.getElementById('btnCx').disabled=true;
   document.getElementById('btnFin').disabled=true;
@@ -1877,7 +1877,7 @@ function renderTags(wid,lista,fn){var el=document.getElementById(wid);if(!el)ret
 function popularSels(){
   var sOp=document.getElementById('selOp'),sBa=document.getElementById('selBaia');
   if(!sOp||!sBa)return;
-  var opA=sOp.value,baA=sBa.value;
+  var opA=sOp.value||(sess&&sess.op)||'',baA=sBa.value||(sess&&sess.baia)||'';
   sOp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===opA?' selected':'')+'>'+o+'</option>';}).join('');
   sBa.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===baA?' selected':'')+'>'+b+'</option>';}).join('');
   validarCampos();
@@ -1912,7 +1912,7 @@ function carregarProdutosAdmin(){
           // atualiza também o cache de validação
           produtosCache={};
           produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
-          try{sessionStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
+          try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           popularProdSelect();
           renderProdList();
         }else{
@@ -2246,8 +2246,16 @@ function toast(msg){
 // INIT
 // ═══════════════════════════════════════
 renderCxFech();renderTabela(null);renderStats();
+(function(){
+  var totCx=Object.values(cxAtual).reduce(function(s,i){return s+(i.qty||0);},0);
+  var cc=document.getElementById('cxCount'); if(cc)cc.textContent=totCx;
+  if(Object.keys(cxAtual).length>0){ var bc=document.getElementById('btnCx'); if(bc)bc.disabled=false; }
+})();
 if(cxFech.length>0||Object.keys(cxAtual).length>0){
   document.getElementById('btnFin').disabled=false;
+  // Havia embalagem em andamento (peças/caixas não finalizadas): retoma a bipagem
+  // em vez de voltar pra tela inicial, pra não parecer que "perdeu tudo".
+  try{ irPara('bip'); showFb('↩ Sessão anterior retomada','ok'); }catch(e){}
 }
 </script>
 </body>
