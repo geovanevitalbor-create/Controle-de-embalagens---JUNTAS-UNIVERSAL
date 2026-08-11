@@ -779,7 +779,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div style="font-size:11px;color:var(--td);margin-bottom:12px">Peso e quantidade já vêm da embalagem. Preencha só o que não fica no sistema.</div>
       <div class="md-row"><label class="lbl">Lote de fabricação</label><input class="inp" type="text" id="cliLote" placeholder="Ex: 0085426F22"></div>
       <div class="md-row"><label class="lbl">Transportadora</label><input class="inp" type="text" id="cliTransp" placeholder="Ex: RPD"></div>
-      <div class="md-row"><label class="lbl">Data de fabricação</label><input class="inp" type="text" id="cliData" placeholder="Ex: 23/06/2026"></div>
+      <div class="md-row"><label class="lbl">Data de fabricação</label><input class="inp" type="text" id="cliData" placeholder="Ex: 23/06/2026 13:56:36"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEtqCli')">Cancelar</button><button class="btn-ok" onclick="gerarEtqCliente()">🖨 Gerar etiquetas</button></div>
     </div>
   </div>
@@ -2193,7 +2193,7 @@ function abrirEtqCliente(){
   if(!d||!d.caixas||!d.caixas.length){alert('Sem dados de embalagem para etiquetar.');return;}
   document.getElementById('cliLote').value='';
   document.getElementById('cliTransp').value='';
-  document.getElementById('cliData').value=d.dataEmbalagem||'';
+  document.getElementById('cliData').value=(d.dataEmbalagem||'')+(d.horaEmbalagem?(' '+d.horaEmbalagem):'');
   document.getElementById('ovImpr').classList.add('hidden');
   document.getElementById('ovEtqCli').classList.remove('hidden');
 }
@@ -2260,7 +2260,7 @@ function imprimirEtqClienteCom(lote,transp,dfab){
       '<div class="cr"><div class="mib">MADE IN BRAZIL</div>'+
       '<svg id="bc_'+l.id+'" class="bcsvg"></svg>'+
       '<div class="foot">'+
-        '<div><span class="fk">PESO:</span> '+l.peso+' kg</div>'+
+        '<div><span class="fk">VOL/PESO:</span> '+l.total+' VOL / '+l.peso+' kg</div>'+
         (lote?'<div><span class="fk">LOTE FABR.:</span> '+lote+'</div>':'')+
         (transp?'<div><span class="fk">TRANSP.:</span> '+transp+'</div>':'')+
         (dfab?'<div><span class="fk">DATA FABR.:</span> '+dfab+'</div>':'')+
