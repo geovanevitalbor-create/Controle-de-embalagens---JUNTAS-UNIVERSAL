@@ -677,8 +677,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       <section class="adm-panel" id="pane-prod">
         <div class="adm-addcard">
-          <input class="adm-input" id="addProdCod" placeholder="Código de barras (EAN / QR)" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()">
-          <input class="adm-input" id="addProdNome" placeholder="Peça (nome / cód. Sabó)" onkeydown="if(event.key==='Enter')addProd()">
+          <input class="adm-input" id="addProdCod" placeholder="Código de barras (EAN / QR)" onkeydown="if(event.key==='Enter')document.getElementById('addProdCodSabo').focus()">
+          <input class="adm-input" id="addProdCodSabo" placeholder="Código Sabó (opcional)" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()">
+          <input class="adm-input" id="addProdNome" placeholder="Peça (nome / descrição)" onkeydown="if(event.key==='Enter')addProd()">
           <button class="adm-btn-add wide" onclick="addProd()">Adicionar peça</button>
           <div id="addProdErr" class="adm-err"></div>
         </div>
@@ -876,7 +877,7 @@ function _dataBR(i){ if(!i)return ''; var p=String(i).split('-'); if(p.length!==
 const Backend={
   async testarConexao(){ try{ await sbFetch('GET','/operadores?select=id&limit=1',null); return {status:'ok',planilha:'Supabase'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarProduto(codigo){ try{ var c=encodeURIComponent(String(codigo).trim()); var r=await sbFetch('GET','/produtos?codigo=eq.'+c+'&select=nome&limit=1',null); if(r&&r.length>0)return {nome:r[0].nome,codigo:codigo,encontrado:true}; return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; }catch(e){ return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; } },
-  async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome,codigo_sabo',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2))},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&order=id.desc&limit=200',null); var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -885,7 +886,7 @@ const Backend={
   async salvarConfiguracoes(config){ try{ var t=config.tipo==='operador'?'/operadores':'/baias'; await sbFetch('DELETE',t+'?id=gt.0',null); if(config.valores&&config.valores.length){ await sbFetch('POST',t,config.valores.map(function(v){return {nome:v,ativo:true};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async carregarConfiguracoes(){ try{ var ops=await sbFetch('GET','/operadores?select=nome&order=nome.asc',null); var bs=await sbFetch('GET','/baias?select=nome&order=nome.asc',null); return {status:'ok',operadores:(ops||[]).map(function(o){return o.nome;}),baias:(bs||[]).map(function(b){return b.nome;})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async salvarProduto(codigo,nome,codigoSabo){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(),cs=String(codigoSabo||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm,codigo_sabo:cs||null},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
@@ -926,6 +927,7 @@ let bipCamStream=null, bipCamInterval=null;
 // Cache do cadastro de peças: { codigo: nome }. null = ainda não carregado.
 // Serve para validar as leituras na hora (e offline) sem consultar o banco a cada bipada.
 let produtosCache=null;
+let produtosSaboCache={}; // { ean: codigoSabo } — separado do produtosCache pra não mexer na validação de bipagem
 let produtosAdmin=[]; // lista [{codigo,nome}] usada na tela Admin
 try{const _pc=localStorage.getItem(PK);if(_pc)produtosCache=JSON.parse(_pc);}catch{}
 
@@ -1046,8 +1048,9 @@ function carregarProdutos(){
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
           produtosCache={};
-          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
-          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
+          produtosSaboCache={};
+          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome,codigoSabo:p.codigo_sabo||''};});
+          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;produtosSaboCache[p.codigo]=p.codigoSabo;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           // se a tela Admin estiver aberta, atualiza a lista
           if(document.getElementById('scr-adm').classList.contains('active')) renderProdList();
@@ -1955,10 +1958,11 @@ function carregarProdutosAdmin(){
     google.script.run
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
-          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
+          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome,codigoSabo:p.codigo_sabo||''};});
           // atualiza também o cache de validação
           produtosCache={};
-          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
+          produtosSaboCache={};
+          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;produtosSaboCache[p.codigo]=p.codigoSabo;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           popularProdSelect();
           renderProdList();
@@ -1995,15 +1999,16 @@ function renderProdList(){
   el.innerHTML=lista.slice(0,300).map(function(p){
     var cod=String(p.codigo).replace(/'/g,"\\'");
     if(p.codigo===editandoCod){
-      // linha em modo edição: dois campos + salvar/cancelar
-      return '<div class="prod-item" style="gap:6px">'+
+      // linha em modo edição: três campos + salvar/cancelar
+      return '<div class="prod-item" style="gap:6px;flex-wrap:wrap">'+
         '<input class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
-        '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
+        '<input class="adm-input" id="editProdCodSabo" value="'+escAttr(p.codigoSabo||'')+'" placeholder="Cód. Sabó" style="max-width:120px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
+        '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px;min-width:140px">'+
         '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
         '<button class="adm-icon-btn del" onclick="cancelProdEdit()" title="Cancelar">✕</button>'+
       '</div>';
     }
-    return '<div class="prod-item"><span class="prod-item-cod">'+p.codigo+'</span><span class="prod-item-nome">'+p.nome+'</span>'+
+    return '<div class="prod-item"><span class="prod-item-cod">'+p.codigo+(p.codigoSabo?' <span style="color:var(--ac)">· '+escAttr(p.codigoSabo)+'</span>':'')+'</span><span class="prod-item-nome">'+p.nome+'</span>'+
       '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">✎</button>'+
       '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">✕</button></div>';
   }).join('')+(lista.length>300?'<div style="text-align:center;font-size:10px;color:var(--td);padding:8px">Mostrando 300 de '+lista.length+' — use o filtro</div>':'');
@@ -2012,6 +2017,7 @@ function renderProdList(){
 
 function addProd(){
   var cod=document.getElementById('addProdCod').value.trim();
+  var codSabo=document.getElementById('addProdCodSabo').value.trim();
   var nome=document.getElementById('addProdNome').value.trim();
   var err=document.getElementById('addProdErr');
   if(!cod||!nome){err.textContent='Preencha o código e a peça.';err.style.display='block';return;}
@@ -2024,6 +2030,7 @@ function addProd(){
         if(btn)btn.disabled=false;
         if(r&&r.status==='ok'){
           document.getElementById('addProdCod').value='';
+          document.getElementById('addProdCodSabo').value='';
           document.getElementById('addProdNome').value='';
           document.getElementById('addProdCod').focus();
           toast('✔ Peça cadastrada');
@@ -2033,7 +2040,7 @@ function addProd(){
         }
       })
       .withFailureHandler(function(e){if(btn)btn.disabled=false;err.textContent='Sem conexão: '+(e&&e.message?e.message:'');err.style.display='block';})
-      .salvarProduto(cod,nome);
+      .salvarProduto(cod,nome,codSabo);
   }catch(e){if(btn)btn.disabled=false;err.textContent='Sem conexão: '+e.message;err.style.display='block';}
 }
 
@@ -2056,6 +2063,7 @@ function cancelProdEdit(){ editandoCod=null; renderProdList(); }
 
 function saveProdEdit(oldCod){
   var novoCod=document.getElementById('editProdCod').value.trim();
+  var novoCodSabo=document.getElementById('editProdCodSabo').value.trim();
   var novoNome=document.getElementById('editProdNome').value.trim();
   if(!novoCod||!novoNome){alert('Preencha o código e a peça.');return;}
   // se trocou o código para um que já existe em OUTRA peça, bloqueia
@@ -2081,7 +2089,7 @@ function saveProdEdit(oldCod){
         }
       })
       .withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));carregarProdutosAdmin();})
-      .salvarProduto(novoCod,novoNome);
+      .salvarProduto(novoCod,novoNome,novoCodSabo);
   }catch(e){alert('Sem conexão: '+e.message);carregarProdutosAdmin();}
 }
 
@@ -2226,10 +2234,8 @@ function gerarSSCCCaixa(cx,sessaoId){
 }
 
 // Monta a string do QR no padrão (00)SSCC(02)GTIN(11)LOTE(37)QTD
-function montarQRGS1(sscc,codigo,lote,qtd){
-  var cod=String(codigo||'');
-  var gtin=cod.length===13?'0'+cod:cod.padStart(14,'0');
-  return '(00)'+sscc+'(02)'+gtin+'(11)'+(lote||'')+'(37)'+qtd;
+function montarQRGS1(sscc,codigoProduto,lote,qtd){
+  return '(00)'+sscc+'(02)'+String(codigoProduto||'')+'(11)'+(lote||'')+'(37)'+qtd;
 }
 
 // Núcleo: monta e imprime as etiquetas do cliente usando dadosFin + os campos informados
@@ -2246,15 +2252,17 @@ function imprimirEtqClienteCom(lote,transp,dfab){
     var sscc=gerarSSCCCaixa(cx,d.session.id); // uma vez por caixa — não por peça
     (cx.itens||[]).forEach(function(it){
       var id=idx++; var cod=String(it.codigo||'');
-      labels.push({id:id,cod:cod,qty:it.qty,cx:cx.num,total:d.caixas.length,peso:ps});
-      qrList.push({id:'qr_'+id,data:montarQRGS1(sscc,cod,lote,it.qty)});
+      // código Sabó puxado pelo EAN; se a peça ainda não tem código Sabó cadastrado, cai pro EAN mesmo (não fica em branco)
+      var codSabo=(produtosSaboCache&&produtosSaboCache[cod])||cod;
+      labels.push({id:id,cod:cod,codSabo:codSabo,qty:it.qty,cx:cx.num,total:d.caixas.length,peso:ps});
+      qrList.push({id:'qr_'+id,data:montarQRGS1(sscc,codSabo,lote,it.qty)});
       bcList.push({id:'bc_'+id,cod:cod});
     });
   });
   if(!labels.length){alert('Nenhuma peça com código para etiquetar.');return;}
 
   var body=labels.map(function(l){return '<div class="clabel">'+
-      '<div class="cl"><div class="ck">CÓDIGO</div><div class="cbig">'+l.cod+'</div>'+
+      '<div class="cl"><div class="ck">CÓDIGO SABÓ</div><div class="cbig">'+l.codSabo+'</div>'+
       '<div class="ck">QUANTIDADE</div><div class="qtyv">'+l.qty+'</div>'+
       '<div class="qrc"><div id="qr_'+l.id+'"></div></div></div>'+
       '<div class="cr"><div class="mib">MADE IN BRAZIL</div>'+
