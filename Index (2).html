@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de Fabricação — Juntas Universal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Decide o estado inicial da sidebar ANTES do primeiro paint, pra não piscar
+  // aberta e fechar em seguida (no mobile) nem esquecer a preferência (no desktop).
+  (function(){
+    try{
+      var isDesktop = window.innerWidth >= 901;
+      if (isDesktop){
+        if (localStorage.getItem('sidebarCollapsed') === '1') document.documentElement.classList.add('sidebar-collapsed');
+      } else {
+        document.documentElement.classList.add('sidebar-hidden'); // mobile sempre começa com o drawer fechado
+      }
+    } catch(e){ /* localStorage bloqueado: segue com a sidebar expandida no desktop */ }
+  })();
+</script>
+<style>
+  :root{
+    --bg:#F5F7F9; --panel:#FFFFFF; --panel-2:#F0F2F5; --border:#E1E5EA;
+    --ink:#0F1720; --ink-soft:#5B6572;
+    --accent:#22A559; --accent-hover:#1C8A4A; --accent-soft:#E3F7EA; --accent-ink:#177A3F;
+    --err:#E5484D; --err-soft:#FDECEC;
+    --shadow: 0 1px 2px rgba(16,24,32,0.06), 0 1px 1px rgba(16,24,32,0.04);
+    --shadow-btn: 0 2px 6px rgba(34,165,89,0.28);
+    --sidebar-w: 236px;
+    --sidebar-w-collapsed: 68px;
+  }
+  body[data-theme="dark"]{
+    --bg:#0D1117; --panel:#161B22; --panel-2:#1C2128; --border:#2D333B;
+    --ink:#E6EDF3; --ink-soft:#8B949E;
+    --accent:#2EA043; --accent-hover:#3FB950; --accent-soft:rgba(46,160,67,0.16); --accent-ink:#56D364;
+    --err:#F85149; --err-soft:rgba(248,81,73,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-btn: 0 2px 10px rgba(46,160,67,0.35);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:15px; line-height:1.5; transition: background .15s ease, color .15s ease; }
+  .jf-wrap{ max-width: 1180px; margin: 0 auto; padding: 20px 20px 60px; }
+  .jf-mono{ font-family: "SF Mono", "Roboto Mono", Consolas, monospace; }
+
+  /* Hambúrguer: só existe pro drawer do mobile — no desktop nem renderiza (ver media query). */
+  .jf-mobile-toggle{
+    display:none; position:fixed; top:14px; left:12px; z-index:70;
+    align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:10px; padding:0;
+    border:1.5px solid var(--border); background:var(--panel); box-shadow:var(--shadow);
+    cursor:pointer;
+  }
+  .jf-mobile-toggle:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .jf-hamburger{ position:relative; width:16px; height:2px; background:var(--ink); border-radius:2px; }
+  .jf-hamburger::before, .jf-hamburger::after{ content:''; position:absolute; left:0; width:16px; height:2px; background:var(--ink); border-radius:2px; }
+  .jf-hamburger::before{ top:-5px; }
+  .jf-hamburger::after{ top:5px; }
+
+  .jf-sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(15,23,32,.45); z-index:55; }
+
+  .jf-sidebar{
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    background:var(--panel); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:18px 14px;
+    z-index:60; overflow-x:hidden; overflow-y:auto;
+    transition:width .22s ease;
+  }
+
+  /* Colapsado no desktop = rail fina de ícones, nunca some por completo. */
+  html.sidebar-collapsed .jf-sidebar{ width:var(--sidebar-w-collapsed); }
+  html.sidebar-collapsed .jf-navbar-brand-text,
+  html.sidebar-collapsed .jf-tab-label,
+  html.sidebar-collapsed .jf-theme-label{ opacity:0; width:0; }
+  html.sidebar-collapsed .jf-sidebar-brand{ justify-content:center; padding-left:0; padding-right:0; }
+  html.sidebar-collapsed .jf-tab{ justify-content:center; padding-left:0; padding-right:0; }
+  html.sidebar-collapsed .jf-theme-btn{ padding-left:0; padding-right:0; }
+
+  .jf-collapse-row{ display:flex; justify-content:flex-end; padding:0 4px 12px; }
+  html.sidebar-collapsed .jf-collapse-row{ justify-content:center; }
+  .jf-collapse-btn{
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:26px; height:26px; border-radius:999px; padding:0;
+    border:1.5px solid var(--border); background:var(--panel);
+    cursor:pointer; color:var(--ink-soft); transition:transform .22s ease, color .15s ease;
+  }
+  .jf-collapse-btn:hover{ color:var(--accent-ink); border-color:var(--accent); background:var(--panel-2); }
+  .jf-collapse-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .jf-collapse-btn svg{ width:13px; height:13px; }
+  html.sidebar-collapsed .jf-collapse-btn{ transform:rotate(180deg); }
+
+  .jf-sidebar-brand{ display:flex; align-items:center; gap:11px; padding:2px 8px 22px; }
+  .jf-navbar-mark{
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:34px; height:34px; border-radius:9px;
+    background: var(--accent); color:#fff;
+    font-weight:800; font-size:12.5px; letter-spacing:0.02em;
+  }
+  .jf-navbar-brand-text{ display:flex; flex-direction:column; line-height:1.3; min-width:0; overflow:hidden; transition:opacity .15s ease, width .22s ease; }
+  .jf-navbar-title{ font-size:14.5px; font-weight:800; color:var(--ink); letter-spacing:-0.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .jf-navbar-subtitle{ font-size:11.5px; color:var(--ink-soft); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .jf-sidebar-nav{ position:relative; display:flex; flex-direction:column; gap:3px; }
+
+  .jf-tab-indicator{
+    position:absolute; left:0; right:0; top:0; height:0;
+    background: var(--accent); border-radius:10px; box-shadow: var(--shadow-btn);
+    transition: top .25s cubic-bezier(.4,0,.2,1), height .25s cubic-bezier(.4,0,.2,1);
+    z-index:0; pointer-events:none;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .jf-tab-indicator, .jf-sidebar, .jf-main, .jf-collapse-btn, .jf-navbar-brand-text{ transition:none; }
+  }
+
+  .jf-tab{
+    position:relative; z-index:1; display:flex; align-items:center; gap:11px; width:100%;
+    border:none; background:transparent; font-family:inherit; text-align:left;
+    font-size:13.5px; font-weight:700; color:var(--ink-soft);
+    padding:10px 14px; cursor:pointer; border-radius:10px;
+    transition:color .15s ease, padding .22s ease;
+  }
+  .jf-tab-icon{ flex-shrink:0; width:19px; height:19px; display:flex; }
+  .jf-tab-icon svg{ width:100%; height:100%; }
+  .jf-tab-label{ white-space:nowrap; overflow:hidden; transition:opacity .15s ease, width .22s ease; }
+  .jf-tab.active{ color:#fff; }
+  .jf-tab:hover:not(.active){ color:var(--ink); background:var(--panel-2); }
+  .jf-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .jf-theme-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1.5px solid var(--border); background:var(--panel);
+    color:var(--ink); font-weight:700; font-size:13px; padding:10px 16px; border-radius:999px; cursor:pointer; font-family:inherit;
+    box-shadow: var(--shadow); flex-shrink:0; transition:padding .22s ease; }
+  .jf-theme-btn:hover{ border-color: var(--accent); color: var(--accent-ink); }
+  .jf-sidebar .jf-theme-btn{ margin-top:auto; width:100%; }
+  .jf-theme-label{ white-space:nowrap; overflow:hidden; transition:opacity .15s ease, width .22s ease; }
+
+  .jf-main{ margin-left:var(--sidebar-w); transition:margin-left .22s ease; min-height:100vh; }
+  html.sidebar-collapsed .jf-main{ margin-left:var(--sidebar-w-collapsed); }
+
+  @media (max-width: 900px){
+    .jf-mobile-toggle{ display:flex; }
+    .jf-collapse-row{ display:none; }
+    .jf-sidebar{
+      width:var(--sidebar-w) !important; box-shadow:0 0 28px rgba(0,0,0,.28);
+      transform:translateX(-100%); transition:transform .25s ease;
+    }
+    html:not(.sidebar-hidden) .jf-sidebar{ transform:translateX(0); }
+    html.sidebar-collapsed .jf-navbar-brand-text,
+    html.sidebar-collapsed .jf-tab-label,
+    html.sidebar-collapsed .jf-theme-label{ opacity:1; width:auto; }
+    html.sidebar-collapsed .jf-sidebar-brand,
+    html.sidebar-collapsed .jf-tab{ justify-content:flex-start; padding-left:14px; padding-right:14px; }
+    .jf-main{ margin-left:0 !important; }
+    html:not(.sidebar-hidden) .jf-sidebar-backdrop{ display:block; }
+  }
+
+
+  .jf-sub{ font-size: 13px; color: var(--ink-soft); margin:0; }
+
+  h2{ font-size: 14.5px; font-weight:700; margin: 0 0 12px 0; color: var(--ink); }
+
+  label.jf-label{ display:block; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 7px; }
+
+  input[type="text"], input[type="number"], select{
+    width:100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14.5px; font-family:inherit; color: var(--ink); background:var(--panel);
+  }
+  input:focus, select:focus{ outline:none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  select{ cursor:pointer; }
+
+  .jf-panel{ border:1px solid var(--border); border-radius:14px; padding:20px 22px; margin-bottom:16px; background:var(--panel); box-shadow: var(--shadow); }
+
+  .jf-dropzone{ border: 1.5px dashed var(--border); border-radius: 12px; padding: 16px 18px; background: var(--panel-2); }
+  .jf-dropzone .txt{ font-size: 13px; color: var(--ink-soft); margin-bottom:10px; }
+  .jf-dropzone .txt b{ color: var(--ink); }
+  .jf-dropzone.dragover{ border-color: var(--accent); background: var(--accent-soft); }
+
+  .jf-btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; border: 1.5px solid var(--border); background: var(--panel); color: var(--ink);
+    font-weight: 700; font-size: 14px; padding: 12px 20px; border-radius: 12px; cursor:pointer; font-family:inherit;
+    transition: background .12s ease, transform .08s ease, box-shadow .12s ease; min-height:48px; }
+  .jf-btn:hover{ background: var(--panel-2); transform: translateY(-1px); }
+  .jf-btn:active{ transform: scale(0.98); }
+  .jf-btn.ghost{ border-color:transparent; background:transparent; color: var(--ink-soft); font-weight:600; min-height:40px; padding:9px 14px; }
+  .jf-btn.ghost:hover{ background: var(--panel-2); color:var(--ink); }
+  .jf-btn.ghost.danger{ color: var(--err); }
+  .jf-btn.ghost.danger:hover{ background: var(--err-soft); }
+  .jf-btn.accent{ border-color: var(--accent); background: var(--accent); color:#fff; box-shadow: var(--shadow-btn); }
+  .jf-btn.accent:hover{ background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: var(--shadow-btn), 0 4px 14px rgba(34,165,89,0.2); }
+  .jf-btn.accent:disabled{ background:var(--border); border-color:var(--border); color:#9AA3AD; box-shadow:none; }
+  .jf-btn.small{ font-size:13px; padding:9px 15px; min-height:38px; }
+  .jf-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+  .jf-btn.block{ width:100%; }
+  input[type="file"]{ display:none; }
+
+  .jf-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  .jf-status{ margin-top: 12px; font-size: 13px; }
+  .jf-badge{ display:inline-block; padding: 6px 13px; border-radius: 999px; font-weight:700; font-size:12px; }
+  .jf-badge.default{ background:var(--panel-2); color:var(--ink-soft); border:1px solid var(--border); }
+  .jf-badge.ok{ background:var(--accent-soft); color:var(--accent-ink); }
+  .jf-badge.err{ background:var(--err-soft); color:var(--err); }
+  .jf-error-msg{ font-size:13px; color: var(--err); margin-top:9px; display:none; white-space:pre-line; }
+
+  .jf-tab{
+    position:relative; z-index:1;
+    border:none; background:transparent; font-family:inherit;
+    font-size:13.5px; font-weight:700; color:var(--ink-soft);
+    padding:9px 17px; cursor:pointer; border-radius:10px; min-height:38px;
+    white-space:nowrap; transition: color .15s ease;
+  }
+  .jf-tab.active{ color:#fff; }
+  .jf-tab:hover:not(.active){ color:var(--ink); }
+  .jf-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .jf-period-btn.active{ background: var(--accent); color:#fff; border-color:var(--accent); box-shadow: var(--shadow-btn); }
+  .jf-date-field{ display:flex; flex-direction:column; gap:7px; }
+  .jf-date-field input[type="date"]{ padding:10px 12px; }
+
+  .jf-dashboard{ display:grid; grid-template-columns: minmax(300px, 400px) 1fr; gap:18px; align-items:start; }
+  .jf-col-left{ display:flex; flex-direction:column; min-width:0; }
+  .jf-col-right{ position:sticky; top:20px; display:flex; flex-direction:column; min-width:0; }
+  @media (max-width: 900px){
+    .jf-dashboard{ grid-template-columns: 1fr; }
+    .jf-col-right{ position:static; }
+  }
+
+  .jf-stats-row{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+  .jf-stat-box{ border:1px solid var(--border); border-radius:14px; padding:16px 18px; background:var(--panel); box-shadow: var(--shadow); }
+  .jf-stat-box .lbl{ font-size: 11.5px; color: var(--ink-soft); margin-bottom:5px; font-weight:700; }
+  .jf-stat-box .val{ font-size: 27px; font-weight: 800; transition: color .15s ease; }
+  .jf-stat-box .val.accent{ color: var(--accent); }
+  @keyframes jfPulse{ 0%{ background-color: var(--accent-soft); } 100%{ background-color: transparent; } }
+  .jf-pulse{ animation: jfPulse 0.9s ease-out; border-radius:8px; }
+
+  .jf-add-row{ display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap; }
+  .jf-add-row .qty{ width: 108px; }
+  .jf-add-row .unit{ font-size:13px; color:var(--ink-soft); }
+  .jf-inline-note{ font-size:12.5px; color: var(--accent-ink); margin-top:9px; display:none; }
+
+  .jf-orders{ display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; }
+  .jf-order-row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:12px; flex-wrap:wrap; background:var(--panel); animation: jfSlideIn .18s ease; }
+  @keyframes jfSlideIn{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform:none; } }
+  .jf-order-row .codsabo{ font-weight:700; font-size:13.5px; min-width:60px; }
+  .jf-order-row .desc{ flex:1; min-width:110px; font-size:12.5px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .jf-order-row .qty{ width:80px; padding:7px 8px; font-size:13px; font-weight:700; border-radius:8px; }
+  .jf-order-row .unit{ font-size:11.5px; color:var(--ink-soft); }
+  .jf-remove-btn{ border:none; background:transparent; color:var(--err); font-size:19px; font-weight:700; cursor:pointer; padding:4px 8px; border-radius:8px; min-height:auto; }
+  .jf-remove-btn:hover{ background:var(--err-soft); }
+  .jf-empty{ font-size:13.5px; color:var(--ink-soft); padding: 20px 4px; text-align:center; }
+
+  .jf-lookup-results{ margin-top:12px; display:flex; flex-direction:column; gap:9px; max-height:320px; overflow-y:auto; }
+  .jf-lookup-card{ border:1px solid var(--border); border-radius:12px; padding:11px 13px; background:var(--panel-2); }
+  .jf-lookup-card .head{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:7px; }
+  .jf-lookup-card .code{ font-weight:800; font-size:14px; }
+  .jf-lookup-card .apps{ font-size:12px; color:var(--ink-soft); }
+  .jf-lookup-kit-row{ display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px dashed var(--border); font-size:12.5px; cursor:pointer; user-select:none; border-radius:8px; }
+  .jf-lookup-kit-row:first-of-type{ border-top:none; }
+  .jf-lookup-kit-row:hover{ background: var(--panel); }
+  .jf-lookup-kit-row .ksabo{ font-weight:700; min-width:56px; }
+  .jf-lookup-kit-row .kdesc{ flex:1; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .jf-lookup-kit-row .kqty{ font-weight:700; color:var(--accent-ink); white-space:nowrap; }
+  .jf-lookup-kit-row .chev{ color:var(--ink-soft); font-size:10px; flex-shrink:0; transition: transform .15s ease; }
+  .jf-lookup-kit-row.expanded .chev{ transform: rotate(180deg); color:var(--accent-ink); }
+  .jf-lookup-kit-detail{ display:none; padding:8px 4px 12px; }
+  .jf-lookup-kit-detail .meta{ font-size:11.5px; color:var(--ink-soft); margin-bottom:8px; line-height:1.7; }
+  .jf-lookup-kit-detail .meta b{ color:var(--ink); font-weight:700; }
+  .jf-lookup-detail-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .jf-lookup-detail-table th{ text-align:left; font-size:10px; font-weight:700; color:var(--ink-soft); padding:5px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .jf-lookup-detail-table th.num{ text-align:right; }
+  .jf-lookup-detail-table td{ padding:5px 6px; border-bottom:1px solid var(--border); }
+  .jf-lookup-detail-table td.num{ text-align:right; }
+  .jf-lookup-detail-table tr:last-child td{ border-bottom:none; }
+  .jf-lookup-detail-table tr.match-row{ background: var(--accent-soft); }
+  .jf-lookup-detail-table tr.match-row td{ color: var(--accent-ink); font-weight:700; }
+
+  .jf-batches{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+  .jf-batch-row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; flex-wrap:wrap; background:var(--panel); }
+  .jf-batch-row .sheet{ font-weight:700; font-size:13px; }
+  .jf-batch-row .count{ font-size:12px; color:var(--ink-soft); }
+  .jf-batch-row select{ width:auto; padding:7px 9px; font-size:12.5px; min-height:auto; }
+  .jf-import-result{ font-size:13px; margin-top:9px; padding:10px 13px; border-radius:10px; display:none; }
+  .jf-import-result.ok{ background:var(--accent-soft); color:var(--accent-ink); display:block; }
+
+  .jf-missing-panel{ margin-top:11px; padding:14px 16px; border-radius:12px; background:var(--err-soft); border:1px solid var(--err); }
+  .jf-missing-title{ font-size:13.5px; font-weight:700; color:var(--err); margin-bottom:5px; }
+  .jf-missing-sub{ font-size:12px; color:var(--ink-soft); margin-bottom:11px; }
+  .jf-missing-chips{ display:flex; flex-wrap:wrap; gap:7px; }
+  .jf-missing-chip{ font-family:"SF Mono","Roboto Mono",Consolas,monospace; font-size:12.5px; font-weight:700;
+    border:1.5px solid var(--err); background:var(--panel); color:var(--err); padding:7px 12px; border-radius:9px; cursor:pointer; min-height:auto; }
+  .jf-missing-chip:hover{ background:var(--err); color:#fff; }
+
+  .jf-cad-list{ display:flex; flex-direction:column; gap:8px; }
+  .jf-cad-row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:12px; flex-wrap:wrap; background:var(--panel); }
+  .jf-cad-row .codsabo{ font-weight:700; font-size:14px; min-width:62px; }
+  .jf-cad-row .desc{ flex:1; min-width:150px; font-size:13px; color:var(--ink-soft); }
+  .jf-cad-row .nitens{ font-size:12px; color:var(--ink-soft); }
+  .jf-cad-actions{ display:flex; gap:6px; }
+
+  .jf-form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px; }
+  .jf-form-grid.full{ grid-template-columns: 1fr; }
+  .jf-form-field label{ display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; }
+  .jf-form-field.required label::after{ content:' *'; color:var(--accent); }
+
+  .jf-item-edit-row{ display:grid; grid-template-columns: 58px 1fr 90px 68px 1.3fr 30px; gap:7px; align-items:center; margin-bottom:7px; }
+  .jf-item-edit-row input{ padding:8px 9px; font-size:12.5px; border-radius:8px; }
+  .jf-item-edit-header{ display:grid; grid-template-columns: 58px 1fr 90px 68px 1.3fr 30px; gap:7px; font-size:10.5px; color:var(--ink-soft); font-weight:700; margin-bottom:6px; }
+  .jf-form-actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+  table{ width:100%; border-collapse: collapse; font-size: 13px; }
+  thead th{ text-align:left; font-size: 11px; font-weight:700; color: var(--ink-soft); padding: 10px 12px; border-bottom:2px solid var(--border); position:sticky; top:0; background:var(--panel); }
+  thead th.num{ text-align:right; }
+  tbody td{ padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.num{ text-align:right; }
+  td.qtd-total{ font-weight: 800; color: var(--accent); }
+  .jf-chip{ display:inline-block; font-family:"SF Mono","Roboto Mono",Consolas,monospace; font-size:11px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink-soft); padding:2px 7px; border-radius:6px; margin:1px 3px 1px 0; }
+  .jf-table-wrap{ overflow:auto; border:1px solid var(--border); border-radius:14px; max-height:460px; background:var(--panel); }
+  .jf-table-wrap table{ min-width:520px; }
+
+  .jf-note{ font-size:11.5px; color: var(--ink-soft); margin-top:14px; }
+
+  @media (max-width: 480px){
+    .jf-form-grid{ grid-template-columns: 1fr; }
+    .jf-item-edit-row, .jf-item-edit-header{ grid-template-columns: 1fr; }
+    .jf-stats-row{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body data-theme="light">
+
+<button class="jf-mobile-toggle" id="sidebarToggleBtn" type="button" aria-label="Mostrar/esconder menu" aria-expanded="false" aria-controls="appSidebar">
+  <span class="jf-hamburger"></span>
+</button>
+
+<div class="jf-sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<aside class="jf-sidebar" id="appSidebar" aria-label="Navegação principal">
+  <div class="jf-sidebar-brand">
+    <span class="jf-navbar-mark" aria-hidden="true">JU</span>
+    <div class="jf-navbar-brand-text">
+      <span class="jf-navbar-title">Juntas Universal</span>
+      <span class="jf-navbar-subtitle">Calculadora de Fabricação</span>
+    </div>
+  </div>
+
+  <div class="jf-collapse-row">
+    <button class="jf-collapse-btn" id="collapseBtn" type="button" aria-label="Recolher/expandir menu" aria-expanded="true" aria-controls="appSidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+  </div>
+
+  <nav class="jf-sidebar-nav" role="tablist" aria-label="Seções">
+    <span class="jf-tab-indicator" id="tabIndicator" aria-hidden="true"></span>
+    <button class="jf-tab active" id="tabCalcBtn" type="button" role="tab" aria-selected="true" title="Calculadora">
+      <span class="jf-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="12" cy="11" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="16" cy="11" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="8" cy="15" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="12" cy="15" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="16" cy="15" r="0.6" fill="currentColor" stroke="none"></circle><line x1="8" y1="19" x2="16" y2="19"></line></svg></span>
+      <span class="jf-tab-label">Calculadora</span>
+    </button>
+    <button class="jf-tab" id="tabCadastroBtn" type="button" role="tab" aria-selected="false" title="Cadastro de Composição">
+      <span class="jf-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"></path><rect x="5" y="4" width="14" height="18" rx="2"></rect><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="13" y2="18"></line></svg></span>
+      <span class="jf-tab-label">Cadastro de Composição</span>
+    </button>
+    <button class="jf-tab" id="tabTerceirosBtn" type="button" role="tab" aria-selected="false" title="Peças em Terceiros">
+      <span class="jf-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><line x1="12" y1="13" x2="12" y2="21"></line></svg></span>
+      <span class="jf-tab-label">Peças em Terceiros</span>
+    </button>
+  </nav>
+
+  <button class="jf-theme-btn" id="themeToggleBtn" type="button"><span aria-hidden="true">&#9789;</span><span class="jf-theme-label">Escuro</span></button>
+</aside>
+
+<div class="jf-main">
+<div class="jf-wrap">
+
+  <div id="viewCalc">
+
+  <div class="jf-dashboard">
+    <div class="jf-col-left">
+
+      <div class="jf-panel">
+        <label class="jf-label">Carregar pedido / previsão</label>
+        <div class="jf-dropzone" id="dropzone">
+          <div class="txt">
+            <b>Arraste um .xlsx de pedido/previsão</b> ou clique — a composição já vem sozinha da Planilha Google, não precisa mais subir ela aqui.
+          </div>
+          <div class="jf-row">
+            <label class="jf-btn small" for="fileInput">Carregar pedido .xlsx</label>
+            <button class="jf-btn ghost small" id="resetBtn" type="button" style="display:none;">Restaurar padrão</button>
+          </div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        </div>
+        <div class="jf-status">
+          <span class="jf-badge default" id="statusBadge">Carregando composição da Planilha…</span>
+        </div>
+        <div class="jf-error-msg" id="errorMsg"></div>
+
+        <div id="batchesSection" style="display:none;">
+          <div class="jf-status" style="margin-top:12px;">
+            <span class="jf-badge ok">Pedido/previsão detectado</span>
+          </div>
+          <p class="jf-sub" style="margin:6px 0 0;">Escolha a coluna de quantidade em cada aba e clique em Importar.</p>
+          <div class="jf-batches" id="batchesList"></div>
+          <div class="jf-import-result" id="importResult"></div>
+          <div class="jf-missing-panel" id="missingPanel" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="jf-panel">
+        <h2>Adicionar produto</h2>
+        <label class="jf-label" for="filterInput">Buscar produto</label>
+        <input type="text" id="filterInput" placeholder="Código, descrição ou aplicação..." style="margin-bottom:9px;" />
+        <select id="kitSelect"></select>
+        <div class="jf-add-row">
+          <input class="qty jf-mono" id="addQtyInput" type="number" min="1" step="1" inputmode="numeric" value="100" />
+          <span class="unit">kits</span>
+          <button class="jf-btn accent" id="addBtn" type="button">+ Adicionar</button>
+        </div>
+        <div class="jf-inline-note" id="dupNote">Esse produto já está na lista — ajuste a quantidade abaixo.</div>
+      </div>
+
+      <div class="jf-panel">
+        <h2>Onde essa peça é usada?</h2>
+        <label class="jf-label" for="itemLookupInput">Código da peça Universal (Cód. Item)</label>
+        <input type="text" id="itemLookupInput" placeholder="Ex: 10.956 - B" />
+        <div class="jf-lookup-results" id="itemLookupResults">
+          <div class="jf-empty">Digite um código de peça (mín. 2 caracteres) pra ver em quais kits Sabó ela é usada.</div>
+        </div>
+      </div>
+
+      <div class="jf-panel">
+        <h2 id="ordersTitle">Produtos na produção</h2>
+        <div class="jf-orders" id="ordersList"></div>
+      </div>
+
+    </div><!-- /col-left -->
+
+    <div class="jf-col-right">
+
+      <div class="jf-stats-row" id="resultCard">
+        <div class="jf-stat-box">
+          <div class="lbl">Produtos</div>
+          <div class="val" id="totalProdutos">0</div>
+        </div>
+        <div class="jf-stat-box">
+          <div class="lbl">Total de Kits</div>
+          <div class="val" id="totalKits">0</div>
+        </div>
+        <div class="jf-stat-box">
+          <div class="lbl">Peças a Fabricar</div>
+          <div class="val accent" id="totalPecas">0</div>
+        </div>
+      </div>
+
+      <div class="jf-panel" style="padding:0;">
+        <div style="padding:18px 20px 10px;">
+          <h2 style="margin-bottom:2px;">Itens a fabricar (ao vivo)</h2>
+          <p class="jf-sub">Atualiza sozinho a cada produto ou quantidade que você mudar à esquerda.</p>
+        </div>
+        <div class="jf-table-wrap" style="border:none; border-top:1px solid var(--border); border-radius:0;">
+          <table>
+            <thead>
+              <tr><th>Cód. Item</th><th>Aplicação</th><th>Usado em</th><th class="num">Total</th></tr>
+            </thead>
+            <tbody id="consolidatedBody"></tbody>
+          </table>
+        </div>
+        <div style="padding:16px 20px;">
+          <button class="jf-btn accent block" id="exportBtn" type="button">&#11015; Exportar Excel</button>
+        </div>
+      </div>
+
+      <p class="jf-note" id="sourceNote">
+        Dados extraídos e conferidos a partir do PDF "75_092 - 75_404" (Revisão 10, Juntas Universal). Total a fabricar = quantidade de kits × quantidade do item por kit, somado entre produtos.
+      </p>
+
+    </div><!-- /col-right -->
+  </div><!-- /jf-dashboard -->
+
+  </div><!-- /viewCalc -->
+
+  <div id="viewCadastro" style="display:none;">
+
+    <div class="jf-panel">
+      <span class="jf-badge default" id="storageBadge">Verificando armazenamento…</span>
+      <p class="jf-sub" id="storageNote" style="margin-top:8px;"></p>
+    </div>
+
+    <div class="jf-panel">
+      <h2>Importar / exportar via Excel</h2>
+      <p class="jf-sub" style="margin-bottom:10px;">Carregar atualiza os produtos existentes e adiciona os novos — nunca duplica. Baixar gera a planilha da base atual.</p>
+      <div class="jf-dropzone" id="cadDropzone">
+        <div class="txt"><b>Arraste um .xlsx aqui</b> ou clique em carregar.</div>
+        <div class="jf-row">
+          <label class="jf-btn" for="cadFileInput">Carregar planilha</label>
+          <button class="jf-btn ghost" id="downloadCadBtn" type="button">&#11015; Baixar base de dados</button>
+        </div>
+        <input type="file" id="cadFileInput" accept=".xlsx,.xls" />
+      </div>
+      <div class="jf-status" id="cadUploadStatus" style="display:none;">
+        <span class="jf-badge ok" id="cadUploadBadge"></span>
+      </div>
+      <div class="jf-error-msg" id="cadUploadError"></div>
+    </div>
+
+    <div class="jf-panel">
+      <div class="jf-row" style="justify-content:space-between; margin-bottom:14px;">
+        <h2 style="margin:0;" id="cadastroTitle">Produtos cadastrados (0)</h2>
+        <button class="jf-btn accent small" id="newProductBtn" type="button">+ Novo Produto</button>
+      </div>
+      <div class="jf-cad-list" id="cadastroList"></div>
+    </div>
+
+    <div class="jf-panel" id="productFormPanel" style="display:none;">
+      <h2 id="formTitle">Novo Produto</h2>
+      <div class="jf-form-grid">
+        <div class="jf-form-field required">
+          <label>Cód. Sabó</label>
+          <input type="text" id="formCodSabo" placeholder="75.999" />
+        </div>
+        <div class="jf-form-field">
+          <label>Cód. Universal (Kit)</label>
+          <input type="text" id="formCodUniversal" placeholder="99.999 - KB" />
+        </div>
+      </div>
+      <div class="jf-form-grid full">
+        <div class="jf-form-field">
+          <label>Descrição</label>
+          <input type="text" id="formDescricao" placeholder="JOGO DE JUNTAS DA TAMPA DE VÁLVULAS ..." />
+        </div>
+      </div>
+      <div class="jf-form-grid">
+        <div class="jf-form-field">
+          <label>Embalagem</label>
+          <input type="text" id="formEmbalagem" placeholder="CARTELA SABÓ - 52 X 31 - VACUUM" />
+        </div>
+        <div class="jf-form-field">
+          <label>Observação</label>
+          <input type="text" id="formObservacao" placeholder="1 KIT POR CARTELA" />
+        </div>
+      </div>
+
+      <label class="jf-label" style="margin-top:4px;">Itens do kit</label>
+      <div class="jf-item-edit-header">
+        <span>Item</span><span>Cód. Item</span><span>Fornec.</span><span>Qtde</span><span>Aplicação</span><span></span>
+      </div>
+      <div id="formItemsList"></div>
+      <button class="jf-btn ghost small" id="addFormItemBtn" type="button">+ Adicionar item</button>
+
+      <div class="jf-form-actions">
+        <button class="jf-btn accent" id="saveProductBtn" type="button">Salvar Produto</button>
+        <button class="jf-btn ghost" id="cancelFormBtn" type="button">Cancelar</button>
+        <button class="jf-btn ghost danger" id="deleteProductBtn" type="button" style="display:none; margin-left:auto;">Excluir produto</button>
+      </div>
+      <div class="jf-error-msg" id="formErrorMsg"></div>
+    </div>
+
+  </div><!-- /viewCadastro -->
+
+  <div id="viewTerceiros" style="display:none;">
+
+    <div class="jf-panel">
+      <h2>Peças fora da empresa (terceiros)</h2>
+      <p class="jf-sub" style="margin-bottom:14px;">Consulta direto na base de movimentação de terceiros (Supabase). Escolha o período — os botões de atalho já buscam sozinhos.</p>
+
+      <div class="jf-row" style="margin-bottom:14px;">
+        <button class="jf-btn small jf-period-btn" data-days="7" type="button">Última semana</button>
+        <button class="jf-btn small jf-period-btn" data-days="15" type="button">Últimos 15 dias</button>
+        <button class="jf-btn small jf-period-btn" data-days="30" type="button">Últimos 30 dias</button>
+      </div>
+
+      <div class="jf-row" style="align-items:flex-end;">
+        <div class="jf-date-field">
+          <label class="jf-label" for="terceirosStartInput">De</label>
+          <input type="date" id="terceirosStartInput" />
+        </div>
+        <div class="jf-date-field">
+          <label class="jf-label" for="terceirosEndInput">Até</label>
+          <input type="date" id="terceirosEndInput" />
+        </div>
+        <button class="jf-btn accent small" id="terceirosApplyBtn" type="button">Buscar</button>
+      </div>
+
+      <div class="jf-status" id="terceirosStatus"></div>
+      <div class="jf-error-msg" id="terceirosErrorMsg"></div>
+    </div>
+
+    <div class="jf-panel" style="padding:0;">
+      <div style="padding:18px 20px 10px;">
+        <h2 style="margin-bottom:2px;">Peças com terceiro no período</h2>
+        <p class="jf-sub" id="terceirosSubtext">Selecione um período acima.</p>
+      </div>
+      <div class="jf-table-wrap" style="border:none; border-top:1px solid var(--border); border-radius:0;">
+        <table>
+          <thead>
+            <tr><th>Cód. Item</th><th>Terceiro</th><th class="num">Qtde em Aberto</th><th class="num">Registros</th></tr>
+          </thead>
+          <tbody id="terceirosBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="jf-note">
+      Consulta a tabela <code>saidas</code> no Supabase, filtrando por <code>data_label</code> no período e considerando "ainda fora" quando <code>data_recebimento</code> está em branco — isso é uma suposição, ainda não confirmada, sobre como o status funciona (não olha <code>status</code>, nem <code>retornos</code>, nem se o saco foi excluído). Também falta confirmar se o código em <code>peca</code> bate com os códigos usados no resto do app, pra cruzar com "peças no meu pedido".
+    </p>
+
+  </div><!-- /viewTerceiros -->
+
+</div>
+</div>
+
+<script>
+// ---------- Default composition dataset ----------
+const DEFAULT_KITS = [{"codSabo": "75.092", "codUniversal": "10.956-KB", "descricao": "JOGO DE JUNTAS DA TAMPA DE VÁLVULAS GM DURAMÁX 2.8L 16V - DIESEL", "curto": "Duramax 2.8L 16V Diesel (S10/Trailblazer)", "embalagem": "CARTELA SABÓ - 55 X 37 - VACUUM - (CÂMBIO)", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "10.956 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "10.957 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "MIOLO"}, {"itemNo": "03", "codItem": "10.971 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}, {"itemNo": "04", "codItem": "10.967 - B", "fornecedor": "UNIVERSAL", "qtde": 18, "aplicacao": "VEDADOR DO PARAFUSO"}]}, {"codSabo": "75.101", "codUniversal": "59.945 - SI", "descricao": "JUNTA TAMPA DE VÁLVULAS INFERIOR MOTOR SCANIA DC13 - NOVA GERAÇÃO", "curto": "Scania DC13 — Tampa Inferior", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "2 (DUAS) PEÇAS POR CARTELA", "items": [{"itemNo": "01", "codItem": "59.945 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS INFERIOR"}]}, {"codSabo": "75.102", "codUniversal": "59.946 - SI", "descricao": "JUNTA TAMPA DE VÁLVULAS SUPERIOR MOTOR SCANIA DC13 - NOVA GERAÇÃO", "curto": "Scania DC13 — Tampa Superior", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "2 (DUAS) PEÇAS POR CARTELA", "items": [{"itemNo": "01", "codItem": "59.946 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS SUPERIOR"}]}, {"codSabo": "75.125", "codUniversal": "10.044 - KB", "descricao": "JOGO DE JUNTA DA TAMPA DE VÁLVULAS - MOTOR G.M. ONIX 2G 2020 TURBO ECOTEC PRIME 1.0L 12V. DOHC L3 2019/...", "curto": "GM Onix 2G Turbo 1.0 12V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "", "items": [{"itemNo": "01", "codItem": "10.044 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "10.058 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}]}, {"codSabo": "75.130", "codUniversal": "10.048 - KB", "descricao": "JOGO DE JUNTA DA TAMPA DE VÁLVULAS - MOTOR G.M. ONIX 2G 2020 ASPIRADO ECOTEC PRIME 1.0L 12V. DOHC L3 2019/...", "curto": "GM Onix 2G Aspirado 1.0 12V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "", "items": [{"itemNo": "01", "codItem": "10.048 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "10.058 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}]}, {"codSabo": "75.167", "codUniversal": "10.948-KB", "descricao": "JOGO DE JUNTAS DA TAMPA DE VÁLVULAS GM S10 ECOTEC SIDI 2.5 16V", "curto": "GM S10 Ecotec SIDI 2.5 16V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "10.948 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "10.951 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}, {"itemNo": "03", "codItem": "10.947 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}, {"itemNo": "04", "codItem": "10.950 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}, {"itemNo": "05", "codItem": "10.949 - B", "fornecedor": "UNIVERSAL", "qtde": 2, "aplicacao": "VEDADOR TPA. VÁLVULA"}]}, {"codSabo": "75.170", "codUniversal": "65.226 - KB", "descricao": "KIT JUNTA TAMPA DE VÁLVULAS MOTOR MITSUBISHI 4M41 TRITON/PAJERO DAKAR/PAJERO FULL 3.2L 16V", "curto": "Mitsubishi 4M41 Triton/Pajero 3.2L", "embalagem": "CARTELA SÁBO - 55 X 37 - VACUUM (CÂMBIO)", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "65.226 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "65.227 - CVB", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "RASPADOR"}, {"itemNo": "03", "codItem": "65.225 - CVB", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "RASPADOR"}]}, {"codSabo": "75.262", "codUniversal": "10.016-KB", "descricao": "JOGO DE JUNTAS DA TAMPA DE VÁLVULAS COM DIAFRAGMA G.M. 1.8L 1.6V (ECOTEC) CRUZE 2011/... TRACKER / SONIC", "curto": "GM 1.8/1.6V Ecotec Cruze/Tracker/Sonic", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "10.016 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "10.014 - B", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "RASPADOR"}, {"itemNo": "03", "codItem": "10.028 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}, {"itemNo": "04", "codItem": "10.030 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}, {"itemNo": "05", "codItem": "10.031 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}, {"itemNo": "06", "codItem": "10.033 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. VÁLVULA"}]}, {"codSabo": "75.305", "codUniversal": "40.146 - KB", "descricao": "KIT J. TAMPA DE VÁLVULAS MOTOR FIAT MOBI 1.0L 8V./MOTOR FIAT FIRE EVO 1.4L 8V. 2017/... - NOVO UNO/STRADA/FIORINO 2017/...", "curto": "Fiat Mobi/Fire Evo/Uno/Strada/Fiorino", "embalagem": "CARTELA SABÓ - 55 X 37 - VACUUM", "observacao": "2 PEÇAS POR CARTELA, SEPARANDO-AS MESMAS POR UM CORTE VERTICAL", "items": [{"itemNo": "01", "codItem": "40.146 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "40.145 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TAMPA"}, {"itemNo": "03", "codItem": "40.143 - B", "fornecedor": "UNIVERSAL", "qtde": 3, "aplicacao": "VEDADOR TAMPA"}]}, {"codSabo": "75.306", "codUniversal": "74.416 - KB", "descricao": "KIT DE JUNTAS DA TAMPA DE VÁLVULAS HILUX SW4 2016/... - MOTOR 1GD-FTV TURBO DIESEL - 2.8 16V", "curto": "Hilux SW4 1GD-FTV Turbo Diesel 2.8L", "embalagem": "CARTELA CAMBIO - 55 X 37 - VACUUM", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "74.416 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. DA TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "74.440 - B", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "VEDADOR TPA. DE VÁLVULAS"}, {"itemNo": "03", "codItem": "74.441 - B", "fornecedor": "UNIVERSAL", "qtde": 2, "aplicacao": "VEDADOR TPA. DE VÁLVULAS"}, {"itemNo": "04", "codItem": "74.442 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "VEDADOR TPA. DE VÁLVULAS"}]}, {"codSabo": "75.314", "codUniversal": "11.986 - KB", "descricao": "KIT DE JUNTAS DA TAMPA DE VÁLVULAS FORD DURATORQ 3.2L 20V DIESEL", "curto": "Ford Duratorq 3.2L 20V Diesel", "embalagem": "CARTELA CAMBIO - 55 X 37 - VACUUM", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "11.986 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. DA TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "11.935 - CVB", "fornecedor": "UNIVERSAL", "qtde": 5, "aplicacao": "RASPADOR TPA. DE VÁLVULAS"}, {"itemNo": "03", "codItem": "11.937 - CVB", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "VEDADOR DO PARAFUSO TPA. DE VÁLVULAS"}, {"itemNo": "04", "codItem": "11.979 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}]}, {"codSabo": "75.315", "codUniversal": "19.016 - B", "descricao": "JUNTA TAMPA DE VÁLVULAS HYUNDAI HB20 1.0 12V", "curto": "Hyundai HB20 1.0 12V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 (UMA) PEÇA POR CARTELA", "items": [{"itemNo": "01", "codItem": "19.016 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}]}, {"codSabo": "75.316", "codUniversal": "11.126 - B", "descricao": "JUNTA TAMPA DE VÁLVULAS KA SE V1.0 L3 - 3 CIL - 12V", "curto": "Ford Ka SE V1.0 L3 12V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 (UMA) PEÇA POR CARTELA", "items": [{"itemNo": "01", "codItem": "11.126 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}]}, {"codSabo": "75.317", "codUniversal": "10.016 - B", "descricao": "JUNTA TAMPA DE VÁLVULAS GM 1.8 16V (ECOTEC) CRUZE (2011/...)", "curto": "GM 1.8 16V Ecotec Cruze", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 (UMA) PEÇA POR CARTELA", "items": [{"itemNo": "01", "codItem": "10.016 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}]}, {"codSabo": "75.318", "codUniversal": "19.026 - KB", "descricao": "KIT JUNTA TAMPA DE VÁLVULAS HYUNDAI HB20 1.6 16V", "curto": "Hyundai HB20 1.6 16V", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "19.026 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "19.027 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. SUPORTE TAMPA"}]}, {"codSabo": "75.393", "codUniversal": "37.825 - KB", "descricao": "JOGO DE JUNTAS DO COLETOR DE ADMISSÃO MOTOR RENAULT CLIO/MEGANE/SCENIC/LAGUNA MOTOR K4J 1.4L 16V. - K4M 1.4/1.6L 16V.", "curto": "Renault Clio/Megane/Scenic/Laguna K4J/K4M", "embalagem": "SACO PLÁSTICO NEUTRA INDIVIDUAL", "observacao": "", "items": [{"itemNo": "01", "codItem": "37.825 - KB", "fornecedor": "An0836", "qtde": 1, "aplicacao": "KIT J. COLETOR DE ADMISSÃO"}]}, {"codSabo": "75.394", "codUniversal": "10.039 - B", "descricao": "JUNTA DE VEDAÇÃO MOTOR G.M. CRUZE 1.6/1.8L 16V. 2010/...", "curto": "GM Cruze 1.6/1.8L 16V — Junta Vedação", "embalagem": "SACO PLÁSTICO NEUTRA CONTENDO 50 UND.", "observacao": "", "items": [{"itemNo": "01", "codItem": "10.039 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. DE VEDAÇÃO"}]}, {"codSabo": "75.402", "codUniversal": "11.936 - KB", "descricao": "KIT DE JUNTAS DA TAMPA DE VÁLVULAS FORD DURATORQ 2.2L 16V DIESEL", "curto": "Ford Duratorq 2.2L 16V Diesel", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM - (RADIADOR)", "observacao": "1 KIT POR CARTELA", "items": [{"itemNo": "01", "codItem": "11.936 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. DA TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "11.935 - CVB", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "RASPADOR TPA. DE VÁLVULAS"}, {"itemNo": "03", "codItem": "11.937 - CVB", "fornecedor": "UNIVERSAL", "qtde": 2, "aplicacao": "VEDADOR DO PARAFUSO TPA. DE VÁLVULAS"}, {"itemNo": "04", "codItem": "11.979 - SI", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "DIAFRAGMA"}]}, {"codSabo": "75.403", "codUniversal": "30.226 - B", "descricao": "JUNTA TAMPA DE VÁLVULAS PEUGEOT 106/206/306 1.4 / CITROEN C3 1.4 - 2002 / C3 PLURIEL 1.4-2003/UP / TU3J(KFV) (KFW) (K6D) - 8V", "curto": "Peugeot 106/206/306 / Citroen C3", "embalagem": "CARTELA SABÓ - 52 X 31 - VACUUM", "observacao": "1 (UMA) PEÇA POR CARTELA", "items": [{"itemNo": "01", "codItem": "30.226 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "J. TAMPA DE VÁLVULAS"}]}, {"codSabo": "75.404", "codUniversal": "40.156 - KB", "descricao": "KIT JUNTA TAMPA DE VÁLVULAS MOTOR FIAT E-TORQ 1.6/1.8L 16V- 2015/...", "curto": "Fiat E-Torq 1.6/1.8L 16V", "embalagem": "CARTELA SABÓ - 52 X 31 - (RADIADOR) VACUUM", "observacao": "1 (UMA) PEÇA POR CARTELA", "items": [{"itemNo": "01", "codItem": "40.156 - B", "fornecedor": "UNIVERSAL", "qtde": 1, "aplicacao": "KIT TAMPA DE VÁLVULAS"}, {"itemNo": "02", "codItem": "40.824 - CVB", "fornecedor": "UNIVERSAL", "qtde": 4, "aplicacao": "RASPADOR TP. DE VÁLVULAS"}]}];
+
+// ---------- State ----------
+let currentKits = DEFAULT_KITS;
+let orders = []; // [{ codSabo, quantidade }]
+let pendingBatches = [];
+let editingCodSabo = null; // null = creating new product; else = editing this existing codSabo
+let storageAvailable = false;
+let lastSyncOk = false; // só vira true depois de um load/save que REALMENTE funcionou (não só porque a ponte existe)
+const STORAGE_KEY = 'composicao_kits_v1';
+
+// ---------- Peças em Terceiros (Supabase) ----------
+// URL do projeto, deduzida do ref que você passou (styfqkfvidtogkpswplm). Não é segredo, pode ficar fixa no código.
+const SUPABASE_URL = 'https://styfqkfvidtogkpswplm.supabase.co';
+// Chave anon: cole a sua aqui. Ela É pra ficar pública no navegador — quem protege os dados de verdade é o RLS
+// configurado lá no Supabase, não o sigilo dessa chave. Confere o RLS antes de preencher isso.
+const SUPABASE_ANON_KEY = 'COLOQUE_SUA_CHAVE_ANON_AQUI';
+
+// TODO: ainda restam pontos em aberto sobre a lógica de "ainda fora" — ver nota no chat.
+const TERCEIROS_CONFIG = {
+  table: 'saidas',
+  colCodigo: 'peca',              // formato ainda não confirmado — falta ver se bate com codItem/codSabo/codUniversal
+  colQuantidade: 'qtd',
+  colTerceiro: 'terceiro',
+  colData: 'data_label',          // NOT NULL, por isso escolhi essa e não data_saida_real (essa é nullable)
+  colRecebimento: 'data_recebimento', // se for NULL, considero "ainda fora" — assunção, não confirmada
+};
+// Ainda NÃO filtra saco_id que também aparece em "excluidos" (não sei se excluído some de "saidas" ou fica duplicado lá).
+// Ainda NÃO cruza com o pedido (orders) — falta confirmar formato de "peca" primeiro.
+
+let supabaseClient = null;
+let terceirosLoadedOnce = false;
+if (typeof window.supabase !== 'undefined' && SUPABASE_ANON_KEY !== 'COLOQUE_SUA_CHAVE_ANON_AQUI'){
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ---------- Helpers ----------
+function fmt(n){ return (n || 0).toLocaleString('pt-BR'); }
+function normalizeHeader(s){
+  return (s == null ? '' : String(s)).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+}
+function shortLabel(descricao){
+  const d = (descricao || '').trim();
+  return d.length > 60 ? d.slice(0, 57) + '...' : d;
+}
+function findKit(codSabo){ return currentKits.find(k => k.codSabo === codSabo); }
+function codeDigits(v){ return String(v == null ? '' : v).replace(/\D/g, ''); }
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function normalizeCodItem(s){ return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').replace(/\s*-\s*/g, ' - ').toUpperCase(); }
+
+// Expande abreviação tipo "10.030/31/33" (ou "10.030/31/33 - B") em códigos separados:
+// ["10.030", "10.031", "10.033"]. Troca só os últimos N dígitos (N = tamanho do sufixo),
+// mantendo prefixo e o que vier depois (ex: " - B") igual em cada código gerado.
+// Se não bater o padrão, devolve o código original sem mudança (é seguro rodar em qualquer texto).
+function expandCodItemAbbrev(raw){
+  const s = String(raw == null ? '' : raw).trim();
+  const m = s.match(/^(\d{1,3})\.(\d{2,4})((?:\s*\/\s*\d{1,4})+)(.*)$/);
+  if (!m) return [s];
+  const prefix = m[1], baseDigits = m[2], suffixPart = m[3], rest = m[4];
+  const suffixes = suffixPart.split('/').map(x => x.trim()).filter(Boolean);
+  const codes = [prefix + '.' + baseDigits + rest];
+  for (const suf of suffixes){
+    const n = suf.length;
+    const newDigits = n >= baseDigits.length ? suf : (baseDigits.slice(0, baseDigits.length - n) + suf);
+    codes.push(prefix + '.' + newDigits + rest);
+  }
+  return codes;
+}
+
+// Roda expandCodItemAbbrev em cada item de uma lista e renumera itemNo sequencialmente
+// (evita itemNo duplicado quando 1 linha vira 3).
+function expandItemsList(items){
+  const out = [];
+  for (const it of items){
+    const codes = expandCodItemAbbrev(it.codItem);
+    for (const code of codes){
+      out.push(Object.assign({}, it, { codItem: code, itemNo: String(out.length + 1).padStart(2, '0') }));
+    }
+  }
+  return out;
+}
+
+// ---------- Persistent storage (Google Sheets via Code.gs / google.script.run) ----------
+function hasAppsScriptBridge_(){
+  return typeof google !== 'undefined' && !!google.script && !!google.script.run;
+}
+
+function loadStoredKits(){
+  return new Promise(function(resolve){
+    if (!hasAppsScriptBridge_()){ storageAvailable = false; resolve(null); return; }
+    storageAvailable = true;
+    google.script.run
+      .withSuccessHandler(function(json){
+        try{
+          const parsed = JSON.parse(json);
+          lastSyncOk = true;
+          if (Array.isArray(parsed)) parsed.forEach(k => { if (k && k.items) k.items = expandItemsList(k.items); });
+          resolve(Array.isArray(parsed) && parsed.length ? parsed : null);
+        } catch (e){
+          lastSyncOk = false;
+          resolve(null);
+        }
+      })
+      .withFailureHandler(function(err){
+        console.error('Erro ao carregar da Planilha Google:', err);
+        lastSyncOk = false;
+        resolve(null);
+      })
+      .loadKitsFromSheet();
+  });
+}
+
+function saveKitsToStorage(){
+  return new Promise(function(resolve){
+    if (!hasAppsScriptBridge_()){ resolve(false); return; }
+    google.script.run
+      .withSuccessHandler(function(){ lastSyncOk = true; resolve(true); })
+      .withFailureHandler(function(err){
+        console.error('Erro ao salvar na Planilha Google:', err);
+        lastSyncOk = false;
+        resolve(false);
+      })
+      .saveKitsToSheet(JSON.stringify(currentKits));
+  });
+}
+
+function updateStorageBadge(){
+  const badge = document.getElementById('storageBadge');
+  const note = document.getElementById('storageNote');
+  if (!badge) return;
+  if (storageAvailable && lastSyncOk){
+    badge.className = 'jf-badge ok';
+    badge.textContent = 'Sincronizado com a Planilha Google';
+    note.textContent = 'A composição vem direto da aba "Base de Composição" da sua Planilha Google. Editar, salvar ou excluir aqui grava direto nela — todo mundo com acesso ao app vê a mesma base.';
+  } else if (storageAvailable && !lastSyncOk){
+    badge.className = 'jf-badge err';
+    badge.textContent = 'Falha ao sincronizar com a Planilha Google';
+    note.textContent = 'O Apps Script está acessível mas a última leitura ou gravação falhou (confira SPREADSHEET_ID no Code.gs, ou se a planilha ainda existe e você tem permissão). Suas edições ficam só nesta sessão até resolver — use "Exportar Excel" pra não perder o trabalho.';
+  } else {
+    badge.className = 'jf-badge err';
+    badge.textContent = 'Sem conexão com a Planilha Google';
+    note.textContent = 'Não consegui falar com o Google Apps Script agora. Suas edições ficam só nesta sessão. Use "Exportar Excel" pra guardar o resultado.';
+  }
+}
+
+// ---------- Composition (BOM) file detection ----------
+function parseWorkbook(workbook){
+  let best = null;
+  for (const sheetName of workbook.SheetNames){
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (!rows.length) continue;
+    const header = rows[0].map(normalizeHeader);
+
+    const idxCodSabo = header.findIndex(h => h.includes('sabo'));
+    const idxCodItemUniv = header.findIndex(h => h.includes('universal') && h.includes('item'));
+    const idxCodKitUniv = header.findIndex(h => h.includes('universal') && !h.includes('item'));
+    const idxDescricao = header.findIndex(h => h.includes('descricao'));
+    const idxItemNo = header.findIndex(h => h.includes('itemn') || h === 'item');
+    const idxFornecedor = header.findIndex(h => h.includes('fornecedor'));
+    const idxQtde = header.findIndex(h => h.includes('qtd') || h.includes('quantidade'));
+    const idxAplicacao = header.findIndex(h => h.includes('aplicacao'));
+    const idxEmbalagem = header.findIndex(h => h.includes('embalagem'));
+    const idxObservacao = header.findIndex(h => h.includes('observacao'));
+
+    // Composition sheets need the item-level BOM code column specifically —
+    // this is what distinguishes them from a plain order/forecast sheet.
+    if (idxCodSabo < 0 || idxQtde < 0 || idxCodItemUniv < 0) continue;
+    const score = 3;
+
+    const cols = { idxCodSabo, idxCodItemUniv, idxCodKitUniv, idxDescricao, idxItemNo, idxFornecedor, idxQtde, idxAplicacao, idxEmbalagem, idxObservacao };
+    if (!best || score > best.score){ best = { sheetName, rows: rows.slice(1), cols, score }; }
+  }
+  if (!best) return { error: 'not_composition' };
+
+  const { rows, cols } = best;
+  const kitsMap = new Map();
+  let itemCount = 0;
+
+  for (const row of rows){
+    const codSaboRaw = row[cols.idxCodSabo];
+    const codSabo = (codSaboRaw == null ? '' : String(codSaboRaw)).trim();
+    if (!codSabo || !/\d/.test(codSabo)) continue;
+
+    if (!kitsMap.has(codSabo)){
+      kitsMap.set(codSabo, {
+        codSabo,
+        codUniversal: cols.idxCodKitUniv >= 0 ? String(row[cols.idxCodKitUniv] || '').trim() : '',
+        descricao: cols.idxDescricao >= 0 ? String(row[cols.idxDescricao] || '').trim() : '',
+        embalagem: cols.idxEmbalagem >= 0 ? String(row[cols.idxEmbalagem] || '').trim() : '',
+        observacao: cols.idxObservacao >= 0 ? String(row[cols.idxObservacao] || '').trim() : '',
+        curto: '', items: [],
+      });
+    }
+    const kit = kitsMap.get(codSabo);
+    const qtde = Number(cols.idxQtde >= 0 ? row[cols.idxQtde] : 0) || 0;
+    const codItem = cols.idxCodItemUniv >= 0 ? String(row[cols.idxCodItemUniv] || '').trim() : '';
+    const itemNo = cols.idxItemNo >= 0 ? String(row[cols.idxItemNo] || '').trim() : String(kit.items.length + 1).padStart(2, '0');
+    const aplicacao = cols.idxAplicacao >= 0 ? String(row[cols.idxAplicacao] || '').trim() : '';
+    const fornecedor = cols.idxFornecedor >= 0 ? String(row[cols.idxFornecedor] || '').trim() : '';
+    if (!codItem && !aplicacao && !qtde) continue;
+    kit.items.push({ itemNo, codItem, fornecedor, qtde, aplicacao });
+    itemCount++;
+  }
+
+  const kits = Array.from(kitsMap.values()).filter(k => k.items.length > 0);
+  kits.forEach(k => { k.curto = shortLabel(k.descricao); k.items = expandItemsList(k.items); });
+  kits.sort((a, b) => a.codSabo.localeCompare(b.codSabo, 'pt-BR', { numeric: true }));
+  if (!kits.length) return { error: 'not_composition' };
+  return { kits, sheetName: best.sheetName, itemCount };
+}
+
+// ---------- Order/forecast file detection (Item + quantity, no BOM needed) ----------
+const ORDER_EXCLUDE_HEADERS = ['item', 'grupo', 'processo', 'prioridade', 'status', 'observ'];
+
+function analyzeOrderSheet(sheet, sheetName){
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  if (!rows.length) return null;
+
+  let headerRowIdx = -1, itemIdx = -1, header = null;
+  for (let i = 0; i < Math.min(rows.length, 6); i++){
+    const norm = rows[i].map(normalizeHeader);
+    const idx = norm.indexOf('item');
+    if (idx >= 0){ headerRowIdx = i; itemIdx = idx; header = rows[i]; break; }
+  }
+  if (headerRowIdx === -1) return null;
+
+  const dataRows = rows.slice(headerRowIdx + 1).filter(r => r[itemIdx] !== '' && r[itemIdx] != null && /\d/.test(String(r[itemIdx])));
+  if (!dataRows.length) return null;
+
+  const normHeader = header.map(normalizeHeader);
+  const candidates = [];
+  for (let c = 0; c < header.length; c++){
+    if (c === itemIdx) continue;
+    const h = normHeader[c];
+    if (!h) continue;
+    if (ORDER_EXCLUDE_HEADERS.some(x => h.includes(x))) continue;
+
+    let numericCount = 0, total = 0;
+    for (const row of dataRows){
+      const v = row[c];
+      if (v === '' || v == null) continue;
+      total++;
+      if (typeof v === 'number' || (v !== '' && !isNaN(Number(v)))) numericCount++;
+    }
+    if (total === 0 || numericCount / total < 0.6) continue;
+
+    let score = 10;
+    if (h.includes('pendente')) score = 100;
+    else if (h.includes('pedido') && h.includes('total')) score = 90;
+    else if (h.includes('previsao') || h.includes('previa')) score = 70;
+    else if (h.includes('adicional')) score = 50;
+    candidates.push({ idx: c, label: String(header[c]).trim(), score });
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return { sheetName, itemIdx, dataRows, candidates, productCount: dataRows.length };
+}
+
+function analyzeOrderWorkbook(workbook){
+  const batches = [];
+  for (const sheetName of workbook.SheetNames){
+    const result = analyzeOrderSheet(workbook.Sheets[sheetName], sheetName);
+    if (result) batches.push(result);
+  }
+  return batches;
+}
+
+function importBatch(batch, qtyColIdx){
+  let imported = 0, skipped = 0;
+  const skippedCodes = [];
+  for (const row of batch.dataRows){
+    const digits = codeDigits(row[batch.itemIdx]);
+    if (!digits) continue;
+    const kit = currentKits.find(k => codeDigits(k.codSabo) === digits);
+    const qty = Math.max(0, Math.floor(Number(row[qtyColIdx]) || 0));
+    if (!kit){ skipped++; skippedCodes.push(digits); continue; }
+    const existing = orders.find(o => o.codSabo === kit.codSabo);
+    if (existing) existing.quantidade = qty;
+    else orders.push({ codSabo: kit.codSabo, quantidade: qty });
+    imported++;
+  }
+  return { imported, skipped, skippedCodes };
+}
+
+// ---------- "Add product" selector ----------
+function populateKitSelect(){
+  const select = document.getElementById('kitSelect');
+  const filterVal = document.getElementById('filterInput').value.trim().toLowerCase();
+  const prevValue = select.value;
+  const filtered = !filterVal ? currentKits : currentKits.filter(k =>
+    k.codSabo.toLowerCase().includes(filterVal) ||
+    (k.curto || '').toLowerCase().includes(filterVal) ||
+    (k.descricao || '').toLowerCase().includes(filterVal) ||
+    (k.codUniversal || '').toLowerCase().includes(filterVal)
+  );
+  select.innerHTML = '';
+  if (!filtered.length){
+    const opt = document.createElement('option');
+    opt.textContent = 'Nenhum resultado para "' + filterVal + '"';
+    select.appendChild(opt);
+    return;
+  }
+  let matched = false;
+  for (const k of filtered){
+    const opt = document.createElement('option');
+    opt.value = k.codSabo;
+    opt.textContent = k.codSabo + ' — ' + (k.curto || k.descricao || '');
+    if (k.codSabo === prevValue){ opt.selected = true; matched = true; }
+    select.appendChild(opt);
+  }
+  if (!matched) select.value = filtered[0].codSabo;
+}
+
+// ---------- Orders (the production list) ----------
+function addOrder(){
+  const select = document.getElementById('kitSelect');
+  const codSabo = select.value;
+  const kit = findKit(codSabo);
+  const dupNote = document.getElementById('dupNote');
+  if (!kit) return;
+
+  const existing = orders.find(o => o.codSabo === codSabo);
+  if (existing){
+    dupNote.style.display = 'block';
+    setTimeout(() => { dupNote.style.display = 'none'; }, 3500);
+    return;
+  }
+  dupNote.style.display = 'none';
+  const qty = Math.max(0, Math.floor(Number(document.getElementById('addQtyInput').value) || 0));
+  orders.push({ codSabo, quantidade: qty });
+  renderAll();
+}
+
+function removeOrder(codSabo){
+  orders = orders.filter(o => o.codSabo !== codSabo);
+  renderAll();
+}
+
+function updateOrderQty(codSabo, value){
+  const qty = Math.max(0, Math.floor(Number(value) || 0));
+  const order = orders.find(o => o.codSabo === codSabo);
+  if (order){ order.quantidade = qty; renderConsolidatedAndFooter(); }
+}
+
+function renderOrdersList(){
+  const wrap = document.getElementById('ordersList');
+  document.getElementById('ordersTitle').textContent = '2. Produtos na produção (' + orders.length + ')';
+  wrap.innerHTML = '';
+  if (!orders.length){
+    wrap.innerHTML = '<div class="jf-empty">Nenhum produto selecionado ainda. Escolha um produto acima ou importe um pedido/previsão.</div>';
+    return;
+  }
+  for (const order of orders){
+    const kit = findKit(order.codSabo);
+    const row = document.createElement('div');
+    row.className = 'jf-order-row';
+    row.innerHTML =
+      '<span class="codsabo jf-mono">' + escapeHtml(order.codSabo) + '</span>' +
+      '<span class="desc">' + escapeHtml(kit ? (kit.curto || kit.descricao) : '(produto não encontrado)') + '</span>' +
+      '<input class="qty jf-mono" type="number" min="0" step="1" inputmode="numeric" value="' + order.quantidade + '" data-codsabo="' + escapeHtml(order.codSabo) + '" />' +
+      '<span class="unit">kits</span>' +
+      '<button class="jf-remove-btn" type="button" data-codsabo="' + escapeHtml(order.codSabo) + '" title="Remover">×</button>';
+    wrap.appendChild(row);
+  }
+  wrap.querySelectorAll('input.qty').forEach(inp => {
+    inp.addEventListener('input', e => updateOrderQty(e.target.getAttribute('data-codsabo'), e.target.value));
+  });
+  wrap.querySelectorAll('.jf-remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => removeOrder(e.target.getAttribute('data-codsabo')));
+  });
+}
+
+// ---------- Item lookup ("onde essa peça é usada?") ----------
+function computeItemLookup(query){
+  const q = normalizeCodItem(query);
+  if (q.length < 2) return null; // vazio ou curto demais pra buscar
+  const map = new Map();
+  for (const kit of currentKits){
+    for (const it of kit.items){
+      if (!it.codItem) continue;
+      const norm = normalizeCodItem(it.codItem);
+      if (!norm.includes(q)) continue;
+      if (!map.has(norm)) map.set(norm, { codItem: norm, aplicacoes: new Set(), kits: [] });
+      const entry = map.get(norm);
+      if (it.aplicacao) entry.aplicacoes.add(it.aplicacao);
+      entry.kits.push({ codSabo: kit.codSabo, desc: kit.curto || kit.descricao || '', qtde: it.qtde });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.codItem.localeCompare(b.codItem, 'pt-BR', { numeric: true }));
+}
+
+function renderItemLookup(){
+  const input = document.getElementById('itemLookupInput');
+  const wrap = document.getElementById('itemLookupResults');
+  if (!input || !wrap) return;
+  const results = computeItemLookup(input.value);
+  if (results === null){
+    wrap.innerHTML = '<div class="jf-empty">' +
+      (input.value.trim() ? 'Digite pelo menos 2 caracteres.' : 'Digite um código de peça (mín. 2 caracteres) pra ver em quais kits Sabó ela é usada.') +
+      '</div>';
+    return;
+  }
+  if (!results.length){
+    wrap.innerHTML = '<div class="jf-empty">Nenhuma peça encontrada com esse código.</div>';
+    return;
+  }
+  wrap.innerHTML = results.map(r => {
+    const kitsHtml = r.kits
+      .slice()
+      .sort((a, b) => a.codSabo.localeCompare(b.codSabo, 'pt-BR', { numeric: true }))
+      .map(k =>
+        '<div class="jf-lookup-kit-row" data-codsabo="' + escapeHtml(k.codSabo) + '" data-matchcode="' + escapeHtml(r.codItem) + '">' +
+          '<span class="ksabo jf-mono">' + escapeHtml(k.codSabo) + '</span>' +
+          '<span class="kdesc">' + escapeHtml(k.desc) + '</span>' +
+          '<span class="kqty jf-mono">' + k.qtde + ' / kit</span>' +
+          '<span class="chev">&#9662;</span>' +
+        '</div>' +
+        '<div class="jf-lookup-kit-detail"></div>'
+      ).join('');
+    return (
+      '<div class="jf-lookup-card">' +
+        '<div class="head">' +
+          '<span class="code jf-mono">' + escapeHtml(r.codItem) + '</span>' +
+          '<span class="apps">' + escapeHtml(Array.from(r.aplicacoes).join(' / ') || '—') + '</span>' +
+        '</div>' +
+        kitsHtml +
+      '</div>'
+    );
+  }).join('');
+  wrap.querySelectorAll('.jf-lookup-kit-row').forEach(row => {
+    row.addEventListener('click', () => toggleKitDetail(row));
+  });
+}
+
+// ---------- Kit detail ("ver a receita completa") ----------
+function buildKitDetailHtml(codSabo, matchCode){
+  const kit = findKit(codSabo);
+  if (!kit) return '<div class="meta">Produto não encontrado — pode ter sido removido do cadastro.</div>';
+
+  const metaParts = [];
+  if (kit.codUniversal) metaParts.push('<b>Cód. Universal:</b> ' + escapeHtml(kit.codUniversal));
+  if (kit.descricao) metaParts.push('<b>Descrição:</b> ' + escapeHtml(kit.descricao));
+  if (kit.embalagem) metaParts.push('<b>Embalagem:</b> ' + escapeHtml(kit.embalagem));
+  if (kit.observacao) metaParts.push('<b>Obs:</b> ' + escapeHtml(kit.observacao));
+  const meta = metaParts.length ? '<div class="meta">' + metaParts.join('<br>') + '</div>' : '';
+
+  const rows = kit.items.map(it => {
+    const isMatch = matchCode && normalizeCodItem(it.codItem) === matchCode;
+    return '<tr class="' + (isMatch ? 'match-row' : '') + '">' +
+      '<td class="jf-mono">' + escapeHtml(it.itemNo) + '</td>' +
+      '<td class="jf-mono">' + escapeHtml(it.codItem || '—') + '</td>' +
+      '<td>' + escapeHtml(it.aplicacao || '—') + '</td>' +
+      '<td class="num jf-mono">' + it.qtde + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return meta +
+    '<table class="jf-lookup-detail-table">' +
+      '<thead><tr><th>Item</th><th>Cód. Item</th><th>Aplicação</th><th class="num">Qtde</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>';
+}
+
+function toggleKitDetail(row){
+  const detail = row.nextElementSibling;
+  if (!detail || !detail.classList.contains('jf-lookup-kit-detail')) return;
+  const isOpen = detail.style.display === 'block';
+  if (isOpen){
+    detail.style.display = 'none';
+    row.classList.remove('expanded');
+    return;
+  }
+  if (!detail.dataset.filled){
+    detail.innerHTML = buildKitDetailHtml(row.getAttribute('data-codsabo'), row.getAttribute('data-matchcode'));
+    detail.dataset.filled = '1';
+  }
+  detail.style.display = 'block';
+  row.classList.add('expanded');
+}
+
+// ---------- Consolidation ----------
+function computeConsolidated(){
+  const map = new Map();
+  for (const order of orders){
+    const kit = findKit(order.codSabo);
+    if (!kit || order.quantidade <= 0) continue;
+    for (const it of kit.items){
+      const key = it.codItem ? it.codItem : (kit.codSabo + '#' + it.itemNo);
+      if (!map.has(key)) map.set(key, { codItem: it.codItem || '(sem código)', aplicacoes: new Set(), usedIn: new Set(), qtdeTotal: 0 });
+      const entry = map.get(key);
+      if (it.aplicacao) entry.aplicacoes.add(it.aplicacao);
+      entry.usedIn.add(kit.codSabo);
+      entry.qtdeTotal += it.qtde * order.quantidade;
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.codItem.localeCompare(b.codItem, 'pt-BR', { numeric: true }));
+}
+
+let __lastTotals = { pecas: null, kits: null, produtos: null };
+
+function __pulse(el){
+  if (!el) return;
+  el.classList.remove('jf-pulse');
+  void el.offsetWidth; // reforça o reflow pra reiniciar a animação
+  el.classList.add('jf-pulse');
+}
+
+function renderConsolidatedAndFooter(){
+  const rows = computeConsolidated();
+  const body = document.getElementById('consolidatedBody');
+  const prevBody = body.innerHTML;
+  body.innerHTML = '';
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="4" class="jf-empty">Adicione produtos à produção para ver os itens consolidados aqui, ao vivo.</td></tr>';
+  } else {
+    for (const r of rows){
+      const tr = document.createElement('tr');
+      const usedInHtml = Array.from(r.usedIn).sort().map(c => '<span class="jf-chip">' + escapeHtml(c) + '</span>').join('');
+      tr.innerHTML =
+        '<td class="jf-mono">' + escapeHtml(r.codItem) + '</td>' +
+        '<td>' + escapeHtml(Array.from(r.aplicacoes).join(' / ') || '—') + '</td>' +
+        '<td>' + usedInHtml + '</td>' +
+        '<td class="num qtd-total jf-mono">' + fmt(r.qtdeTotal) + '</td>';
+      body.appendChild(tr);
+    }
+  }
+  if (prevBody !== body.innerHTML) __pulse(document.getElementById('resultCard'));
+
+  const totalPecas = rows.reduce((s, r) => s + r.qtdeTotal, 0);
+  const totalKits = orders.reduce((s, o) => s + o.quantidade, 0);
+  const totalProdutosVal = orders.length;
+
+  const elPecas = document.getElementById('totalPecas');
+  const elKits = document.getElementById('totalKits');
+  const elProdutos = document.getElementById('totalProdutos');
+  if (__lastTotals.pecas !== totalPecas){ elPecas.textContent = fmt(totalPecas); __pulse(elPecas); }
+  if (__lastTotals.kits !== totalKits){ elKits.textContent = fmt(totalKits); __pulse(elKits); }
+  if (__lastTotals.produtos !== totalProdutosVal){ elProdutos.textContent = fmt(totalProdutosVal); __pulse(elProdutos); }
+  __lastTotals = { pecas: totalPecas, kits: totalKits, produtos: totalProdutosVal };
+}
+
+function renderAll(){
+  populateKitSelect();
+  renderOrdersList();
+  renderConsolidatedAndFooter();
+  renderItemLookup();
+}
+
+// ---------- Peças em Terceiros: busca e renderização ----------
+function isoDate(d){ return d.toISOString().slice(0, 10); }
+
+function summarizeTerceiros(rows){
+  const map = new Map();
+  const codKey = TERCEIROS_CONFIG.colCodigo;
+  const qtyKey = TERCEIROS_CONFIG.colQuantidade;
+  const terceiroKey = TERCEIROS_CONFIG.colTerceiro;
+  for (const row of rows){
+    const code = normalizeCodItem(row[codKey]);
+    if (!code) continue;
+    if (!map.has(code)) map.set(code, { codigo: code, qtde: 0, registros: 0, terceiros: new Set() });
+    const entry = map.get(code);
+    entry.qtde += Number(row[qtyKey]) || 0;
+    entry.registros += 1;
+    if (terceiroKey && row[terceiroKey]) entry.terceiros.add(row[terceiroKey]);
+  }
+  return Array.from(map.values()).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true }));
+}
+
+function renderTerceirosResults(rows){
+  const body = document.getElementById('terceirosBody');
+  const summary = summarizeTerceiros(rows);
+  document.getElementById('terceirosSubtext').textContent = summary.length
+    ? (summary.length + ' código(s) — ' + rows.length + ' registro(s) ainda em aberto no período.')
+    : 'Nenhuma peça em aberto com terceiro nesse período.';
+  if (!summary.length){
+    body.innerHTML = '<tr><td colspan="4" class="jf-empty">Nenhuma peça em terceiros nesse período.</td></tr>';
+    return;
+  }
+  body.innerHTML = summary.map(s =>
+    '<tr>' +
+      '<td class="jf-mono">' + escapeHtml(s.codigo) + '</td>' +
+      '<td>' + escapeHtml(Array.from(s.terceiros).join(', ') || '—') + '</td>' +
+      '<td class="num qtd-total jf-mono">' + fmt(s.qtde) + '</td>' +
+      '<td class="num jf-mono">' + s.registros + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function fetchPecasTerceiros(startDate, endDate){
+  const statusEl = document.getElementById('terceirosStatus');
+  const errEl = document.getElementById('terceirosErrorMsg');
+  errEl.style.display = 'none';
+
+  if (!supabaseClient){
+    statusEl.innerHTML = '';
+    errEl.textContent = 'Chave anon do Supabase não configurada ainda. Edite a constante SUPABASE_ANON_KEY no início do script.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (TERCEIROS_CONFIG.table === 'NOME_DA_TABELA'){
+    statusEl.innerHTML = '';
+    errEl.textContent = 'Configure TERCEIROS_CONFIG (nome da tabela e colunas) no início do script antes de buscar.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  statusEl.innerHTML = '<span class="jf-badge default">Consultando…</span>';
+  try{
+    const { data, error } = await supabaseClient
+      .from(TERCEIROS_CONFIG.table)
+      .select('*')
+      .gte(TERCEIROS_CONFIG.colData, startDate)
+      .lte(TERCEIROS_CONFIG.colData, endDate)
+      .is(TERCEIROS_CONFIG.colRecebimento, null);
+    if (error) throw error;
+    statusEl.innerHTML = '<span class="jf-badge ok">Consulta OK</span>';
+    renderTerceirosResults(data || []);
+  } catch (err){
+    statusEl.innerHTML = '';
+    errEl.textContent = 'Erro ao consultar o Supabase: ' + (err.message || String(err)) + ' (se a tabela/coluna não existir com esse nome, é isso — ajuste o TERCEIROS_CONFIG).';
+    errEl.style.display = 'block';
+  }
+}
+
+function setPeriodPreset(days){
+  document.querySelectorAll('.jf-period-btn').forEach(b => b.classList.remove('active'));
+  const clickedBtn = document.querySelector('.jf-period-btn[data-days="' + days + '"]');
+  if (clickedBtn) clickedBtn.classList.add('active');
+
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+
+  document.getElementById('terceirosStartInput').value = isoDate(start);
+  document.getElementById('terceirosEndInput').value = isoDate(end);
+  fetchPecasTerceiros(isoDate(start), isoDate(end));
+}
+
+// ---------- Tabs ----------
+function positionTabIndicator(){
+  const activeBtn = document.querySelector('.jf-sidebar-nav .jf-tab.active');
+  const indicator = document.getElementById('tabIndicator');
+  if (!activeBtn || !indicator) return;
+  indicator.style.top = activeBtn.offsetTop + 'px';
+  indicator.style.height = activeBtn.offsetHeight + 'px';
+}
+
+function isDesktopViewport(){
+  return window.matchMedia('(min-width: 901px)').matches;
+}
+
+// Desktop: colapsa pra rail fina de ícones (nunca some de vez). Lembra a preferência.
+function toggleSidebarCollapse(){
+  const nowCollapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+  document.getElementById('collapseBtn').setAttribute('aria-expanded', String(!nowCollapsed));
+  try { localStorage.setItem('sidebarCollapsed', nowCollapsed ? '1' : '0'); } catch(e){}
+  positionTabIndicator(); // a largura muda, o indicador precisa recalcular
+}
+
+// Mobile: abre/fecha o drawer por completo (overlay com backdrop).
+function toggleMobileSidebar(){
+  const nowHidden = document.documentElement.classList.toggle('sidebar-hidden');
+  document.getElementById('sidebarToggleBtn').setAttribute('aria-expanded', String(!nowHidden));
+}
+
+function closeSidebarOnMobile(){
+  if (!isDesktopViewport()){
+    document.documentElement.classList.add('sidebar-hidden');
+    document.getElementById('sidebarToggleBtn').setAttribute('aria-expanded', 'false');
+  }
+}
+
+// A decisão de estado (aberta/colapsada/escondida) só rodava 1x, no carregamento da página.
+// Se a pessoa redimensiona a janela depois (encolhe o navegador no desktop, por exemplo)
+// sem recarregar, o estado antigo ficava "preso" — e como o CSS mobile mostra a sidebar
+// sempre que sidebar-hidden NÃO está presente, ela pipocava como overlay sozinha ao encolher
+// (o estado herdado do desktop, onde ela fica visível por padrão, virava "aberta" no mobile).
+// Isso reavalia toda vez que a janela cruza o breakpoint de 901px, em tempo real.
+let __lastViewportIsDesktop = isDesktopViewport();
+function syncSidebarToViewport(){
+  const nowDesktop = isDesktopViewport();
+  if (nowDesktop !== __lastViewportIsDesktop){
+    if (nowDesktop){
+      document.documentElement.classList.remove('sidebar-hidden');
+    } else {
+      document.documentElement.classList.add('sidebar-hidden');
+    }
+    document.getElementById('sidebarToggleBtn').setAttribute('aria-expanded', 'false');
+    __lastViewportIsDesktop = nowDesktop;
+  }
+  positionTabIndicator();
+}
+
+function switchTab(tab){
+  document.getElementById('viewCalc').style.display = tab === 'calc' ? 'block' : 'none';
+  document.getElementById('viewCadastro').style.display = tab === 'cadastro' ? 'block' : 'none';
+  document.getElementById('viewTerceiros').style.display = tab === 'terceiros' ? 'block' : 'none';
+  document.getElementById('tabCalcBtn').classList.toggle('active', tab === 'calc');
+  document.getElementById('tabCadastroBtn').classList.toggle('active', tab === 'cadastro');
+  document.getElementById('tabTerceirosBtn').classList.toggle('active', tab === 'terceiros');
+  document.getElementById('tabCalcBtn').setAttribute('aria-selected', String(tab === 'calc'));
+  document.getElementById('tabCadastroBtn').setAttribute('aria-selected', String(tab === 'cadastro'));
+  document.getElementById('tabTerceirosBtn').setAttribute('aria-selected', String(tab === 'terceiros'));
+  positionTabIndicator();
+  closeSidebarOnMobile();
+  if (tab === 'cadastro') renderCadastroList();
+  if (tab === 'terceiros' && !terceirosLoadedOnce){
+    terceirosLoadedOnce = true;
+    setPeriodPreset(7);
+  }
+}
+
+
+// ---------- Cadastro (CRUD) ----------
+let formItemsDraft = [];
+
+function renderCadastroList(){
+  const list = document.getElementById('cadastroList');
+  const title = document.getElementById('cadastroTitle');
+  if (!list) return;
+  title.textContent = 'Produtos cadastrados (' + currentKits.length + ')';
+  list.innerHTML = '';
+  if (!currentKits.length){
+    list.innerHTML = '<div class="jf-empty">Nenhum produto cadastrado. Clique em "+ Novo Produto" pra começar.</div>';
+    return;
+  }
+  for (const kit of currentKits){
+    const row = document.createElement('div');
+    row.className = 'jf-cad-row';
+    row.innerHTML =
+      '<span class="codsabo jf-mono">' + escapeHtml(kit.codSabo) + '</span>' +
+      '<span class="desc">' + escapeHtml(kit.curto || kit.descricao || '(sem descrição)') + '</span>' +
+      '<span class="nitens">' + kit.items.length + (kit.items.length === 1 ? ' item' : ' itens') + '</span>' +
+      '<div class="jf-cad-actions">' +
+        '<button class="jf-btn ghost small" data-edit="' + escapeHtml(kit.codSabo) + '" type="button">Editar</button>' +
+        '<button class="jf-btn ghost small danger" data-quickdel="' + escapeHtml(kit.codSabo) + '" type="button">Excluir</button>' +
+      '</div>';
+    list.appendChild(row);
+  }
+  list.querySelectorAll('button[data-edit]').forEach(btn => {
+    btn.addEventListener('click', e => openEditForm(e.target.getAttribute('data-edit')));
+  });
+  list.querySelectorAll('button[data-quickdel]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      const code = e.target.getAttribute('data-quickdel');
+      if (!confirm('Excluir o produto ' + code + ' da composição cadastrada? Isso também remove ele da lista de produção, se estiver lá.')) return;
+      currentKits = currentKits.filter(k => k.codSabo !== code);
+      reconcileOrdersWithCurrentKits();
+      const saved = await saveKitsToStorage();
+      updateStorageBadge();
+      if (!saved && storageAvailable){
+        alert('Removi localmente, mas não consegui gravar na Planilha Google agora. A exclusão pode não estar salva — confira a conexão e tente de novo.');
+      }
+      renderAll();
+      renderCadastroList();
+    });
+  });
+}
+
+function renderFormItems(){
+  const container = document.getElementById('formItemsList');
+  container.innerHTML = '';
+  formItemsDraft.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'jf-item-edit-row';
+    row.innerHTML =
+      '<input type="text" value="' + escapeHtml(item.itemNo) + '" data-field="itemNo" data-idx="' + idx + '" />' +
+      '<input type="text" value="' + escapeHtml(item.codItem) + '" data-field="codItem" data-idx="' + idx + '" placeholder="99.999 - B" />' +
+      '<input type="text" value="' + escapeHtml(item.fornecedor) + '" data-field="fornecedor" data-idx="' + idx + '" />' +
+      '<input type="number" min="0" step="1" value="' + item.qtde + '" data-field="qtde" data-idx="' + idx + '" />' +
+      '<input type="text" value="' + escapeHtml(item.aplicacao) + '" data-field="aplicacao" data-idx="' + idx + '" placeholder="J. TAMPA DE VÁLVULAS" />' +
+      '<button type="button" class="jf-remove-btn" data-idx="' + idx + '" title="Remover item">×</button>';
+    container.appendChild(row);
+  });
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = Number(e.target.getAttribute('data-idx'));
+      const field = e.target.getAttribute('data-field');
+      formItemsDraft[idx][field] = field === 'qtde' ? (Number(e.target.value) || 0) : e.target.value;
+    });
+  });
+  container.querySelectorAll('button.jf-remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = Number(e.target.getAttribute('data-idx'));
+      formItemsDraft.splice(idx, 1);
+      renderFormItems();
+    });
+  });
+}
+
+function addFormItemRow(){
+  const nextNo = String(formItemsDraft.length + 1).padStart(2, '0');
+  formItemsDraft.push({ itemNo: nextNo, codItem: '', fornecedor: 'UNIVERSAL', qtde: 1, aplicacao: '' });
+  renderFormItems();
+}
+
+function openNewForm(){
+  editingCodSabo = null;
+  document.getElementById('formTitle').textContent = 'Novo Produto';
+  document.getElementById('formCodSabo').value = '';
+  document.getElementById('formCodUniversal').value = '';
+  document.getElementById('formDescricao').value = '';
+  document.getElementById('formEmbalagem').value = '';
+  document.getElementById('formObservacao').value = '';
+  formItemsDraft = [{ itemNo: '01', codItem: '', fornecedor: 'UNIVERSAL', qtde: 1, aplicacao: '' }];
+  renderFormItems();
+  document.getElementById('deleteProductBtn').style.display = 'none';
+  document.getElementById('formErrorMsg').style.display = 'none';
+  document.getElementById('productFormPanel').style.display = 'block';
+  document.getElementById('productFormPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function openEditForm(codSabo){
+  const kit = findKit(codSabo);
+  if (!kit) return;
+  editingCodSabo = codSabo;
+  document.getElementById('formTitle').textContent = 'Editar Produto — ' + codSabo;
+  document.getElementById('formCodSabo').value = kit.codSabo;
+  document.getElementById('formCodUniversal').value = kit.codUniversal || '';
+  document.getElementById('formDescricao').value = kit.descricao || '';
+  document.getElementById('formEmbalagem').value = kit.embalagem || '';
+  document.getElementById('formObservacao').value = kit.observacao || '';
+  formItemsDraft = kit.items.map(it => Object.assign({}, it));
+  if (!formItemsDraft.length) formItemsDraft = [{ itemNo: '01', codItem: '', fornecedor: 'UNIVERSAL', qtde: 1, aplicacao: '' }];
+  renderFormItems();
+  document.getElementById('deleteProductBtn').style.display = 'inline-block';
+  document.getElementById('formErrorMsg').style.display = 'none';
+  document.getElementById('productFormPanel').style.display = 'block';
+  document.getElementById('productFormPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeForm(){
+  document.getElementById('productFormPanel').style.display = 'none';
+  editingCodSabo = null;
+}
+
+async function saveProduct(){
+  const codSabo = document.getElementById('formCodSabo').value.trim();
+  const errEl = document.getElementById('formErrorMsg');
+  if (!codSabo){
+    errEl.textContent = 'Cód. Sabó é obrigatório.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const validItems = formItemsDraft.filter(it => it.codItem || it.aplicacao);
+  if (!validItems.length){
+    errEl.textContent = 'Adicione pelo menos um item com Cód. Item Universal ou Aplicação preenchido.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const descricao = document.getElementById('formDescricao').value.trim();
+  const newKit = {
+    codSabo,
+    codUniversal: document.getElementById('formCodUniversal').value.trim(),
+    descricao,
+    curto: shortLabel(descricao),
+    embalagem: document.getElementById('formEmbalagem').value.trim(),
+    observacao: document.getElementById('formObservacao').value.trim(),
+    items: expandItemsList(validItems.map(it => ({ itemNo: it.itemNo, codItem: it.codItem, fornecedor: it.fornecedor, qtde: Number(it.qtde) || 0, aplicacao: it.aplicacao }))),
+  };
+
+  if (editingCodSabo && editingCodSabo !== codSabo){
+    currentKits = currentKits.filter(k => k.codSabo !== editingCodSabo);
+    orders.forEach(o => { if (o.codSabo === editingCodSabo) o.codSabo = codSabo; });
+  }
+
+  const existingIdx = currentKits.findIndex(k => k.codSabo === codSabo);
+  if (existingIdx >= 0) currentKits[existingIdx] = newKit;
+  else currentKits.push(newKit);
+  currentKits.sort((a, b) => a.codSabo.localeCompare(b.codSabo, 'pt-BR', { numeric: true }));
+
+  const saved = await saveKitsToStorage();
+  updateStorageBadge();
+  if (!saved && storageAvailable){
+    errEl.textContent = 'Salvei localmente, mas não consegui gravar na Planilha Google agora. Confira a conexão e tente salvar de novo — ou exporte pra Excel pra não perder o trabalho.';
+    errEl.style.display = 'block';
+    return;
+  }
+  closeForm();
+  renderAll();
+  renderCadastroList();
+}
+
+async function deleteProductConfirm(){
+  if (!editingCodSabo) return;
+  if (!confirm('Excluir o produto ' + editingCodSabo + ' da composição cadastrada? Isso também remove ele da lista de produção, se estiver lá.')) return;
+  currentKits = currentKits.filter(k => k.codSabo !== editingCodSabo);
+  reconcileOrdersWithCurrentKits();
+  const saved = await saveKitsToStorage();
+  updateStorageBadge();
+  if (!saved && storageAvailable){
+    const errEl = document.getElementById('formErrorMsg');
+    errEl.textContent = 'Removi localmente, mas não consegui gravar na Planilha Google agora. A exclusão pode não estar salva — confira a conexão e tente de novo.';
+    errEl.style.display = 'block';
+    return;
+  }
+  closeForm();
+  renderAll();
+  renderCadastroList();
+}
+
+// ---------- Export to Excel ----------
+function exportToExcel(){
+  const wb = XLSX.utils.book_new();
+
+  const ordersData = [['Cód. Sabó', 'Cód. Universal', 'Descrição', 'Qtde de Kits']];
+  orders.forEach(o => {
+    const kit = findKit(o.codSabo);
+    ordersData.push([o.codSabo, kit ? kit.codUniversal : '', kit ? (kit.curto || kit.descricao) : '(produto não encontrado)', o.quantidade]);
+  });
+  const totalKitsExp = orders.reduce((s, o) => s + o.quantidade, 0);
+  ordersData.push([]);
+  ordersData.push(['', '', 'TOTAL DE KITS', totalKitsExp]);
+  const ws1 = XLSX.utils.aoa_to_sheet(ordersData);
+  ws1['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 46 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Produção');
+
+  const rows = computeConsolidated();
+  const compData = [['Cód. Item Universal', 'Aplicação', 'Usado em', 'Total a Fabricar']];
+  rows.forEach(r => {
+    compData.push([r.codItem, Array.from(r.aplicacoes).join(' / '), Array.from(r.usedIn).sort().join(', '), r.qtdeTotal]);
+  });
+  const totalPecasExp = rows.reduce((s, r) => s + r.qtdeTotal, 0);
+  compData.push([]);
+  compData.push(['', '', 'TOTAL DE PEÇAS', totalPecasExp]);
+  const ws2 = XLSX.utils.aoa_to_sheet(compData);
+  ws2['!cols'] = [{ wch: 18 }, { wch: 36 }, { wch: 26 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Componentes Consolidados');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, 'calculadora_fabricacao_' + dateStr + '.xlsx');
+}
+
+// ---------- Upload: composition vs order/forecast auto-detect ----------
+function setStatus(kind, text){
+  const badge = document.getElementById('statusBadge');
+  badge.className = 'jf-badge ' + kind;
+  badge.textContent = text;
+}
+function showError(msg){
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+function reconcileOrdersWithCurrentKits(){
+  const before = orders.length;
+  orders = orders.filter(o => findKit(o.codSabo));
+  return before - orders.length;
+}
+function hideBatchesSection(){
+  document.getElementById('batchesSection').style.display = 'none';
+  document.getElementById('batchesList').innerHTML = '';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('missingPanel').style.display = 'none';
+  document.getElementById('missingPanel').innerHTML = '';
+  pendingBatches = [];
+}
+
+function renderBatches(){
+  const container = document.getElementById('batchesList');
+  container.innerHTML = '';
+  pendingBatches.forEach((batch, bi) => {
+    const row = document.createElement('div');
+    row.className = 'jf-batch-row';
+    const options = batch.candidates.map(c => '<option value="' + c.idx + '">' + escapeHtml(c.label) + '</option>').join('');
+    row.innerHTML =
+      '<span class="sheet jf-mono">' + escapeHtml(batch.sheetName) + '</span>' +
+      '<span class="count">' + batch.productCount + ' produtos</span>' +
+      '<select class="jf-select mini" data-batch="' + bi + '">' + options + '</select>' +
+      '<button class="jf-btn accent small" data-batch="' + bi + '" data-action="import">Importar</button>';
+    container.appendChild(row);
+  });
+  container.querySelectorAll('button[data-action="import"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bi = Number(btn.getAttribute('data-batch'));
+      const select = container.querySelector('select[data-batch="' + bi + '"]');
+      const qtyColIdx = Number(select.value);
+      const result = importBatch(pendingBatches[bi], qtyColIdx);
+      const msg = document.getElementById('importResult');
+      msg.className = 'jf-import-result ok';
+      msg.textContent = 'Importado da aba "' + pendingBatches[bi].sheetName + '": ' + result.imported + ' produto(s) adicionado(s)/atualizado(s).';
+      renderMissingPanel(result.skippedCodes);
+      renderAll();
+    });
+  });
+}
+
+function formatCodeGuess(digits){
+  return /^\d{5}$/.test(digits) ? digits.slice(0, 2) + '.' + digits.slice(2) : digits;
+}
+
+function goToCadastroWithNewProduct(codSaboGuess){
+  switchTab('cadastro');
+  openNewForm();
+  document.getElementById('formCodSabo').value = codSaboGuess;
+  document.getElementById('formCodSabo').focus();
+}
+
+function renderMissingPanel(skippedCodes){
+  const panel = document.getElementById('missingPanel');
+  const uniqueCodes = Array.from(new Set(skippedCodes));
+  if (!uniqueCodes.length){
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+  panel.style.display = 'block';
+  const chips = uniqueCodes.map(digits => {
+    const guess = formatCodeGuess(digits);
+    return '<button class="jf-missing-chip" type="button" data-code="' + escapeHtml(guess) + '">' +
+      escapeHtml(guess) + '<span class="plus">+ Cadastrar</span></button>';
+  }).join('');
+  panel.innerHTML =
+    '<div class="jf-missing-title">⚠ ' + uniqueCodes.length + ' produto(s) sem composição cadastrada — não entraram na produção</div>' +
+    '<div class="jf-missing-sub">Esses códigos apareceram no arquivo importado mas não existem na base de composição. Clique em um pra ir direto pro formulário de cadastro dele.</div>' +
+    '<div class="jf-missing-chips">' + chips + '</div>';
+  panel.querySelectorAll('.jf-missing-chip').forEach(chip => {
+    chip.addEventListener('click', () => goToCadastroWithNewProduct(chip.getAttribute('data-code')));
+  });
+}
+
+function handleFile(file){
+  if (!file) return;
+  showError('');
+  hideBatchesSection();
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // This upload is for pedido/previsão only now — a composição vem direto
+      // da Planilha Google (aba "Base de Composição"). Pra editar composição,
+      // use a aba Cadastro (importar/exportar ou os botões Editar/Excluir).
+      const batches = analyzeOrderWorkbook(workbook);
+      if (batches.length){
+        pendingBatches = batches;
+        setStatus('ok', file.name + ' · pedido/previsão (' + batches.length + (batches.length === 1 ? ' aba' : ' abas') + ')');
+        document.getElementById('batchesSection').style.display = 'block';
+        renderBatches();
+        return;
+      }
+
+      setStatus('err', 'Falha ao ler arquivo');
+      showError('Não reconheci esse arquivo como pedido/previsão (preciso de uma coluna "Item" + alguma coluna de quantidade). Se é uma planilha de composição, carregue ela na aba Cadastro de Composição, não aqui.');
+    } catch (err){
+      setStatus('err', 'Falha ao ler arquivo');
+      showError('Não consegui ler esse arquivo como planilha Excel (' + err.message + ').');
+    }
+  };
+  reader.onerror = function(){
+    setStatus('err', 'Falha ao ler arquivo');
+    showError('Não consegui abrir o arquivo. Tente novamente.');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function resetToDefault(){
+  if (storageAvailable && !confirm('Restaurar a composição padrão? Isso apaga qualquer produto que você cadastrou ou editou manualmente e que estava salvo automaticamente.')) return;
+  currentKits = DEFAULT_KITS;
+  reconcileOrdersWithCurrentKits();
+  setStatus('default', 'Usando composição padrão · 20 produtos');
+  showError('');
+  hideBatchesSection();
+  document.getElementById('sourceNote').innerHTML =
+    'Dados da composição extraídos e conferidos a partir do PDF "75_092 - 75_404" (Revisão 10, Juntas Universal). Total a fabricar de cada item = soma, entre todos os produtos da lista, de (quantidade de kits × quantidade do item por kit).';
+  document.getElementById('fileInput').value = '';
+  const saved = await saveKitsToStorage();
+  updateStorageBadge();
+  if (!saved && storageAvailable){
+    showError('Restaurei localmente, mas não consegui gravar na Planilha Google agora. Confira a conexão — o padrão pode não estar salvo lá ainda.');
+  }
+  renderAll();
+  renderCadastroList();
+}
+
+// ---------- Cadastro: import (upsert, never duplicate) / export database ----------
+function upsertKits(newKits){
+  let added = 0, updated = 0;
+  for (const nk of newKits){
+    const idx = currentKits.findIndex(k => k.codSabo === nk.codSabo);
+    if (idx >= 0){ currentKits[idx] = nk; updated++; }
+    else { currentKits.push(nk); added++; }
+  }
+  currentKits.sort((a, b) => a.codSabo.localeCompare(b.codSabo, 'pt-BR', { numeric: true }));
+  return { added, updated };
+}
+
+function handleCadastroFile(file){
+  if (!file) return;
+  const errEl = document.getElementById('cadUploadError');
+  const statusEl = document.getElementById('cadUploadStatus');
+  const badge = document.getElementById('cadUploadBadge');
+  errEl.style.display = 'none';
+  statusEl.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const result = parseWorkbook(workbook);
+      if (result.error){
+        errEl.textContent = 'Não reconheci esse arquivo como planilha de composição — preciso de colunas Cód. Sabó, Cód. Item Universal e Qtde (esse arquivo pode ser um pedido/previsão, que é carregado na aba Calculadora, não aqui).';
+        errEl.style.display = 'block';
+        return;
+      }
+      const { added, updated } = upsertKits(result.kits);
+      const dropped = reconcileOrdersWithCurrentKits();
+      const saved = await saveKitsToStorage();
+      updateStorageBadge();
+      statusEl.style.display = 'flex';
+      badge.className = saved ? 'jf-badge ok' : 'jf-badge err';
+      badge.textContent = file.name + ' · ' + added + ' produto(s) novo(s), ' + updated + ' atualizado(s), 0 duplicado(s)' +
+        (dropped > 0 ? ' · ' + dropped + ' produto(s) removidos da produção (código não existe mais)' : '') +
+        (!saved && storageAvailable ? ' · ATENÇÃO: não gravou na Planilha Google, ficou só nesta sessão' : '');
+      renderCadastroList();
+      renderAll();
+      document.getElementById('cadFileInput').value = '';
+    } catch (err){
+      errEl.textContent = 'Não consegui ler esse arquivo como planilha Excel (' + err.message + ').';
+      errEl.style.display = 'block';
+    }
+  };
+  reader.onerror = function(){
+    errEl.textContent = 'Não consegui abrir o arquivo. Tente novamente.';
+    errEl.style.display = 'block';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function downloadDatabase(){
+  const headers = ['Cód. Sabó', 'Cód. Universal (Kit)', 'Descrição do Kit', 'Item Nº', 'Cód. Item Universal', 'Fornecedor', 'Qtde', 'Aplicação do Item', 'Embalagem', 'Observação'];
+  const rows = [headers];
+  for (const kit of currentKits){
+    for (const it of kit.items){
+      rows.push([kit.codSabo, kit.codUniversal, kit.descricao, it.itemNo, it.codItem, it.fornecedor, it.qtde, it.aplicacao, kit.embalagem, kit.observacao]);
+    }
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 11 }, { wch: 18 }, { wch: 44 }, { wch: 9 }, { wch: 16 }, { wch: 12 }, { wch: 7 }, { wch: 28 }, { wch: 30 }, { wch: 30 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Itens');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, 'base_composicao_' + dateStr + '.xlsx');
+}
+
+// ---------- Theme toggle (claro / escuro) ----------
+function setTheme(theme){
+  document.body.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggleBtn');
+  if (!btn) return;
+  const icon = btn.querySelector('span[aria-hidden]');
+  const label = btn.querySelector('.jf-theme-label');
+  if (icon) icon.textContent = theme === 'dark' ? '\u2600' : '\u263D';
+  if (label) label.textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+}
+function toggleTheme(){
+  const current = document.body.getAttribute('data-theme') || 'light';
+  setTheme(current === 'light' ? 'dark' : 'light');
+}
+
+// ---------- Wire up events ----------
+document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+document.getElementById('filterInput').addEventListener('input', populateKitSelect);
+document.getElementById('addBtn').addEventListener('click', addOrder);
+document.getElementById('itemLookupInput').addEventListener('input', renderItemLookup);
+document.getElementById('fileInput').addEventListener('change', function(e){ handleFile(e.target.files[0]); });
+document.getElementById('resetBtn').addEventListener('click', resetToDefault);
+document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+
+document.getElementById('tabCalcBtn').addEventListener('click', () => switchTab('calc'));
+document.getElementById('tabCadastroBtn').addEventListener('click', () => switchTab('cadastro'));
+document.getElementById('tabTerceirosBtn').addEventListener('click', () => switchTab('terceiros'));
+document.getElementById('sidebarToggleBtn').addEventListener('click', toggleMobileSidebar);
+document.getElementById('collapseBtn').addEventListener('click', toggleSidebarCollapse);
+document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+  document.documentElement.classList.add('sidebar-hidden');
+  document.getElementById('sidebarToggleBtn').setAttribute('aria-expanded', 'false');
+});
+document.getElementById('sidebarToggleBtn').setAttribute('aria-expanded', String(!document.documentElement.classList.contains('sidebar-hidden')));
+document.getElementById('collapseBtn').setAttribute('aria-expanded', String(!document.documentElement.classList.contains('sidebar-collapsed')));
+document.querySelectorAll('.jf-period-btn').forEach(btn => {
+  btn.addEventListener('click', () => setPeriodPreset(Number(btn.getAttribute('data-days'))));
+});
+document.getElementById('terceirosApplyBtn').addEventListener('click', () => {
+  document.querySelectorAll('.jf-period-btn').forEach(b => b.classList.remove('active'));
+  const start = document.getElementById('terceirosStartInput').value;
+  const end = document.getElementById('terceirosEndInput').value;
+  if (!start || !end){
+    const errEl = document.getElementById('terceirosErrorMsg');
+    errEl.textContent = 'Preencha as duas datas.';
+    errEl.style.display = 'block';
+    return;
+  }
+  fetchPecasTerceiros(start, end);
+});
+document.getElementById('newProductBtn').addEventListener('click', openNewForm);
+document.getElementById('addFormItemBtn').addEventListener('click', addFormItemRow);
+document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
+document.getElementById('cancelFormBtn').addEventListener('click', closeForm);
+document.getElementById('deleteProductBtn').addEventListener('click', deleteProductConfirm);
+document.getElementById('cadFileInput').addEventListener('change', function(e){ handleCadastroFile(e.target.files[0]); });
+document.getElementById('downloadCadBtn').addEventListener('click', downloadDatabase);
+
+const cadDropzone = document.getElementById('cadDropzone');
+['dragenter', 'dragover'].forEach(evt => {
+  cadDropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); cadDropzone.classList.add('dragover'); });
+});
+['dragleave', 'drop'].forEach(evt => {
+  cadDropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); cadDropzone.classList.remove('dragover'); });
+});
+cadDropzone.addEventListener('drop', function(e){
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) handleCadastroFile(file);
+});
+
+const dropzone = document.getElementById('dropzone');
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); });
+});
+dropzone.addEventListener('drop', function(e){
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+// ---------- Initial load (checks persistent storage first) ----------
+async function init(){
+  const stored = await loadStoredKits();
+  if (stored){
+    currentKits = stored;
+    reconcileOrdersWithCurrentKits();
+    setStatus('ok', 'Base da Planilha Google · ' + currentKits.length + ' produtos');
+  } else if (storageAvailable){
+    const saved = await saveKitsToStorage();
+    setStatus(saved ? 'ok' : 'err', saved
+      ? 'Base inicial gravada na Planilha · ' + currentKits.length + ' produtos'
+      : 'Conectei no Apps Script, mas não consegui gravar a base inicial na Planilha');
+  }
+  updateStorageBadge();
+  renderAll();
+  renderCadastroList();
+  positionTabIndicator();
+}
+window.addEventListener('resize', syncSidebarToViewport);
+init();
+
+</script>
+</body>
+</html>
