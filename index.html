@@ -358,7 +358,7 @@ tr.nw td{animation:fl 1s ease-out}
 .btn-rp.cli{background:var(--ac);color:#fff;border:1px solid var(--ac)}
 .btn-rp.all{background:var(--s3);color:var(--tm);border:1px solid var(--bd);flex:0 0 auto;min-width:44px}
 .btn-rp:hover{opacity:.85}
-.adm-spin-wrap{padding:32px;text-align:center;color:var(--td)}
+.adm-spin-wrap{padding:32px;text-align:center;color:var(--td);grid-column:1/-1}
 .adm-empty{padding:40px;text-align:center;color:var(--td)}
 
 .prod-list{margin-top:0}
@@ -476,22 +476,25 @@ tr.nw td{animation:fl 1s ease-out}
 .cooldown-btn-ok:active{transform:scale(.96)}
 
 /* ===== ADMIN — abas internas ===== */
-.adm-wrap{padding:14px;max-width:720px;margin:0 auto;height:100%;overflow-y:auto}
-.adm-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:16px;
-  background-color:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:5px;position:sticky;top:0;z-index:5}
-.adm-tab{display:flex;flex-direction:column;align-items:center;gap:4px;padding:13px 2px;
-  border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--td);
-  font-size:10px;font-weight:600;font-family:var(--f-b);transition:background .15s,color .15s}
-.adm-tab .ic{font-size:17px;line-height:1}
-.adm-tab.active{background:var(--ac);color:#fff}
-.adm-tab:active{transform:scale(.97)}
+.adm-wrap{display:flex;height:100%;overflow:hidden}
+.adm-tabs{display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:196px;
+  background-color:var(--s1);border-right:1px solid var(--bd);padding:16px 10px;height:100%;overflow-y:auto}
+.adm-tab{display:flex;flex-direction:row;align-items:center;gap:11px;padding:14px 13px;width:100%;
+  border:none;border-radius:9px;cursor:pointer;background:transparent;color:var(--td);text-align:left;
+  font-size:13px;font-weight:600;font-family:var(--f-b);transition:background .15s,color .15s}
+.adm-tab .ic{font-size:19px;line-height:1;flex-shrink:0}
+.adm-tab.active{background:var(--pu);color:#fff}
+.adm-tab:active{transform:scale(.98)}
+.adm-content{flex:1;overflow-y:auto;padding:20px 26px}
 .adm-panel{display:none;animation:admFade .2s ease-out}
 .adm-panel.active{display:block}
 @keyframes admFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 .adm-addbar{display:flex;gap:8px;margin-bottom:8px}
-.adm-addcard{background-color:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:13px;
-  display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+.adm-addcard{background-color:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:9px;margin-bottom:14px}
+.adm-addcard .adm-input{flex:1;min-width:220px}
+
 .adm-input{flex:1;width:100%;background-color:var(--s2);border:1px solid var(--bd);color:var(--tx);
   padding:14px 15px;border-radius:10px;font-size:15px;outline:none;font-family:var(--f-b)}
 .adm-input::placeholder{color:var(--td)}
@@ -514,8 +517,14 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   width:46px;border-radius:10px;font-size:17px;cursor:pointer;flex-shrink:0}
 .adm-btn-ghost:active{transform:scale(.94)}
 .adm-count{font-size:11px;color:var(--td);margin:0 0 10px 2px;font-family:var(--mo)}
+#prodSearchInp{padding-left:42px;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237d9284' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:14px center}
 
 .adm-list{display:flex;flex-direction:column;gap:8px;padding-bottom:24px}
+#pane-op .adm-list,#pane-baia .adm-list,#pane-prod .adm-list{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:9px}
+.full{grid-column:1/-1}
 .adm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background-color:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:14px 15px}
 .adm-row-txt{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -524,7 +533,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 .adm-icon-btn.del{background:var(--rdd);border-color:rgba(224,57,47,.35);color:var(--rd)}
 .adm-icon-btn.edit{background:var(--acg);border-color:rgba(0,131,62,.4);color:var(--brand2)}
 .adm-icon-btn:active{transform:scale(.9)}
-.adm-empty2{padding:34px 16px;text-align:center;color:var(--td);
+.adm-empty2{padding:34px 16px;text-align:center;color:var(--td);grid-column:1/-1;
   background-color:var(--s1);border:1px dashed var(--bd);border-radius:12px}
 .adm-empty2 .em-ic{font-size:26px;opacity:.5;margin-bottom:8px}
 
@@ -692,6 +701,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <button class="adm-tab" data-t="hist" onclick="admTab('hist')"><span class="ic">📋</span>Histórico</button>
       </nav>
 
+      <div class="adm-content">
       <section class="adm-panel active" id="pane-op">
         <div class="adm-addbar">
           <input class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
@@ -718,7 +728,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <div id="addProdErr" class="adm-err"></div>
         </div>
         <div class="adm-searchrow">
-          <select class="adm-search" id="prodSel" onchange="renderProdList()"><option value="">Todas as peças</option></select>
+          <input class="adm-search" id="prodSearchInp" type="text" placeholder="Buscar por código EAN ou peça..." oninput="renderProdList()" autocomplete="off">
           <button class="adm-btn-ghost" onclick="carregarProdutosAdmin()" title="Recarregar">↻</button>
         </div>
         <div class="adm-count" id="prodCount"></div>
@@ -733,8 +743,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         </div>
         <div class="adm-list" id="histLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
       </section>
+      </div>
     </div>
   </div>
+
 </div>
 
 <!-- MODAL PESO -->
@@ -1224,19 +1236,19 @@ function getAudioCtx(){
 }
 document.addEventListener('click',getAudioCtx,{once:true}); // "destrava" o áudio no primeiro toque na página
 
-function beep(freq,duracaoMs,vol){
+function beep(freq,duracaoMs,vol,onda){
   var ctx=getAudioCtx(); if(!ctx) return;
   var t0=ctx.currentTime;
   var osc=ctx.createOscillator(), gain=ctx.createGain();
-  osc.type='sine'; osc.frequency.setValueAtTime(freq,t0);
+  osc.type=onda||'square'; osc.frequency.setValueAtTime(freq,t0);
   gain.gain.setValueAtTime(0.0001,t0);
-  gain.gain.exponentialRampToValueAtTime(vol||0.5,t0+0.008);
+  gain.gain.exponentialRampToValueAtTime(vol||0.7,t0+0.004);
   gain.gain.exponentialRampToValueAtTime(0.0001,t0+duracaoMs/1000);
   osc.connect(gain);gain.connect(ctx.destination);
   osc.start(t0);osc.stop(t0+duracaoMs/1000+0.03);
 }
-function beepSucesso(){ beep(1800,100,0.55); }               // bipe agudo e curto — igual leitor de código de loja
-function beepAtencao(){ beep(420,150,0.6); setTimeout(function(){beep(420,150,0.6);},190); } // dois bipes graves — dá pra sentir a diferença sem olhar
+function beepSucesso(){ beep(2400,85,0.9); }                  // onda quadrada, curto e seco — bipe clássico de caixa de mercado
+function beepAtencao(){ beep(420,150,0.8); setTimeout(function(){beep(420,150,0.8);},190); } // dois bipes graves — dá pra sentir a diferença sem olhar
 
 // ═══════════════════════════════════════
 function contabilizar(codigo,nome){
@@ -2019,7 +2031,7 @@ function renderCfg(id,arr,kind){
   var delFn=kind==='op'?'delOp':'delBaia';
   el.innerHTML=arr.map(function(v,i){
     if(editCfgKind===kind && editCfgIdx===i){
-      return '<div class="adm-row" style="gap:6px">'+
+      return '<div class="adm-row full" style="gap:6px">'+
         '<input class="adm-input" id="editCfgInp" value="'+escAttr(v)+'" style="padding:11px 12px" onkeydown="if(event.key===\'Enter\')saveCfgEdit(\''+kind+'\','+i+')">'+
         '<button class="adm-btn-add" onclick="saveCfgEdit(\''+kind+'\','+i+')" style="padding:0 14px">Salvar</button>'+
         '<button class="adm-icon-btn del" onclick="cancelCfgEdit()" title="Cancelar">✕</button>'+
@@ -2121,7 +2133,6 @@ function carregarProdutosAdmin(){
           produtosCache={};
           produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
-          popularProdSelect();
           renderProdList();
         }else{
           document.getElementById('prodList').innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro')+'</div>';
@@ -2135,29 +2146,22 @@ function carregarProdutosAdmin(){
 var editandoCod=null; // código da peça em edição inline (null = nenhuma)
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
-// Preenche a lista suspensa de peças (ordenada por nome), preservando a seleção atual
-function popularProdSelect(){
-  var sel=document.getElementById('prodSel'); if(!sel)return;
-  var atual=sel.value;
-  var ordenada=produtosAdmin.slice().sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt');});
-  sel.innerHTML='<option value="">Todas as peças ('+produtosAdmin.length+')</option>'+
-    ordenada.map(function(p){return '<option value="'+escAttr(p.codigo)+'"'+(p.codigo===atual?' selected':'')+'>'+escAttr(p.nome)+' — '+escAttr(p.codigo)+'</option>';}).join('');
-}
-
 function renderProdList(){
-  var sel=document.getElementById('prodSel');
-  var q=sel?sel.value:''; // valor = código escolhido no dropdown (vazio = todas)
+  var inp=document.getElementById('prodSearchInp');
+  var q=(inp?inp.value:'').trim().toLowerCase(); // busca por EAN (codigo) ou peça (nome), parcial
   var lista=produtosAdmin;
-  if(q) lista=lista.filter(function(p){return String(p.codigo)===q;});
-  document.getElementById('prodCount').textContent='('+produtosAdmin.length+' cadastrada'+(produtosAdmin.length===1?'':'s')+')';
+  if(q) lista=lista.filter(function(p){
+    return String(p.codigo).toLowerCase().indexOf(q)!==-1 || String(p.nome).toLowerCase().indexOf(q)!==-1;
+  });
+  document.getElementById('prodCount').textContent='('+produtosAdmin.length+' cadastrada'+(produtosAdmin.length===1?'':'s')+(q?' · '+lista.length+' encontrada'+(lista.length===1?'':'s'):'')+')';
   var el=document.getElementById('prodList');
-  if(!lista.length){el.innerHTML='<div class="adm-empty2"><div class="em-ic">🏷️</div>'+(q?'Peça não encontrada':'Nenhuma peça cadastrada ainda. Use o campo acima para adicionar.')+'</div>';return;}
+  if(!lista.length){el.innerHTML='<div class="adm-empty2"><div class="em-ic">🏷️</div>'+(q?'Nenhuma peça bate com "'+escAttr(inp.value)+'"':'Nenhuma peça cadastrada ainda. Use o campo acima para adicionar.')+'</div>';return;}
   // Mostra no máximo 300 para não travar a tela
   el.innerHTML=lista.slice(0,300).map(function(p){
     var cod=String(p.codigo).replace(/'/g,"\\'");
     if(p.codigo===editandoCod){
       // linha em modo edição: dois campos + salvar/cancelar
-      return '<div class="prod-item" style="gap:6px">'+
+      return '<div class="prod-item full" style="gap:6px">'+
         '<input class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
         '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
         '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
