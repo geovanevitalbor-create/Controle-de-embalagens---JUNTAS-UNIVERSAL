@@ -188,7 +188,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .cx-unid{font-weight:600;color:var(--gn);font-family:var(--mo);font-size:12px}
 .cx-peso{font-size:10px;color:var(--yw);font-weight:600;font-family:var(--mo)}
 
-.tbl-card{background-color:var(--s1);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.tbl-card{background-color:var(--s1);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:12px;position:sticky;top:0;z-index:5;box-shadow:0 6px 10px -6px rgba(0,0,0,.4)}
 .tbl-hd{padding:9px 14px;background-color:var(--s2);border-bottom:1px solid var(--bd);
   display:flex;align-items:center;justify-content:space-between}
 .tbl-ttl{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--td)}
@@ -692,10 +692,12 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div class="fat-toolbar">
         <div><div class="fat-title">Pedidos</div><div class="fat-sub">Itens consolidados · NF</div></div>
         <div style="display:flex;gap:8px">
+          <button class="btn-reload" onclick="abrirCadastrarPedido()" style="background:var(--pud);border-color:var(--pu);color:var(--pu)">📝 Novo Pedido</button>
           <button class="btn-reload" onclick="exportarFatExcel()" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)">⬇ Excel (tudo)</button>
           <button class="btn-reload" onclick="carregarFat()">↻ Atualizar</button>
         </div>
       </div>
+      <div id="pedEsperSec" style="margin-bottom:14px"></div>
       <input class="fat-search" id="fatSearch" placeholder="🔍 Buscar por pedido, operador ou NF..." oninput="filtrarFat()">
       <div class="fat-filters">
         <button class="fat-filter active" onclick="setFiltroStatus('todos',this)">Todos</button>
@@ -876,6 +878,25 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL CADASTRAR PEDIDO — Faturamento registra o pedido total esperado (itens + quantidade) -->
+<div class="ov hidden" id="ovCadastrarPedido">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">📝 Cadastrar Pedido</span><button class="md-x" onclick="fecharOv('ovCadastrarPedido')">✕</button></div>
+    <div class="md-body">
+      <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="cadPedNum" placeholder="Ex: PED-2025-001"><div id="cadPedNumErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
+      <div class="lbl" style="margin:12px 0 6px">Itens esperados</div>
+      <div id="cadPedItensList"></div>
+      <div style="display:flex;gap:6px;margin:8px 0">
+        <input class="inp" id="cadPedAddCod" placeholder="Código do produto" style="flex:1;padding:11px;font-size:13px;min-height:0" onkeydown="if(event.key==='Enter')document.getElementById('cadPedAddQtd').focus()">
+        <input class="inp" id="cadPedAddQtd" type="number" placeholder="Qtd" min="1" style="width:80px;padding:11px;font-size:13px;min-height:0" onkeydown="if(event.key==='Enter')cadPedAddItem()">
+        <button class="adm-btn-add" onclick="cadPedAddItem()">+ item</button>
+      </div>
+      <div id="cadPedItensErr" style="color:var(--rd);font-size:11px;display:none">Adicione ao menos 1 item — código precisa existir em Admin › Peças.</div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovCadastrarPedido')">Cancelar</button><button class="btn-ok green" onclick="salvarPedidoEsperado()">✔ Cadastrar Pedido</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR RESULTADO (consulta avulsa, se necessário no futuro) -->
 
 <!-- MENU DE AÇÕES DE UM PEDIDO (⋮): Excel ou Relatório -->
@@ -988,7 +1009,14 @@ const Backend={
   // Depois de editar/excluir uma caixa, os totais gravados em embalagens (total_caixas,
   // total_unidades, peso_total) ficam desatualizados — essa função busca as caixas atuais
   // dessa sessão direto do banco (fonte da verdade) e regrava os 3 totais.
-  async recalcularEsalvarAgregados(sessao){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; var cxr=await sbFetch('GET','/caixas?sessao=eq.'+s+'&select=id,peso,total_unidades',null); var tc=(cxr||[]).length; var tu=(cxr||[]).reduce(function(a,c){return a+(Number(c.total_unidades)||0);},0); var pt=(cxr||[]).reduce(function(a,c){return a+(parseFloat(c.peso)||0);},0); await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{total_caixas:tc,total_unidades:tu,peso_total:Number(pt.toFixed(2))}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
+  async recalcularEsalvarAgregados(sessao){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; var cxr=await sbFetch('GET','/caixas?sessao=eq.'+s+'&select=id,peso,total_unidades',null); var tc=(cxr||[]).length; var tu=(cxr||[]).reduce(function(a,c){return a+(Number(c.total_unidades)||0);},0); var pt=(cxr||[]).reduce(function(a,c){return a+(parseFloat(c.peso)||0);},0); await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{total_caixas:tc,total_unidades:tu,peso_total:Number(pt.toFixed(2))}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Pedido como entidade de verdade (tabelas pedidos + itens_pedido — precisam existir no Supabase,
+  // ver aviso no chat). Cadastro manual por enquanto; import XML entra depois plugando na mesma tabela.
+  async criarPedidoEsperado(pedido,itens){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var existe=await sbFetch('GET','/pedidos?pedido=eq.'+encodeURIComponent(p)+'&select=id',null); if(existe&&existe.length)return {status:'erro',msg:'Esse pedido já está cadastrado.'}; var pr=await sbFetch('POST','/pedidos',{pedido:p,fechado:false,criado_em:new Date().toISOString()},{'Prefer':'return=representation'}); var pedidoId=pr&&pr[0]&&pr[0].id; if(!pedidoId)return {status:'erro',msg:'Não recebi o id do pedido criado — confira se a tabela pedidos existe.'}; if(itens&&itens.length){ await sbFetch('POST','/itens_pedido',itens.map(function(it){return {pedido_id:pedidoId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade_esperada:Number(it.qtd)||0};})); } return {status:'ok',pedidoId:pedidoId}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarPedidosEsperados(){ try{ var peds=await sbFetch('GET','/pedidos?select=*&order=id.desc',null); var res=await Promise.all((peds||[]).map(async function(p){ var itens=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+p.id+'&select=id,codigo_produto,nome_produto,quantidade_esperada',null); return {id:p.id,pedido:p.pedido,fechado:p.fechado===true,criadoEm:p.criado_em,itens:(itens||[]).map(function(it){return {id:it.id,codigo:it.codigo_produto,nome:it.nome_produto,qtdEsperada:it.quantidade_esperada};})}; })); return {status:'ok',pedidos:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async reabrirPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:false}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async excluirPedidoEsperado(pedidoId){ try{ await sbFetch('DELETE','/itens_pedido?pedido_id=eq.'+pedidoId,null); await sbFetch('DELETE','/pedidos?id=eq.'+pedidoId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
 (function(){
   function makeRunner(){
@@ -1063,7 +1091,7 @@ function irPara(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('scr-'+id).classList.add('active');
   if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba||!sess.ped)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
-  if(id==='fat'){carregarFat();}
+  if(id==='fat'){carregarFat();carregarPedidosEsperados();}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
 function irParaProtegido(id){
@@ -2175,6 +2203,127 @@ function confirmarFaturamento(){
     liberar();
     alert('Sem conexão com o servidor: '+e.message);
   }
+}
+
+// ═══════════════════════════════════════
+// CADASTRO DE PEDIDO — Faturamento registra o pedido total esperado (itens + quantidade).
+// Cadastro manual por enquanto; import XML (quando eu tiver o formato) vai plugar nas
+// mesmas tabelas (pedidos / itens_pedido) em vez de abrir este modal.
+// ═══════════════════════════════════════
+var cadPedItens=[]; // rascunho local dos itens do pedido sendo cadastrado, até salvar
+function abrirCadastrarPedido(){
+  cadPedItens=[];
+  document.getElementById('cadPedNum').value='';
+  document.getElementById('cadPedNumErr').style.display='none';
+  document.getElementById('cadPedItensErr').style.display='none';
+  renderCadPedItens();
+  document.getElementById('ovCadastrarPedido').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('cadPedNum').focus();},150);
+}
+function renderCadPedItens(){
+  var el=document.getElementById('cadPedItensList'); if(!el)return;
+  if(!cadPedItens.length){el.innerHTML='<div style="font-size:11px;color:var(--td)">Nenhum item ainda.</div>';return;}
+  el.innerHTML=cadPedItens.map(function(it,i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:12px">'+
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
+      '<span class="pill">'+it.qtd+' un.</span>'+
+      '<button class="btn-rm" onclick="cadPedRemoveItem('+i+')" style="padding:6px 10px">✕</button>'+
+    '</div>';
+  }).join('');
+}
+function cadPedAddItem(){
+  var codInp=document.getElementById('cadPedAddCod'), qtdInp=document.getElementById('cadPedAddQtd');
+  var cod=codInp.value.trim(), qtd=parseInt(qtdInp.value,10);
+  if(!cod||!qtd||qtd<=0){toast('Informe código e quantidade válida');return;}
+  if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
+    toast('Código não cadastrado em Admin › Peças');return;
+  }
+  var existente=cadPedItens.find(function(it){return it.codigo===cod;});
+  if(existente){ existente.qtd+=qtd; } else { cadPedItens.push({codigo:cod,nome:produtosCache[cod],qtd:qtd}); }
+  codInp.value=''; qtdInp.value='';
+  renderCadPedItens();
+  codInp.focus();
+}
+function cadPedRemoveItem(i){ cadPedItens.splice(i,1); renderCadPedItens(); }
+
+var salvandoPedidoEsperado=false;
+function salvarPedidoEsperado(){
+  if(salvandoPedidoEsperado)return;
+  var num=document.getElementById('cadPedNum').value.trim();
+  var ok=true;
+  if(!num){document.getElementById('cadPedNumErr').style.display='block';ok=false;} else{document.getElementById('cadPedNumErr').style.display='none';}
+  if(!cadPedItens.length){document.getElementById('cadPedItensErr').style.display='block';ok=false;} else{document.getElementById('cadPedItensErr').style.display='none';}
+  if(!ok)return;
+  salvandoPedidoEsperado=true;
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        salvandoPedidoEsperado=false;
+        if(r&&r.status==='ok'){
+          toast('✔ Pedido cadastrado');
+          fecharOv('ovCadastrarPedido');
+          carregarPedidosEsperados();
+        }else{
+          alert('Erro ao cadastrar: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe a mensagem falar em id/tabela, confira se as tabelas pedidos e itens_pedido existem no Supabase.');
+        }
+      })
+      .withFailureHandler(function(e){
+        salvandoPedidoEsperado=false;
+        alert('Sem conexão: '+(e&&e.message?e.message:''));
+      })
+      .criarPedidoEsperado(num,cadPedItens);
+  }catch(e){salvandoPedidoEsperado=false; alert('Sem conexão: '+e.message);}
+}
+
+// Lista os pedidos cadastrados (abertos e fechados) acima da lista de pedidos embalados.
+var pedidosEsperados=[], pedEsperOpenSet={};
+function carregarPedidosEsperados(){
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); } })
+      .withFailureHandler(function(){})
+      .listarPedidosEsperados();
+  }catch(e){}
+}
+function togPedEsper(id){ pedEsperOpenSet[id]=!pedEsperOpenSet[id]; renderPedidosEsperados(); }
+function renderPedidosEsperados(){
+  var el=document.getElementById('pedEsperSec'); if(!el)return;
+  if(!pedidosEsperados.length){ el.innerHTML=''; return; }
+  el.innerHTML='<div class="fat-form-title" style="margin:0 0 6px 2px">📝 Pedidos cadastrados</div>'+
+    pedidosEsperados.map(function(p){
+      var tot=p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+      var aberto=!!pedEsperOpenSet[p.id];
+      return '<div class="ped-card" style="margin-bottom:6px">'+
+        '<div class="ped-hdr" onclick="togPedEsper('+p.id+')">'+
+          '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+p.itens.length+' produto(s) · '+tot+' un. esperadas</div></div>'+
+          '<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>'+
+        '</div>'+
+        (aberto?('<div class="ped-body open"><div class="ped-body-inner">'+
+          (p.itens.length?p.itens.map(function(it){return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span><span class="it-cons-q">'+it.qtdEsperada+' un.</span></div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+          '<div style="display:flex;gap:6px;margin-top:10px">'+
+            (p.fechado?'<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">Reabrir</button>':'<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>')+
+            '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
+          '</div>'+
+        '</div></div>'):'')+
+      '</div>';
+    }).join('');
+}
+function fecharPedEsper(id){
+  if(!confirm('Fechar este pedido? Ele vai parar de aparecer pro operador na bipagem (quando essa parte existir).'))return;
+  try{
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido fechado');carregarPedidosEsperados();}else{toast('⚠ Não fechou — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).fecharPedidoEsperado(id);
+  }catch(e){toast('⚠ Sem conexão');}
+}
+function reabrirPedEsper(id){
+  try{
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id);
+  }catch(e){toast('⚠ Sem conexão');}
+}
+function excluirPedEsper(id){
+  if(!confirm('Excluir este pedido cadastrado e todos os itens esperados dele? Isso não pode ser desfeito.'))return;
+  try{
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('🗑 Pedido excluído');carregarPedidosEsperados();}else{toast('⚠ Não excluiu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).excluirPedidoEsperado(id);
+  }catch(e){toast('⚠ Sem conexão');}
 }
 
 // ═══════════════════════════════════════
