@@ -613,7 +613,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <div class="cx-ct"><span class="cx-ct-v" id="cxCount">0</span><span class="cx-ct-l">na caixa</span></div>
         </div>
         <div class="scan-input-row">
-          <input type="text" id="scanInput" inputmode="none" placeholder="Selecione operador e baia..." autocomplete="off" disabled>
+          <input type="text" id="scanInput" inputmode="none" readonly placeholder="Selecione operador e baia..." autocomplete="off" disabled>
           <button class="btn-camscan" id="btnBipCam" onclick="toggleBipCam()" disabled title="Ler QR com a câmera">📷</button>
         </div>
         <div class="fb" id="fb"></div>
@@ -1188,26 +1188,47 @@ document.addEventListener('click',function(e){
 // Por isso, além do Enter, detectamos o fim da leitura pela pausa: o leitor digita os
 // caracteres em poucos ms, bem mais rápido que qualquer digitação manual. 90ms sem
 // nenhum caractere novo já significa "a leitura acabou".
+//
+// O campo é readonly (suprime o teclado virtual de forma confiável — bem mais que
+// inputmode="none" sozinho, que vários tablets ignoram, e mais que só bloquear o toque,
+// que não cobria o .focus() chamado pelo próprio app depois de cada bipe). Sendo readonly,
+// o campo não aceita mais digitação sozinho — por isso montamos o texto nós mesmos a
+// partir de cada tecla que chega, e escrevemos no campo só pra exibir.
 var scanAutoTimer=null;
+var scanBuf='';
 document.getElementById('scanInput').addEventListener('keydown',function(e){
-  if(e.key==='Enter'){ clearTimeout(scanAutoTimer); processar(); }
+  if(e.key==='Enter'){
+    e.preventDefault();
+    clearTimeout(scanAutoTimer);
+    processar();
+    return;
+  }
+  if(e.key==='Backspace'){
+    e.preventDefault();
+    scanBuf=scanBuf.slice(0,-1);
+    document.getElementById('scanInput').value=scanBuf;
+    return;
+  }
+  if(e.key.length===1){ // só caractere de verdade (letra/número/símbolo) — ignora Shift, Tab, setas etc.
+    e.preventDefault();
+    scanBuf+=e.key;
+    document.getElementById('scanInput').value=scanBuf;
+    clearTimeout(scanAutoTimer);
+    scanAutoTimer=setTimeout(processar,90);
+  }
 });
-document.getElementById('scanInput').addEventListener('input',function(){
-  clearTimeout(scanAutoTimer);
-  scanAutoTimer=setTimeout(processar,90);
-});
-// inputmode="none" é só uma dica — vários navegadores/tablets ignoram. Reforço: bloqueia
-// o toque direto no campo (que é o que dispara o teclado virtual). O .focus() chamado pelo
-// próprio app (focusScan) não passa por aqui, então o leitor continua funcionando normal.
+// Reforço extra: bloqueia o toque direto no campo, caso algum navegador ainda tente
+// abrir teclado por outro caminho. O .focus() do próprio app não passa por aqui.
 document.getElementById('scanInput').addEventListener('touchstart',function(e){e.preventDefault();});
 document.getElementById('scanInput').addEventListener('mousedown',function(e){e.preventDefault();});
 
 function processar(){
   if(emCooldown)return;
   if(!validarCampos()){showFb('⚠ Selecione operador e baia antes de bipar','warn');return;}
-  const raw=document.getElementById('scanInput').value.trim();
-  if(!raw)return;
+  const raw=scanBuf.trim();
+  scanBuf='';
   document.getElementById('scanInput').value='';
+  if(!raw)return;
   registrar(raw);
   focusScan();
 }
