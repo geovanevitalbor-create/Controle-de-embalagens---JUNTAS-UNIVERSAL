@@ -357,6 +357,12 @@ tr.nw td{animation:fl 1s ease-out}
 .hist-body{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
 .hist-body.open{display:block}
 .hist-body-inner{display:flex;flex-direction:column;gap:10px}
+/* Cards de seleção touch (operador/baia no popup da bipagem) */
+.pick-card{padding:16px 10px;min-height:56px;border-radius:10px;border:1.5px solid var(--bd);background:var(--s2);
+  color:var(--tx);font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:var(--f-b);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:border-color .1s,background .1s}
+.pick-card:active{transform:scale(.96)}
+.pick-card.sel{background:var(--acd);border-color:var(--ac);color:var(--brand2)}
 .hist-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .hist-ped{font-family:var(--mo);font-weight:600;font-size:14px}
 .hist-dat{font-size:10px;color:var(--td);font-family:var(--mo)}
@@ -638,6 +644,12 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="fb" id="fb"></div>
       </div>
 
+      <div id="lastScanPanel" style="display:none;background:var(--gnd);border:2px solid var(--gn);border-radius:var(--r);padding:16px;margin-bottom:12px;text-align:center">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gn)">Última peça bipada</div>
+        <div id="lastScanNome" style="font-family:var(--f-d);font-size:42px;line-height:1;color:#fff;margin:8px 0 4px;word-break:break-word"></div>
+        <div id="lastScanFalta" style="font-family:var(--mo);font-size:18px;font-weight:600;color:var(--yw)"></div>
+      </div>
+
       <div class="stats">
         <div class="st"><div class="sv" id="stSc">0</div><div class="sl">Scans</div></div>
         <div class="st"><div class="sv" id="stCx" style="color:var(--gn)">0</div><div class="sl">Caixas</div></div>
@@ -912,6 +924,19 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL FATURAR UM DIA — NF pra tudo que um pedido embalou numa data -->
+<div class="ov hidden" id="ovFaturarDia">
+  <div class="md" style="max-width:440px">
+    <div class="md-hdr"><span class="md-title" id="fatDiaTitulo">Faturar dia</span><button class="md-x" onclick="fecharOv('ovFaturarDia')">✕</button></div>
+    <div class="md-body">
+      <div class="md-row"><label class="lbl req">Cliente</label><input autocomplete="off" class="inp" type="text" id="fatDiaCliente" placeholder="Nome do cliente"><div id="fatDiaClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
+      <div class="md-row"><label class="lbl req">Número da NF</label><input autocomplete="off" class="inp" type="text" id="fatDiaNF" placeholder="Ex: NF-0001234"><div id="fatDiaNFErr" style="color:var(--rd);font-size:11px;display:none">Informe a NF.</div></div>
+      <div class="md-row"><label class="lbl">Data de faturamento</label><input autocomplete="off" class="inp" type="date" id="fatDiaData"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturarDia')">Cancelar</button><button class="btn-ok green" id="btnConfirmFatDia" onclick="confirmarFaturarDia()">✅ Confirmar</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR RESULTADO (consulta avulsa, se necessário no futuro) -->
 
 <!-- MENU DE AÇÕES DE UM PEDIDO (⋮): Excel ou Relatório -->
@@ -930,14 +955,17 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
 <!-- MODAL SELEÇÃO DE OPERADOR E BAIA -->
 <div class="ov hidden" id="ovOperBaia">
-  <div class="md" style="max-width:440px">
+  <div class="md" style="max-width:520px">
     <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
     <div class="md-body">
-      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador, a baia e o lote. O pedido é escolhido no próximo passo.</div>
-      <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
-      <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
-      <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
-      <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">Continuar → escolher pedido</button></div>
+      <div class="lbl req" style="margin-bottom:7px">Operador — toque no seu nome</div>
+      <div id="opCardsPop" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:4px"></div>
+      <div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-bottom:8px">Selecione o operador.</div>
+      <div class="lbl req" style="margin:12px 0 7px">Baia</div>
+      <div id="baiaCardsPop" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:4px"></div>
+      <div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-bottom:8px">Selecione a baia.</div>
+      <div class="md-row" style="margin-top:12px"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
+      <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px">Continuar → escolher pedido</button></div>
     </div>
   </div>
 </div>
@@ -1026,6 +1054,14 @@ const Backend={
   async carregarConfiguracoes(){ try{ var ops=await sbFetch('GET','/operadores?select=nome&order=nome.asc',null); var bs=await sbFetch('GET','/baias?select=nome&order=nome.asc',null); return {status:'ok',operadores:(ops||[]).map(function(o){return o.nome;}),baias:(bs||[]).map(function(b){return b.nome;})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } if(item.tipo==='iniciarSessao'){ await Backend.iniciarSessaoEmbalagem(item.dados); n++; } if(item.tipo==='fecharCaixa'){ await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); n++; } if(item.tipo==='finalizarSimples'){ await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // ── FATURAMENTO PARCIAL — a unidade é (pedido + data de embalagem): "fatura o que o
+  // pedido X embalou no dia Y". Tabela: faturamentos_parciais (ver SQL no chat).
+  // Lista os dias em que um pedido teve embalagem, com total de unidades/caixas do dia e,
+  // se aquele dia já foi faturado, os dados da NF.
+  async listarDiasEmbalagemPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao,data_embalagem,operador,total_caixas,total_unidades,peso_total,finalizada&order=data_embalagem.asc',null); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null); var fatPorData={}; (fats||[]).forEach(function(f){ fatPorData[f.data_embalagem]=f; }); var porDia={}; (embs||[]).forEach(function(e){ var d=e.data_embalagem; if(!porDia[d]) porDia[d]={data:d,sessoes:[],caixas:0,unidades:0,peso:0,temAndamento:false}; porDia[d].sessoes.push(e.sessao); porDia[d].caixas+=Number(e.total_caixas)||0; porDia[d].unidades+=Number(e.total_unidades)||0; porDia[d].peso+=parseFloat(e.peso_total)||0; if(e.finalizada===false) porDia[d].temAndamento=true; }); var dias=Object.keys(porDia).sort().map(function(d){ var dia=porDia[d]; var f=fatPorData[d]||null; return {data:d,dataBR:_dataBR(d),caixas:dia.caixas,unidades:dia.unidades,peso:Number(dia.peso.toFixed(2)),temAndamento:dia.temAndamento,faturado:!!f,nf:f?f.nf:'',cliente:f?f.cliente:'',dataFaturamento:f?_dataBR(f.data_faturamento):''}; }); return {status:'ok',dias:dias}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Fatura um dia de embalagem de um pedido. Recusa duplicar (mesmo pedido+data já faturado).
+  async faturarParcial(pedido,dataEmbalagem,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1424,6 +1460,7 @@ function contabilizar(codigo,nome){
   document.getElementById('cxCount').textContent=tot;
   var restanteMsg=restanteDoPedidoMsg(codigo);
   showFb('✔ '+nome+'  +1  (caixa: '+tot+')'+restanteMsg,'ok');
+  atualizarLastScanPanel(codigo,nome);
   animZone('success');beepSucesso();renderTabela(codigo);renderStats();
   document.getElementById('btnCx').disabled=false;
   atualizarBtnFin();
@@ -1449,6 +1486,21 @@ function restanteDoPedidoMsg(codigo){
   var info=sess.pedidoProgresso[codigo];
   var restante=Math.max(0,info.esperado-info.embaladoServidor-(sess.itens[codigo]?sess.itens[codigo].qty:0));
   return ' — faltam '+restante+' un. do pedido';
+}
+// Painel grande de "última peça bipada" — o operador vê de longe, sem chegar perto do tablet.
+function atualizarLastScanPanel(codigo,nome){
+  var panel=document.getElementById('lastScanPanel'); if(!panel)return;
+  panel.style.display='block';
+  document.getElementById('lastScanNome').textContent=nome;
+  var faltaEl=document.getElementById('lastScanFalta');
+  if(sess.pedidoProgresso&&sess.pedidoProgresso[codigo]){
+    var info=sess.pedidoProgresso[codigo];
+    var restante=Math.max(0,info.esperado-info.embaladoServidor-(sess.itens[codigo]?sess.itens[codigo].qty:0));
+    faltaEl.textContent=restante>0?('Faltam '+restante+' un. deste produto no pedido'):'✔ Quantidade do pedido completa!';
+    faltaEl.style.color=restante>0?'var(--yw)':'var(--gn)';
+  }else{
+    faltaEl.textContent='';
+  }
 }
 function mostrarForaDoPedido(codigo,nome){
   document.getElementById('scanInput').disabled=true;
@@ -2523,7 +2575,23 @@ function atualizarProgressoPedidosAbertos(){
     }catch(e){}
   });
 }
-function togPedEsper(id){ pedEsperOpenSet[id]=!pedEsperOpenSet[id]; renderPedidosEsperados(); }
+var pedEsperDias={}; // {pedidoNome: [dias]} — carregado ao expandir
+function togPedEsper(id){
+  pedEsperOpenSet[id]=!pedEsperOpenSet[id];
+  renderPedidosEsperados();
+  if(pedEsperOpenSet[id]){
+    var p=pedidosEsperados.find(function(x){return x.id===id;});
+    if(p) carregarDiasPedido(p.pedido);
+  }
+}
+function carregarDiasPedido(pedidoNome){
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedEsperDias[pedidoNome]=d.dias||[]; renderPedidosEsperados(); } })
+      .withFailureHandler(function(){})
+      .listarDiasEmbalagemPedido(pedidoNome);
+  }catch(e){}
+}
 function renderPedidosEsperados(){
   var el=document.getElementById('pedEsperSec'); if(!el)return;
   if(!pedidosEsperados.length){ el.innerHTML=''; return; }
@@ -2545,6 +2613,7 @@ function renderPedidosEsperados(){
             return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
               '<span class="it-cons-q" style="font-family:var(--mo)">'+emb+'/'+esp+' <span style="color:var(--td)">· saldo '+sld+'</span></span></div>';
           }).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+          renderDiasPedidoHtml(p.pedido)+
           '<div style="display:flex;gap:6px;margin-top:10px">'+
             (p.fechado?'<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">Reabrir</button>':'<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>')+
             '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
@@ -2553,6 +2622,66 @@ function renderPedidosEsperados(){
       '</div>';
     }).join('');
 }
+// Bloco "Dias de embalagem" dentro do card expandido de um pedido — cada dia é a unidade
+// faturável: mostra qtd/caixas do dia, selo da NF se já faturado, botão Faturar se não.
+function renderDiasPedidoHtml(pedidoNome){
+  var dias=pedEsperDias[pedidoNome];
+  if(dias===undefined) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Carregando dias de embalagem...</div>';
+  if(!dias.length) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Nenhuma embalagem registrada ainda pra este pedido.</div>';
+  var pedEsc=String(pedidoNome).replace(/'/g,"\\'");
+  return '<div class="ped-sec-ttl">Dias de embalagem — faturar por dia</div>'+
+    dias.map(function(d){
+      return '<div class="cx-detalhe" style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
+        '<div><div style="font-family:var(--mo);font-weight:600;font-size:13px">'+d.dataBR+(d.temAndamento?' <span style="color:var(--yw);font-size:10px">· em andamento</span>':'')+'</div>'+
+        '<div style="font-size:10px;color:var(--td);margin-top:2px">'+d.caixas+' cx · '+d.unidades+' un · '+d.peso+' kg</div></div>'+
+        (d.faturado
+          ?'<div style="text-align:right"><span class="ped-badge fat">NF '+escAttr(d.nf)+'</span>'+(d.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(d.cliente)+'</div>':'')+'</div>'
+          :'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px" onclick="abrirFaturarDia(\''+pedEsc+'\',\''+d.data+'\',\''+d.dataBR+'\')"'+(d.temAndamento?' title="Atenção: ainda tem sessão em andamento nesse dia"':'')+'>💰 Faturar</button>')+
+      '</div>';
+    }).join('');
+}
+var fatDiaCtx=null; // {pedido, data, dataBR} do dia sendo faturado
+function abrirFaturarDia(pedido,data,dataBR){
+  fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR};
+  document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — dia '+dataBR;
+  document.getElementById('fatDiaCliente').value='';
+  document.getElementById('fatDiaNF').value='';
+  document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
+  ['fatDiaClienteErr','fatDiaNFErr'].forEach(function(id){document.getElementById(id).style.display='none';});
+  document.getElementById('ovFaturarDia').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('fatDiaCliente').focus();},150);
+}
+var salvandoFatDia=false;
+function confirmarFaturarDia(){
+  if(salvandoFatDia||!fatDiaCtx)return;
+  var cliente=document.getElementById('fatDiaCliente').value.trim();
+  var nf=document.getElementById('fatDiaNF').value.trim();
+  var dataFat=document.getElementById('fatDiaData').value.trim();
+  var ok=true;
+  if(!cliente){document.getElementById('fatDiaClienteErr').style.display='block';ok=false;} else{document.getElementById('fatDiaClienteErr').style.display='none';}
+  if(!nf){document.getElementById('fatDiaNFErr').style.display='block';ok=false;} else{document.getElementById('fatDiaNFErr').style.display='none';}
+  if(!ok)return;
+  salvandoFatDia=true;
+  var btn=document.getElementById('btnConfirmFatDia');
+  btn.disabled=true; btn.textContent='Salvando...';
+  var ctx=fatDiaCtx;
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar';
+        if(r&&r.status==='ok'){
+          fecharOv('ovFaturarDia');
+          toast('✅ Dia '+ctx.dataBR+' faturado — NF '+nf);
+          carregarDiasPedido(ctx.pedido);
+        }else{
+          alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela, confira se faturamentos_parciais existe no Supabase.');
+        }
+      })
+      .withFailureHandler(function(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); })
+      .faturarParcial(ctx.pedido,ctx.data,nf,cliente,dataFat);
+  }catch(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+e.message); }
+}
+
 function fecharPedEsper(id){
   if(!confirm('Fechar este pedido? Ele vai parar de aparecer pro operador na bipagem (quando essa parte existir).'))return;
   try{
@@ -2654,21 +2783,31 @@ function popularSels(){
 }
 
 // Popup obrigatório de seleção de operador, baia, pedido e lote (aparece ao limpar sessão / iniciar)
+var popOpSel='', popBaiaSel=''; // seleção atual nos cards do popup
 function abrirOperBaia(){
-  var sp=document.getElementById('selOpPop'), bp=document.getElementById('selBaiaPop');
-  var curOp=document.getElementById('selOp').value||'', curBa=document.getElementById('selBaia').value||'';
-  sp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===curOp?' selected':'')+'>'+o+'</option>';}).join('');
-  bp.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===curBa?' selected':'')+'>'+b+'</option>';}).join('');
+  popOpSel=document.getElementById('selOp').value||sess.op||'';
+  popBaiaSel=document.getElementById('selBaia').value||sess.baia||'';
+  renderPickCards();
   document.getElementById('inpLotePop').value=sess.lote||'';
   document.getElementById('opPopErr').style.display='none';
   document.getElementById('baPopErr').style.display='none';
   document.getElementById('lotePopErr').style.display='none';
   document.getElementById('ovOperBaia').classList.remove('hidden');
-  setTimeout(function(){sp.focus();},120);
 }
+function renderPickCards(){
+  var opEl=document.getElementById('opCardsPop'), baEl=document.getElementById('baiaCardsPop');
+  opEl.innerHTML=ops.length?ops.map(function(o){
+    return '<button class="pick-card'+(o===popOpSel?' sel':'')+'" onclick="pickOp(\''+o.replace(/'/g,"\\'")+'\')">'+escAttr(o)+'</button>';
+  }).join(''):'<div style="grid-column:1/-1;font-size:11px;color:var(--td)">Nenhum operador cadastrado — cadastre em Admin.</div>';
+  baEl.innerHTML=baias.length?baias.map(function(b){
+    return '<button class="pick-card'+(b===popBaiaSel?' sel':'')+'" onclick="pickBaia(\''+b.replace(/'/g,"\\'")+'\')">'+escAttr(b)+'</button>';
+  }).join(''):'<div style="grid-column:1/-1;font-size:11px;color:var(--td)">Nenhuma baia cadastrada — cadastre em Admin.</div>';
+}
+function pickOp(o){ popOpSel=o; document.getElementById('opPopErr').style.display='none'; renderPickCards(); }
+function pickBaia(b){ popBaiaSel=b; document.getElementById('baPopErr').style.display='none'; renderPickCards(); }
 function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('hidden'); focusScan(); }
 function confirmarOperBaia(){
-  var op=document.getElementById('selOpPop').value, ba=document.getElementById('selBaiaPop').value;
+  var op=popOpSel, ba=popBaiaSel;
   var lote=document.getElementById('inpLotePop').value.trim();
   var ok=true;
   if(!op){document.getElementById('opPopErr').style.display='block';ok=false;} else {document.getElementById('opPopErr').style.display='none';}
