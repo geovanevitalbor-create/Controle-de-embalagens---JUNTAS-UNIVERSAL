@@ -175,7 +175,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 
 .cx-list{margin-bottom:12px}
 .cx-item{background-color:var(--gnd);border:1px solid rgba(22,163,74,.28);border-radius:8px;
-  padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px}
+  padding:9px 12px;margin-bottom:5px;font-size:11px}
+.cx-item-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cx-item-etq{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(22,163,74,.25);display:flex;justify-content:flex-end}
+.cx-etq-ok{font-size:10px;color:var(--gn);font-weight:600;font-family:var(--f-b)}
+.cx-etq-pend{background:var(--ywd);border:1px solid rgba(242,183,5,.4);color:var(--yw);
+  font-size:10px;font-weight:700;padding:6px 11px;border-radius:6px;cursor:pointer;font-family:var(--f-b)}
+.cx-etq-pend:active{transform:scale(.96)}
 .cx-n{font-family:var(--mo);font-weight:600;color:var(--gn);white-space:nowrap}
 .cx-its{flex:1;color:var(--tm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
 .cx-info{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
@@ -363,7 +369,7 @@ tr.nw td{animation:fl 1s ease-out}
 
 .prod-list{margin-top:0}
 .prod-item{display:flex;align-items:center;gap:10px;
-  background-color:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:12px 14px}
+  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:11px;padding:12px 14px}
 .prod-item-cod{font-family:var(--mo);color:var(--brand2);font-weight:600;font-size:12px;white-space:nowrap}
 .prod-item-nome{flex:1;color:var(--tx);font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-count{font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--td)}
@@ -479,13 +485,15 @@ tr.nw td{animation:fl 1s ease-out}
 .adm-wrap{display:flex;height:100%;overflow:hidden}
 .adm-tabs{display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:196px;
   background-color:var(--s1);border-right:1px solid var(--bd);padding:16px 10px;height:100%;overflow-y:auto}
-.adm-tab{display:flex;flex-direction:row;align-items:center;gap:11px;padding:14px 13px;width:100%;
-  border:none;border-radius:9px;cursor:pointer;background:transparent;color:var(--td);text-align:left;
-  font-size:13px;font-weight:600;font-family:var(--f-b);transition:background .15s,color .15s}
+.adm-tab{display:flex;flex-direction:row;align-items:center;gap:11px;padding:14px 13px 14px 10px;width:100%;
+  border:none;border-left:3px solid transparent;border-radius:0 9px 9px 0;cursor:pointer;background:transparent;color:var(--td);text-align:left;
+  font-size:13px;font-weight:600;font-family:var(--f-b);transition:background .15s,color .15s,border-color .15s}
 .adm-tab .ic{font-size:19px;line-height:1;flex-shrink:0}
-.adm-tab.active{background:var(--pu);color:#fff}
+.adm-tab.active{background:rgba(139,92,246,.14);color:#fff;border-left-color:var(--pu)}
 .adm-tab:active{transform:scale(.98)}
 .adm-content{flex:1;overflow-y:auto;padding:20px 26px}
+.adm-panel-title{font-family:var(--f-d);font-size:26px;letter-spacing:.02em;color:var(--tx);
+  margin-bottom:16px;padding-left:13px;border-left:4px solid var(--pu)}
 .adm-panel{display:none;animation:admFade .2s ease-out}
 .adm-panel.active{display:block}
 @keyframes admFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -526,7 +534,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:9px}
 .full{grid-column:1/-1}
 .adm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  background-color:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:14px 15px}
+  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:10px;padding:14px 15px}
 .adm-row-txt{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adm-icon-btn{width:46px;height:46px;border-radius:9px;font-size:17px;cursor:pointer;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;border:1px solid transparent;line-height:1}
@@ -703,6 +711,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       <div class="adm-content">
       <section class="adm-panel active" id="pane-op">
+        <h2 class="adm-panel-title">Operadores</h2>
         <div class="adm-addbar">
           <input class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
           <button class="adm-btn-add" onclick="addOp()">Adicionar</button>
@@ -712,6 +721,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </section>
 
       <section class="adm-panel" id="pane-baia">
+        <h2 class="adm-panel-title">Baias</h2>
         <div class="adm-addbar">
           <input class="adm-input" id="addBaiaI" placeholder="Ex: Baia 01" onkeydown="if(event.key==='Enter')addBaia()">
           <button class="adm-btn-add" onclick="addBaia()">Adicionar</button>
@@ -721,6 +731,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </section>
 
       <section class="adm-panel" id="pane-prod">
+        <h2 class="adm-panel-title">Peças</h2>
         <div class="adm-addcard">
           <input class="adm-input" id="addProdCod" placeholder="Código de barras (EAN / QR)" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()">
           <input class="adm-input" id="addProdNome" placeholder="Código Sabó (ex: 10023)" onkeydown="if(event.key==='Enter')addProd()">
@@ -736,6 +747,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </section>
 
       <section class="adm-panel" id="pane-hist">
+        <h2 class="adm-panel-title">Histórico</h2>
         <select class="adm-search" id="histOpSel" onchange="filtrarHist()" style="width:100%;margin-bottom:8px"><option value="">Todos os operadores</option></select>
         <div class="adm-searchrow">
           <select class="adm-search" id="histPedSel" onchange="filtrarHist()"><option value="">Todos os pedidos</option></select>
@@ -805,9 +817,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">Finalizar Embalagem</span><button class="md-x" onclick="fecharOv('ovFin')">✕</button></div>
     <div class="md-body">
       <div class="md-row">
-        <label class="lbl req">Número do Pedido</label>
-        <input class="inp" type="text" id="inpPed" placeholder="Ex: PED-2025-001">
-        <div id="pedErr" style="color:var(--rd);font-size:11px;display:none">Informe o número do pedido.</div>
+        <label class="lbl">Pedido</label>
+        <div id="finPedDisplay" style="font-family:var(--mo);font-size:18px;font-weight:600;padding:6px 0"></div>
       </div>
       <div class="lbl" style="margin-bottom:5px">Distribuição de caixas</div>
       <div class="cx-prev" id="cxPrev"></div>
@@ -869,10 +880,25 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <div class="md" style="max-width:440px">
     <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
     <div class="md-body">
-      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador e a baia para iniciar a sessão.</div>
+      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador, a baia e o pedido para iniciar a sessão.</div>
       <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
       <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
+      <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="inpPedPop" placeholder="Ex: PED-2025-001"><div id="pedPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
       <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">✔ Confirmar e iniciar</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ETIQUETA DA CAIXA — aparece assim que uma caixa fecha -->
+<div class="ov hidden" id="ovEtqCx">
+  <div class="md" style="max-width:420px">
+    <div class="md-hdr"><span class="md-title">🏷️ Etiqueta da Caixa</span><button class="md-x" onclick="fecharEtqCxObrigatoria()">✕</button></div>
+    <div class="md-body">
+      <div style="font-size:13px;color:var(--tx);margin-bottom:16px" id="etqCxInfo"></div>
+      <div class="md-acts">
+        <button class="btn-cncl" onclick="fecharEtqCxObrigatoria()">Depois</button>
+        <button class="btn-ok green" onclick="imprimirEtiquetaCaixaAtual()">🖨️ Imprimir Etiqueta da Caixa</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1010,7 +1036,7 @@ function irPara(id){
   document.getElementById('startScreen').style.display='none';
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('scr-'+id).classList.add('active');
-  if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
+  if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba||!sess.ped)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
   if(id==='fat'){carregarFat();}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
@@ -1158,8 +1184,18 @@ function focusScan(){
 document.addEventListener('click',function(e){
   if(document.getElementById('scr-bip').classList.contains('active')&&!e.target.matches('input,button,select,textarea,option'))setTimeout(focusScan,50);
 });
-// A maioria dos leitores (QR e EAN) envia Enter ao final da leitura
-document.getElementById('scanInput').addEventListener('keydown',function(e){if(e.key==='Enter')processar();});
+// A maioria dos leitores (QR e EAN) envia Enter ao final da leitura — mas nem todos.
+// Por isso, além do Enter, detectamos o fim da leitura pela pausa: o leitor digita os
+// caracteres em poucos ms, bem mais rápido que qualquer digitação manual. 90ms sem
+// nenhum caractere novo já significa "a leitura acabou".
+var scanAutoTimer=null;
+document.getElementById('scanInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){ clearTimeout(scanAutoTimer); processar(); }
+});
+document.getElementById('scanInput').addEventListener('input',function(){
+  clearTimeout(scanAutoTimer);
+  scanAutoTimer=setTimeout(processar,90);
+});
 
 function processar(){
   if(emCooldown)return;
@@ -1264,7 +1300,7 @@ function contabilizar(codigo,nome){
   showFb('✔ '+nome+'  +1  (caixa: '+tot+')','ok');
   animZone('success');beepSucesso();renderTabela(codigo);renderStats();
   document.getElementById('btnCx').disabled=false;
-  document.getElementById('btnFin').disabled=false;
+  atualizarBtnFin();
   salvarSess();
   enviar({tipo:'scan',codigo:codigo,nome:nome,qty:1,operador:op,baia:baia,sessaoId:sess.id,ts:new Date().toISOString()});
 }
@@ -1477,10 +1513,15 @@ function renderCxFech(){
   var w=document.getElementById('cxList');
   if(!cxFech.length){w.innerHTML='';return;}
   w.innerHTML=cxFech.map(function(cx,idx){
-    return '<div class="cx-item"><span class="cx-n">📦 Cx '+cx.num+'</span>'+
-    '<span class="cx-its">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span>'+
-    '<div class="cx-info"><span class="cx-unid">'+cx.totalUnid+' un.</span><span class="cx-peso">'+(cx.peso||0)+' kg</span></div>'+
-    '<button class="btn-rm" onclick="pedirSenhaRemoverCx('+idx+')" title="Remover esta caixa (requer senha admin)" style="margin-left:6px">✕</button>'+
+    var etqBtn = cx.etqImpressa
+      ? '<span class="cx-etq-ok">✓ etiqueta impressa</span>'
+      : '<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">⚠ imprimir etiqueta</button>';
+    return '<div class="cx-item">'+
+      '<div class="cx-item-top"><span class="cx-n">📦 Cx '+cx.num+'</span>'+
+      '<span class="cx-its">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span>'+
+      '<div class="cx-info"><span class="cx-unid">'+cx.totalUnid+' un.</span><span class="cx-peso">'+(cx.peso||0)+' kg</span></div>'+
+      '<button class="btn-rm" onclick="pedirSenhaRemoverCx('+idx+')" title="Remover esta caixa (requer senha admin)" style="margin-left:6px">✕</button></div>'+
+      '<div class="cx-item-etq">'+etqBtn+'</div>'+
     '</div>';
   }).join('');
 }
@@ -1549,20 +1590,79 @@ function okPeso(){
   document.getElementById('btnOkPeso').disabled=true;
   document.getElementById('btnOkPeso').textContent='Fechando...';
 
-  cxFech.push(Object.assign({},pendingCx,{peso:peso}));
+  cxFech.push(Object.assign({},pendingCx,{peso:peso,etqImpressa:false}));
   pendingCx=null;cxAtual={};
   document.getElementById('cxCount').textContent='0';
   document.getElementById('btnCx').disabled=true;
   fecharOv('ovPeso');
-  salvarSess();renderCxFech();renderTabela(null);renderStats();
-  showFb('📦 Caixa '+cxFech.length+' fechada — '+cxFech[cxFech.length-1].totalUnid+' un · '+peso+' kg','ok');
-  setTimeout(focusScan,100);
+  salvarSess();renderCxFech();renderTabela(null);renderStats();atualizarBtnFin();
+  var cxFechada=cxFech[cxFech.length-1];
+  showFb('📦 Caixa '+cxFechada.num+' fechada — '+cxFechada.totalUnid+' un · '+peso+' kg','ok');
 
   setTimeout(function(){
     fechandoCaixa=false;
     document.getElementById('btnOkPeso').disabled=false;
     document.getElementById('btnOkPeso').textContent='📦 Fechar Caixa';
   },500);
+
+  abrirEtqCxObrigatoria(cxFechada);
+}
+
+// Finalizar só libera com pelo menos 1 caixa fechada E todas com etiqueta impressa
+function atualizarBtnFin(){
+  var btn=document.getElementById('btnFin');
+  var temCaixa=cxFech.length>0;
+  var todasImpressas=cxFech.every(function(cx){return cx.etqImpressa===true;});
+  btn.disabled=!(temCaixa&&todasImpressas);
+}
+
+// ═══════════════════════════════════════
+// ETIQUETA DA CAIXA — obrigatória a cada fechamento (não é a etiqueta com EAN, essa é a interna com QR)
+// ═══════════════════════════════════════
+var caixaAguardandoEtq=null;
+function abrirEtqCxObrigatoria(cx){
+  caixaAguardandoEtq=cx;
+  document.getElementById('etqCxInfo').textContent='Caixa '+cx.num+' fechada — '+cx.totalUnid+' un · '+cx.peso.toFixed(2)+' kg. Imprima a etiqueta e cole na caixa antes de seguir.';
+  document.getElementById('ovEtqCx').classList.remove('hidden');
+}
+function fecharEtqCxObrigatoria(){
+  caixaAguardandoEtq=null;
+  fecharOv('ovEtqCx');
+  focusScan();
+}
+function imprimirEtiquetaCaixaAtual(){
+  if(!caixaAguardandoEtq)return;
+  imprimirEtiquetaCaixaUnica(caixaAguardandoEtq);
+  caixaAguardandoEtq.etqImpressa=true;
+  caixaAguardandoEtq=null;
+  salvarSess();renderCxFech();atualizarBtnFin();
+  fecharOv('ovEtqCx');
+  focusScan();
+}
+// Reimprimir uma caixa específica direto da lista (caso o "Depois" tenha sido usado, ou a impressão falhe)
+function imprimirEtiquetaCaixaIdx(idx){
+  var cx=cxFech[idx]; if(!cx)return;
+  imprimirEtiquetaCaixaUnica(cx);
+  cx.etqImpressa=true;
+  salvarSess();renderCxFech();atualizarBtnFin();
+}
+// Monta e imprime a etiqueta de UMA caixa. Sem "/total" porque nesse momento ainda pode
+// faltar fechar outras caixas — o total certo só existe no Relatório final.
+function imprimirEtiquetaCaixaUnica(cx){
+  var qrData=JSON.stringify({pedido:sess.ped,caixa:cx.num,totalUnid:cx.totalUnid,data:new Date().toLocaleDateString('pt-BR'),operador:sess.op,baia:sess.baia,itens:cx.itens,peso:cx.peso,sessao:sess.id});
+  var etq='<div class="label">'+
+      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+sess.ped+'</div></div>'+
+      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+'</div></div></div>'+
+      '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+cx.totalUnid+'</span></div>'+
+      '<div class="st"><span class="stk">PESO</span><span class="stv">'+cx.peso.toFixed(2)+'<i> kg</i></span></div></div>'+
+      '<div class="meta">'+new Date().toLocaleDateString('pt-BR')+' · '+sess.op+' · '+sess.baia+'</div>'+
+      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div>'+cx.itens.map(function(it){return '<div class="item"><span class="in">'+it.nome+'</span> <b>×'+it.qty+'</b></div>';}).join('')+'</div>'+
+      '<div class="qrbox"><div id="qr_x"></div><div class="sess">'+sess.id+'</div></div></div>'+
+    '</div>';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta — Caixa '+cx.num+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;color:#111}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:8px;font-weight:800;letter-spacing:.18em;opacity:.9}.ped{font-size:23px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:55mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:2px 10px 3px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:27px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:9px;font-weight:800;letter-spacing:.06em;color:#999}.stv{font-size:23px;font-weight:900;color:#111;line-height:1}.stv i{font-size:12px;font-weight:700;font-style:normal;color:#666}.meta{font-size:8.5px;font-weight:800;color:#333;padding:1.6mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:3mm;padding:1.6mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:9px;font-weight:800;letter-spacing:.1em;color:#111;margin-bottom:3px}.item{font-size:10px;font-weight:600;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1.5px 0;border-bottom:1px solid #ccc;color:#000}.item b{font-weight:900;color:#000}.qrbox{width:23mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{font-size:6px;color:#999;margin-top:2px;text-align:center;word-break:break-all;line-height:1.1}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+etq+'<script>var QD='+qrData+';window.onload=function(){var el=document.getElementById("qr_x");if(el)new QRCode(el,{text:JSON.stringify(QD),width:84,height:84,correctLevel:QRCode.CorrectLevel.M});setTimeout(function(){window.print();},700);};<\/script></body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para imprimir');return;}
+  w.document.write(h);w.document.close();
 }
 
 // ═══════════════════════════════════════
@@ -1589,30 +1689,30 @@ function abrirFin(){
     showFb('⚠ Há caixas sem peso informado. Isso não deveria acontecer — contate o suporte.','err');
     return;
   }
-  document.getElementById('inpPed').value='';
-  document.getElementById('pedErr').style.display='none';
+  var semEtq=cxs.filter(function(cx){return !cx.etqImpressa;});
+  if(semEtq.length){
+    showFb('⚠ Ainda tem caixa sem etiqueta impressa — imprima antes de finalizar','err');
+    return;
+  }
+  document.getElementById('finPedDisplay').textContent=sess.ped||'—';
   document.getElementById('cxPrev').innerHTML=cxs.map(function(cx){
     return '<div class="cx-prev-r"><span class="cx-prev-n">Cx '+cx.num+'</span><span class="cx-prev-i">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span><span class="cx-prev-u">'+cx.totalUnid+' un. · '+(cx.peso||0)+' kg</span></div>';
   }).join('');
   document.getElementById('ovFin').classList.remove('hidden');
-  setTimeout(function(){document.getElementById('inpPed').focus();},150);
 }
 
 function confirmarFin(){
   if(finalizandoEmbalagem)return;
-  var ped=document.getElementById('inpPed').value.trim();
-  if(!ped){document.getElementById('pedErr').style.display='block';document.getElementById('inpPed').focus();return;}
 
   finalizandoEmbalagem=true;
   document.getElementById('btnConfirmFin').disabled=true;
   document.getElementById('btnConfirmFin').textContent='Salvando...';
 
-  sess.ped=ped;
   var peso=cxFech.reduce(function(s,cx){return s+(cx.peso||0);},0);
   var now=new Date();
   var hora=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
   dadosFin={
-    session:{id:sess.id,pedido:ped,peso:peso,operador:sess.op,baia:sess.baia},
+    session:{id:sess.id,pedido:sess.ped,peso:peso,operador:sess.op,baia:sess.baia},
     caixas:calcCaixas(),
     dataEmbalagem:new Date().toLocaleDateString('pt-BR'),
     horaEmbalagem:hora
@@ -2083,21 +2183,25 @@ function abrirOperBaia(){
   var curOp=document.getElementById('selOp').value||'', curBa=document.getElementById('selBaia').value||'';
   sp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===curOp?' selected':'')+'>'+o+'</option>';}).join('');
   bp.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===curBa?' selected':'')+'>'+b+'</option>';}).join('');
+  document.getElementById('inpPedPop').value=sess.ped||'';
   document.getElementById('opPopErr').style.display='none';
   document.getElementById('baPopErr').style.display='none';
+  document.getElementById('pedPopErr').style.display='none';
   document.getElementById('ovOperBaia').classList.remove('hidden');
   setTimeout(function(){sp.focus();},120);
 }
 function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('hidden'); focusScan(); }
 function confirmarOperBaia(){
   var op=document.getElementById('selOpPop').value, ba=document.getElementById('selBaiaPop').value;
+  var ped=document.getElementById('inpPedPop').value.trim();
   var ok=true;
   if(!op){document.getElementById('opPopErr').style.display='block';ok=false;} else {document.getElementById('opPopErr').style.display='none';}
   if(!ba){document.getElementById('baPopErr').style.display='block';ok=false;} else {document.getElementById('baPopErr').style.display='none';}
+  if(!ped){document.getElementById('pedPopErr').style.display='block';ok=false;} else {document.getElementById('pedPopErr').style.display='none';}
   if(!ok)return;
   document.getElementById('selOp').value=op;
   document.getElementById('selBaia').value=ba;
-  sess.op=op; sess.baia=ba; salvarSess();
+  sess.op=op; sess.baia=ba; sess.ped=ped; salvarSess();
   document.getElementById('ovOperBaia').classList.add('hidden');
   validarCampos();
   focusScan();
@@ -2481,7 +2585,7 @@ renderCxFech();renderTabela(null);renderStats();
   if(Object.keys(cxAtual).length>0){ var bc=document.getElementById('btnCx'); if(bc)bc.disabled=false; }
 })();
 if(cxFech.length>0||Object.keys(cxAtual).length>0){
-  document.getElementById('btnFin').disabled=false;
+  atualizarBtnFin();
   // Havia embalagem em andamento (peças/caixas não finalizadas): retoma a bipagem
   // em vez de voltar pra tela inicial, pra não parecer que "perdeu tudo".
   try{ irPara('bip'); showFb('↩ Sessão anterior retomada','ok'); }catch(e){}
