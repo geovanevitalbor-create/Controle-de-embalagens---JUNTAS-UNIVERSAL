@@ -177,7 +177,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .cx-item{background-color:var(--gnd);border:1px solid rgba(22,163,74,.28);border-radius:8px;
   padding:9px 12px;margin-bottom:5px;font-size:11px}
 .cx-item-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cx-item-etq{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(22,163,74,.25);display:flex;justify-content:flex-end}
+.cx-item-etq{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(22,163,74,.25);display:flex;justify-content:flex-end;gap:6px}
 .cx-etq-ok{font-size:10px;color:var(--gn);font-weight:600;font-family:var(--f-b)}
 .cx-etq-pend{background:var(--ywd);border:1px solid rgba(242,183,5,.4);color:var(--yw);
   font-size:10px;font-weight:700;padding:6px 11px;border-radius:6px;cursor:pointer;font-family:var(--f-b)}
@@ -639,11 +639,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="st"><div class="sv" id="stCx" style="color:var(--gn)">0</div><div class="sl">Caixas</div></div>
         <div class="st"><div class="sv" id="stTt" style="color:var(--ac)">0</div><div class="sl">Total</div></div>
       </div>
-      <div class="cx-list" id="cxList"></div>
       <div class="tbl-card">
         <div class="tbl-hd"><span class="tbl-ttl" id="tblTtl">Caixa atual</span><span class="bdg" id="tblBdg">0</span></div>
         <div id="tblCont"><div class="empty"><div class="empty-ico">📋</div><div style="font-weight:600;margin-bottom:3px">Aguardando scan</div><div style="font-size:11px">Selecione operador e baia para iniciar</div></div></div>
       </div>
+      <div class="cx-list" id="cxList"></div>
     </div>
 
     <div class="bip-side">
@@ -1557,7 +1557,7 @@ function renderCxFech(){
   w.innerHTML=cxFech.map(function(cx,idx){
     var etqBtn = cx.etqImpressa
       ? '<span class="cx-etq-ok">✓ etiqueta impressa</span>'
-      : '<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">⚠ imprimir etiqueta</button>';
+      : '<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ da caixa</button><button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 do cliente</button>';
     return '<div class="cx-item">'+
       '<div class="cx-item-top"><span class="cx-n">📦 Cx '+cx.num+'</span>'+
       '<span class="cx-its">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span>'+
@@ -1699,6 +1699,15 @@ function imprimirEtiquetaClienteCaixaAtual(){
 function imprimirEtiquetaCaixaIdx(idx){
   var cx=cxFech[idx]; if(!cx)return;
   imprimirEtiquetaCaixaUnica(cx);
+  cx.etqImpressa=true;
+  salvarSess();renderCxFech();atualizarBtnFin();
+}
+// Irmã da de cima, mas pra etiqueta do cliente — usada no botão de pendência da lista de
+// caixas fechadas (quem clicou "Depois" no modal e volta pra resolver depois).
+function imprimirEtiquetaClienteCaixaIdx(idx){
+  var cx=cxFech[idx]; if(!cx)return;
+  if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
+  montarImprimirEtqCliente([cx], sess.ped, sess.id, sess.lote, '', '', null);
   cx.etqImpressa=true;
   salvarSess();renderCxFech();atualizarBtnFin();
 }
