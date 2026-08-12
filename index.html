@@ -369,9 +369,13 @@ tr.nw td{animation:fl 1s ease-out}
 
 .prod-list{margin-top:0}
 .prod-item{display:flex;align-items:center;gap:10px;
-  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:11px;padding:12px 14px}
-.prod-item-cod{font-family:var(--mo);color:var(--brand2);font-weight:600;font-size:12px;white-space:nowrap}
-.prod-item-nome{flex:1;color:var(--tx);font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:11px;padding:11px 12px}
+.prod-item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.prod-item-row{display:flex;align-items:baseline;gap:7px;min-width:0}
+.prod-item-tag{font-size:8px;font-weight:700;letter-spacing:.08em;color:var(--td);flex-shrink:0;width:34px}
+.prod-item-cod{font-family:var(--mo);color:var(--brand2);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-item-nome{font-family:var(--mo);color:var(--tx);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-item-acts{display:flex;gap:6px;flex-shrink:0}
 .prod-count{font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--td)}
 
 /* MODAIS */
@@ -537,7 +541,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 .adm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:10px;padding:14px 15px}
 .adm-row-txt{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.adm-icon-btn{width:46px;height:46px;border-radius:9px;font-size:17px;cursor:pointer;flex-shrink:0;
+.adm-icon-btn{width:36px;height:36px;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;border:1px solid transparent;line-height:1}
 .adm-icon-btn.del{background:var(--rdd);border-color:rgba(224,57,47,.35);color:var(--rd)}
 .adm-icon-btn.edit{background:var(--acg);border-color:rgba(0,131,62,.4);color:var(--brand2)}
@@ -2300,9 +2304,15 @@ function renderProdList(){
         '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">✕</button>'+
       '</div>';
     }
-    return '<div class="prod-item"><span class="prod-item-cod">'+p.codigo+'</span><span class="prod-item-nome">'+p.nome+'</span>'+
-      '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">✎</button>'+
-      '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">✕</button></div>';
+    return '<div class="prod-item">'+
+      '<div class="prod-item-info">'+
+        '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+p.codigo+'</span></div>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+p.nome+'</span></div>'+
+      '</div>'+
+      '<div class="prod-item-acts">'+
+        '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">✎</button>'+
+        '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">✕</button>'+
+      '</div></div>';
   }).join('')+(lista.length>300?'<div style="text-align:center;font-size:10px;color:var(--td);padding:8px">Mostrando 300 de '+lista.length+' — use o filtro</div>':'');
   if(editandoCod){var f=document.getElementById('editProdNome');if(f)f.focus();}
 }
