@@ -353,6 +353,9 @@ tr.nw td{animation:fl 1s ease-out}
   font-weight:600;background:var(--gn);color:#fff;margin-top:9px}
 .btn-save:hover{opacity:.85}
 .hist-row{background-color:var(--s2);border:1px solid var(--bd);border-radius:9px;margin-bottom:7px;padding:11px 13px}
+.hist-body{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
+.hist-body.open{display:block}
+.hist-body-inner{display:flex;flex-direction:column;gap:10px}
 .hist-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .hist-ped{font-family:var(--mo);font-weight:600;font-size:14px}
 .hist-dat{font-size:10px;color:var(--td);font-family:var(--mo)}
@@ -978,7 +981,14 @@ const Backend={
   async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
+  async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async atualizarCaixaAdmin(caixaId,peso,itens){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; var totalUnid=(itens||[]).reduce(function(s,it){return s+(Number(it.qty)||0);},0); await sbFetch('PATCH','/caixas?id=eq.'+caixaId,{peso:parseFloat(peso)||0,total_unidades:totalUnid}); await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); if(itens&&itens.length){ await sbFetch('POST','/itens_caixa',itens.map(function(it){return {caixa_id:caixaId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async excluirCaixaAdmin(caixaId){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); await sbFetch('DELETE','/caixas?id=eq.'+caixaId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async atualizarPedidoEmbalagem(sessao,novoPedido){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{pedido:novoPedido}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Depois de editar/excluir uma caixa, os totais gravados em embalagens (total_caixas,
+  // total_unidades, peso_total) ficam desatualizados — essa função busca as caixas atuais
+  // dessa sessão direto do banco (fonte da verdade) e regrava os 3 totais.
+  async recalcularEsalvarAgregados(sessao){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; var cxr=await sbFetch('GET','/caixas?sessao=eq.'+s+'&select=id,peso,total_unidades',null); var tc=(cxr||[]).length; var tu=(cxr||[]).reduce(function(a,c){return a+(Number(c.total_unidades)||0);},0); var pt=(cxr||[]).reduce(function(a,c){return a+(parseFloat(c.peso)||0);},0); await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{total_caixas:tc,total_unidades:tu,peso_total:Number(pt.toFixed(2))}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
 (function(){
   function makeRunner(){
@@ -2324,6 +2334,7 @@ function carregarProdutosAdmin(){
 }
 
 var editandoCod=null; // código da peça em edição inline (null = nenhuma)
+var histEditCaixaId=null, histEditDraft=null; // caixa do Histórico em edição (rascunho local até salvar)
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
 function renderProdList(){
@@ -2449,16 +2460,71 @@ function carregarHist(){
       .listarEmbalagens();
   }catch(e){el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>';}
 }
+// Quais linhas do Histórico estão expandidas agora — {ri: true}. Sobrevive a re-render
+// porque orienta o próprio render, ao contrário de uma classe CSS que se perderia toda
+// vez que innerHTML é reconstruído do zero.
+var histOpenSet={};
+function togHist(ri){ histOpenSet[ri]=!histOpenSet[ri]; filtrarHist(); }
+
 function renderHist(lista){
   if(!lista.length){document.getElementById('histLista').innerHTML='<div class="adm-empty2"><div class="em-ic">📭</div>Nenhuma embalagem para este filtro.</div>';return;}
   document.getElementById('histLista').innerHTML=lista.map(function(e){
-    var ri=todasEmb.indexOf(e); // índice real na lista completa (para reimpressão correta)
+    var ri=todasEmb.indexOf(e); // índice real na lista completa (para reimpressão e edição corretas)
+    var aberto=!!histOpenSet[ri];
     return '<div class="hist-row">'+
-      '<div class="hist-top"><span class="hist-ped">'+e.pedido+'</span><span class="hist-dat">'+e.data+(e.hora?' '+e.hora:'')+'</span></div>'+
+      '<div class="hist-top" onclick="togHist('+ri+')" style="cursor:pointer"><span class="hist-ped">'+e.pedido+'</span><span class="hist-dat">'+e.data+(e.hora?' '+e.hora:'')+'</span></div>'+
       '<div class="hist-mid">'+e.operador+' · '+e.baia+' · '+e.totalCaixas+' cx · '+e.totalUnid+' un · '+e.peso+' kg</div>'+
       '<div class="hist-btns"><button class="btn-rp rel" onclick="rRel('+ri+')">🖨 Rel.</button><button class="btn-rp etq" onclick="rEtq('+ri+')">🏷 Etq.</button><button class="btn-rp cli" onclick="rCli('+ri+')">📦 Cliente</button><button class="btn-rp all" onclick="rTudo('+ri+')">⚡</button></div>'+
+      '<div class="hist-body'+(aberto?' open':'')+'" id="hb-'+ri+'">'+(aberto?renderHistBody(e,ri):'')+'</div>'+
     '</div>';
   }).join('');
+}
+
+// Corpo expandido de uma linha do Histórico: campo de pedido editável + um card por caixa.
+function renderHistBody(e,ri){
+  var pedRow='<div class="md-row" style="margin-bottom:0"><label class="lbl">Número do Pedido</label><div style="display:flex;gap:6px">'+
+    '<input class="inp" id="histPedInp-'+ri+'" value="'+escAttr(e.pedido)+'" style="flex:1">'+
+    '<button class="adm-btn-add" onclick="salvarPedidoHist('+ri+')">Salvar</button>'+
+  '</div></div>';
+  var caixasHtml=(e.caixas&&e.caixas.length)?(e.caixas.map(function(cx){return renderCaixaEditCard(cx,ri);}).join('')):'<div style="font-size:11px;color:var(--td)">Sem caixas nesta embalagem.</div>';
+  return '<div class="hist-body-inner">'+pedRow+caixasHtml+'</div>';
+}
+
+// Card de uma caixa: modo resumo (✎ Editar / 🗑 Excluir) ou modo edição (peso + itens + add item).
+function renderCaixaEditCard(cx,ri){
+  var editando = histEditCaixaId!==null && histEditCaixaId===cx.id;
+  if(!editando){
+    return '<div class="cx-detalhe">'+
+      '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
+      (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+it.nome+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+      '<div style="display:flex;gap:6px;margin-top:8px">'+
+        '<button class="adm-btn-add" style="flex:1;padding:8px;font-size:12px" onclick="abrirEdicaoCaixaHist('+cx.id+','+ri+')"'+(cx.id?'':' disabled title="Caixa sem id — offline, sincronize antes"')+'>✎ Editar</button>'+
+        '<button class="btn-rm" onclick="pedirExcluirCaixaHist('+cx.id+','+ri+')" title="Excluir esta caixa"'+(cx.id?'':' disabled')+'>🗑</button>'+
+      '</div>'+
+    '</div>';
+  }
+  var itensRows=(histEditDraft.itens||[]).map(function(it,i){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'+
+      '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
+      '<input class="inp" type="number" min="0" step="1" value="'+it.qty+'" style="width:70px;padding:8px;min-height:0" onchange="histDraftSetQty('+i+',this.value)">'+
+      '<button class="btn-rm" onclick="histDraftRemoveItem('+i+','+ri+')" style="padding:6px 10px">✕</button>'+
+    '</div>';
+  }).join('');
+  return '<div class="cx-detalhe" style="border-color:var(--ac)">'+
+    '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' — editando</span></div>'+
+    '<div class="md-row" style="margin-bottom:8px"><label class="lbl">Peso (kg)</label><input class="inp" type="number" min="0" step="0.01" value="'+histEditDraft.peso+'" style="min-height:0;padding:9px" onchange="histDraftSetPeso(this.value)"></div>'+
+    '<div class="lbl" style="margin-bottom:5px">Itens</div>'+
+    itensRows+
+    '<div style="display:flex;gap:6px;margin:8px 0">'+
+      '<input class="inp" id="histAddCod-'+ri+'" placeholder="Código" style="width:40%;padding:8px;font-size:12px;min-height:0">'+
+      '<input class="inp" id="histAddQtd-'+ri+'" type="number" placeholder="Qtd" min="1" style="width:70px;padding:8px;font-size:12px;min-height:0">'+
+      '<button class="adm-btn-add" onclick="histDraftAddItem('+ri+')" style="padding:0 12px;font-size:12px">+ item</button>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-top:10px">'+
+      '<button class="btn-cncl" style="flex:1" onclick="cancelarEdicaoCaixaHist('+ri+')">Cancelar</button>'+
+      '<button class="btn-ok green" style="flex:1;padding:10px" onclick="salvarCaixaHist('+ri+')">✔ Salvar Caixa</button>'+
+    '</div>'+
+  '</div>';
 }
 
 // Preenche os dropdowns de operador e pedido do Histórico
@@ -2480,6 +2546,96 @@ function filtrarHist(){
     return (!op||String(e.operador||'')===op)&&(!ped||String(e.pedido||'')===ped);
   });
   renderHist(lista);
+}
+
+// ═══════════════════════════════════════
+// HISTÓRICO — edição de pedido, peso, itens e exclusão de caixa (admin)
+// ═══════════════════════════════════════
+function salvarPedidoHist(ri){
+  var e=todasEmb[ri]; if(!e)return;
+  var inp=document.getElementById('histPedInp-'+ri); if(!inp)return;
+  var novo=inp.value.trim();
+  if(!novo){toast('Pedido não pode ficar vazio');return;}
+  if(novo===e.pedido){return;}
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){ toast('✔ Pedido atualizado'); carregarHist(); }
+        else{ toast('⚠ Não salvou — tente de novo'); }
+      })
+      .withFailureHandler(function(){toast('⚠ Sem conexão — não salvou');})
+      .atualizarPedidoEmbalagem(e.sessao,novo);
+  }catch(e2){toast('⚠ Sem conexão — não salvou');}
+}
+
+function abrirEdicaoCaixaHist(caixaId,ri){
+  var e=todasEmb[ri]; if(!e)return;
+  var cx=(e.caixas||[]).find(function(c){return c.id===caixaId;});
+  if(!cx){toast('Caixa não encontrada — recarregue o Histórico');return;}
+  histEditCaixaId=caixaId;
+  histEditDraft={peso:cx.peso||0,itens:(cx.itens||[]).map(function(it){return {codigo:it.codigo,nome:it.nome,qty:it.qty};})};
+  filtrarHist();
+}
+function cancelarEdicaoCaixaHist(ri){
+  histEditCaixaId=null; histEditDraft=null;
+  filtrarHist();
+}
+function histDraftSetPeso(v){ if(histEditDraft) histEditDraft.peso=parseFloat(v)||0; }
+function histDraftSetQty(i,v){ if(histEditDraft&&histEditDraft.itens[i]) histEditDraft.itens[i].qty=Math.max(0,parseInt(v,10)||0); }
+function histDraftRemoveItem(i,ri){ if(!histEditDraft)return; histEditDraft.itens.splice(i,1); filtrarHist(); }
+function histDraftAddItem(ri){
+  if(!histEditDraft)return;
+  var codInp=document.getElementById('histAddCod-'+ri), qtdInp=document.getElementById('histAddQtd-'+ri);
+  var cod=codInp.value.trim(), qtd=parseInt(qtdInp.value,10);
+  if(!cod||!qtd||qtd<=0){toast('Informe código e quantidade válida');return;}
+  if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
+    toast('Código não cadastrado em Admin › Peças');return;
+  }
+  var existente=histEditDraft.itens.find(function(it){return it.codigo===cod;});
+  if(existente){ existente.qty+=qtd; } else { histEditDraft.itens.push({codigo:cod,nome:produtosCache[cod],qty:qtd}); }
+  filtrarHist();
+}
+function salvarCaixaHist(ri){
+  if(!histEditDraft||histEditCaixaId===null)return;
+  if(!histEditDraft.itens.length){toast('Caixa precisa ter ao menos 1 item — para zerar, exclua a caixa');return;}
+  var e=todasEmb[ri]; if(!e)return;
+  var caixaId=histEditCaixaId, draft=histEditDraft, sessao=e.sessao;
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){
+          histEditCaixaId=null; histEditDraft=null;
+          try{
+            google.script.run
+              .withSuccessHandler(function(){toast('✔ Caixa atualizada');carregarHist();})
+              .withFailureHandler(function(){toast('⚠ Caixa salva, mas os totais do pedido podem estar desatualizados — recarregue');carregarHist();})
+              .recalcularEsalvarAgregados(sessao);
+          }catch(e2){carregarHist();}
+        }else{ toast('⚠ Não salvou — tente de novo'); }
+      })
+      .withFailureHandler(function(){toast('⚠ Sem conexão — não salvou');})
+      .atualizarCaixaAdmin(caixaId,draft.peso,draft.itens);
+  }catch(e3){toast('⚠ Sem conexão — não salvou');}
+}
+function pedirExcluirCaixaHist(caixaId,ri){
+  if(!confirm('Excluir esta caixa e todos os itens dela? Isso não pode ser desfeito, e o número dela não vai ser reaproveitado por outra caixa.'))return;
+  var e=todasEmb[ri]; if(!e)return;
+  var sessao=e.sessao;
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){
+          try{
+            google.script.run
+              .withSuccessHandler(function(){toast('🗑 Caixa excluída');carregarHist();})
+              .withFailureHandler(function(){toast('⚠ Caixa excluída, mas os totais do pedido podem estar desatualizados — recarregue');carregarHist();})
+              .recalcularEsalvarAgregados(sessao);
+          }catch(e2){carregarHist();}
+        }else{ toast('⚠ Não excluiu — tente de novo'); }
+      })
+      .withFailureHandler(function(){toast('⚠ Sem conexão — não excluiu');})
+      .excluirCaixaAdmin(caixaId);
+  }catch(e3){toast('⚠ Sem conexão — não excluiu');}
 }
 
 // ═══════════════════════════════════════
@@ -2514,9 +2670,10 @@ function impRel(){
   var d=dadosFin;if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
   var tot=d.caixas.reduce(function(s,cx){return s+cx.totalUnid;},0);
   var ppu=tot>0?d.session.peso/tot:0;
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — '+d.session.pedido+'</title><style>body{font-family:Segoe UI,sans-serif;padding:24px;color:#111;font-size:13px}h1{font-size:20px;font-weight:800;margin-bottom:2px}.meta{font-size:11px;color:#666;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f5f5f5;font-weight:700;font-size:11px;text-transform:uppercase}.tots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.ti{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:12px;text-align:center}.tv{font-size:22px;font-weight:800}.tl{font-size:10px;color:#777;text-transform:uppercase;margin-top:2px}</style></head><body>'+
-    '<h1>Relatório de Embalagem</h1>'+
-    '<div class="meta"><span>Pedido: <b>'+d.session.pedido+'</b></span><span>'+d.dataEmbalagem+' '+d.horaEmbalagem+'</span><span>'+d.session.operador+'</span><span>'+d.session.baia+'</span><span>'+d.session.id+'</span></div>'+
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — '+d.session.pedido+'</title><style>body{font-family:Segoe UI,sans-serif;padding:24px;color:#111;font-size:13px}h1{font-size:20px;font-weight:800;margin-bottom:2px}.rel-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap-reverse}.rel-ped{background:#00833E;color:#fff;border-radius:8px;padding:9px 22px;text-align:center;flex-shrink:0}.rel-ped-k{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.85}.rel-ped-v{font-size:28px;font-weight:900;line-height:1.15;white-space:nowrap}.meta{font-size:11px;color:#666;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f5f5f5;font-weight:700;font-size:11px;text-transform:uppercase}.tots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.ti{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:12px;text-align:center}.tv{font-size:22px;font-weight:800}.tl{font-size:10px;color:#777;text-transform:uppercase;margin-top:2px}</style></head><body>'+
+    '<div class="rel-hdr"><div><h1>Relatório de Embalagem</h1>'+
+    '<div class="meta"><span>'+d.dataEmbalagem+' '+d.horaEmbalagem+'</span><span>'+d.session.operador+'</span><span>'+d.session.baia+'</span><span>'+d.session.id+'</span></div></div>'+
+    '<div class="rel-ped"><div class="rel-ped-k">PEDIDO</div><div class="rel-ped-v">'+d.session.pedido+'</div></div></div>'+
     '<table><thead><tr><th>Caixa</th><th>Peça</th><th>Código de barra</th><th>Unidades</th><th>Peso</th></tr></thead><tbody>'+
     d.caixas.map(function(cx){var pesoCx=cx.peso>0?cx.peso.toFixed(2):(ppu*cx.totalUnid).toFixed(2);return '<tr><td><b>Caixa '+cx.num+' / '+d.caixas.length+'</b></td><td>'+cx.itens.map(function(it){return it.nome+' × '+it.qty;}).join('<br>')+'</td><td style="font-family:monospace;font-size:11px">'+cx.itens.map(function(it){return (it.codigo||'—');}).join('<br>')+'</td><td style="text-align:center;font-weight:700">'+cx.totalUnid+'</td><td style="text-align:center">'+pesoCx+' kg</td></tr>';}).join('')+
     '</tbody></table>'+
