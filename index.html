@@ -500,8 +500,9 @@ tr.nw td{animation:fl 1s ease-out}
 
 .adm-addbar{display:flex;gap:8px;margin-bottom:8px}
 .adm-addcard{background-color:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;
-  display:flex;flex-wrap:wrap;align-items:flex-end;gap:9px;margin-bottom:14px}
-.adm-addcard .adm-input{flex:1;min-width:220px}
+  display:flex;flex-wrap:wrap;align-items:flex-start;gap:9px 12px;margin-bottom:14px}
+.adm-field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:200px}
+.adm-field-lbl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--td);font-family:var(--f-b)}
 
 .adm-input{flex:1;width:100%;background-color:var(--s2);border:1px solid var(--bd);color:var(--tx);
   padding:14px 15px;border-radius:10px;font-size:15px;outline:none;font-family:var(--f-b)}
@@ -540,6 +541,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   display:flex;align-items:center;justify-content:center;border:1px solid transparent;line-height:1}
 .adm-icon-btn.del{background:var(--rdd);border-color:rgba(224,57,47,.35);color:var(--rd)}
 .adm-icon-btn.edit{background:var(--acg);border-color:rgba(0,131,62,.4);color:var(--brand2)}
+.adm-icon-btn.cancel{background:var(--s3);border-color:var(--bd2);color:var(--tm)}
 .adm-icon-btn:active{transform:scale(.9)}
 .adm-empty2{padding:34px 16px;text-align:center;color:var(--td);grid-column:1/-1;
   background-color:var(--s1);border:1px dashed var(--bd);border-radius:12px}
@@ -733,8 +735,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <section class="adm-panel" id="pane-prod">
         <h2 class="adm-panel-title">Peças</h2>
         <div class="adm-addcard">
-          <input class="adm-input" id="addProdCod" placeholder="Código de barras (EAN / QR)" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()">
-          <input class="adm-input" id="addProdNome" placeholder="Código Sabó (ex: 10023)" onkeydown="if(event.key==='Enter')addProd()">
+          <div class="adm-field"><label class="adm-field-lbl">Código de barras (EAN)</label><input class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
+          <div class="adm-field"><label class="adm-field-lbl">Código Sabó</label><input class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
           <button class="adm-btn-add wide" onclick="addProd()">Adicionar peça</button>
           <div id="addProdErr" class="adm-err"></div>
         </div>
@@ -2160,7 +2162,7 @@ function renderCfg(id,arr,kind){
       return '<div class="adm-row full" style="gap:6px">'+
         '<input class="adm-input" id="editCfgInp" value="'+escAttr(v)+'" style="padding:11px 12px" onkeydown="if(event.key===\'Enter\')saveCfgEdit(\''+kind+'\','+i+')">'+
         '<button class="adm-btn-add" onclick="saveCfgEdit(\''+kind+'\','+i+')" style="padding:0 14px">Salvar</button>'+
-        '<button class="adm-icon-btn del" onclick="cancelCfgEdit()" title="Cancelar">✕</button>'+
+        '<button class="adm-icon-btn cancel" onclick="cancelCfgEdit()" title="Cancelar">✕</button>'+
       '</div>';
     }
     return '<div class="adm-row"><span class="adm-row-txt">'+v+'</span>'+
@@ -2295,7 +2297,7 @@ function renderProdList(){
         '<input class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
         '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
         '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
-        '<button class="adm-icon-btn del" onclick="cancelProdEdit()" title="Cancelar">✕</button>'+
+        '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">✕</button>'+
       '</div>';
     }
     return '<div class="prod-item"><span class="prod-item-cod">'+p.codigo+'</span><span class="prod-item-nome">'+p.nome+'</span>'+
