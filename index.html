@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#0a130d;--s1:#101c15;--s2:#17251b;--s3:#1f3325;
@@ -885,14 +886,28 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="cadPedNum" placeholder="Ex: PED-2025-001"><div id="cadPedNumErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
       <div class="lbl" style="margin:12px 0 6px">Itens esperados</div>
-      <div id="cadPedItensList"></div>
-      <div style="display:flex;gap:6px;margin:8px 0">
-        <input class="inp" id="cadPedAddCod" placeholder="Código do produto" style="flex:1;padding:11px;font-size:13px;min-height:0" onkeydown="if(event.key==='Enter')document.getElementById('cadPedAddQtd').focus()">
-        <input class="inp" id="cadPedAddQtd" type="number" placeholder="Qtd" min="1" style="width:80px;padding:11px;font-size:13px;min-height:0" onkeydown="if(event.key==='Enter')cadPedAddItem()">
-        <button class="adm-btn-add" onclick="cadPedAddItem()">+ item</button>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="adm-btn-add" onclick="abrirEscolherProdutos()">🔎 Escolher Produtos</button>
+        <button class="adm-btn-add" style="background:var(--gn)" onclick="document.getElementById('cadPedExcelFile').click()">📤 Importar Excel</button>
+        <button class="btn-cncl" onclick="baixarModeloPedidoExcel()">⬇ Baixar modelo</button>
+        <input type="file" id="cadPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelPedido(this)">
       </div>
-      <div id="cadPedItensErr" style="color:var(--rd);font-size:11px;display:none">Adicione ao menos 1 item — código precisa existir em Admin › Peças.</div>
+      <div id="cadPedItensList"></div>
+      <div id="cadPedItensErr" style="color:var(--rd);font-size:11px;display:none">Adicione ao menos 1 item — escolha na lista, importe um Excel, ou os dois.</div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovCadastrarPedido')">Cancelar</button><button class="btn-ok green" onclick="salvarPedidoEsperado()">✔ Cadastrar Pedido</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESCOLHER PRODUTOS — multi-seleção por nome, usado no cadastro de pedido -->
+<div class="ov hidden" id="ovEscolherProdutos">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">Escolher Produtos</span><button class="md-x" onclick="fecharOv('ovEscolherProdutos')">✕</button></div>
+    <div class="md-body">
+      <input class="adm-search" id="escProdBusca" placeholder="🔍 Buscar por nome..." oninput="renderEscolherProdutos()" style="margin-bottom:10px" autocomplete="off">
+      <div id="escProdLista" style="max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+      <div class="md-row"><label class="lbl">Quantidade para cada um selecionado</label><input class="inp" type="number" id="escProdQtdPadrao" value="1" min="1"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEscolherProdutos')">Cancelar</button><button class="btn-ok green" id="btnAdicionarSelecionados" onclick="adicionarProdutosSelecionados()">Adicionar selecionados</button></div>
     </div>
   </div>
 </div>
@@ -2222,29 +2237,125 @@ function abrirCadastrarPedido(){
 }
 function renderCadPedItens(){
   var el=document.getElementById('cadPedItensList'); if(!el)return;
-  if(!cadPedItens.length){el.innerHTML='<div style="font-size:11px;color:var(--td)">Nenhum item ainda.</div>';return;}
+  if(!cadPedItens.length){el.innerHTML='<div style="font-size:11px;color:var(--td)">Nenhum item ainda — escolha produtos ou importe um Excel.</div>';return;}
   el.innerHTML=cadPedItens.map(function(it,i){
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:12px">'+
       '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
-      '<span class="pill">'+it.qtd+' un.</span>'+
+      '<input class="inp" type="number" min="1" value="'+it.qtd+'" style="width:74px;padding:8px;min-height:0" onchange="cadPedSetQtd('+i+',this.value)">'+
       '<button class="btn-rm" onclick="cadPedRemoveItem('+i+')" style="padding:6px 10px">✕</button>'+
     '</div>';
   }).join('');
 }
-function cadPedAddItem(){
-  var codInp=document.getElementById('cadPedAddCod'), qtdInp=document.getElementById('cadPedAddQtd');
-  var cod=codInp.value.trim(), qtd=parseInt(qtdInp.value,10);
-  if(!cod||!qtd||qtd<=0){toast('Informe código e quantidade válida');return;}
-  if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
-    toast('Código não cadastrado em Admin › Peças');return;
-  }
-  var existente=cadPedItens.find(function(it){return it.codigo===cod;});
-  if(existente){ existente.qtd+=qtd; } else { cadPedItens.push({codigo:cod,nome:produtosCache[cod],qtd:qtd}); }
-  codInp.value=''; qtdInp.value='';
-  renderCadPedItens();
-  codInp.focus();
-}
+function cadPedSetQtd(i,v){ if(cadPedItens[i]) cadPedItens[i].qtd=Math.max(1,parseInt(v,10)||1); }
 function cadPedRemoveItem(i){ cadPedItens.splice(i,1); renderCadPedItens(); }
+function cadPedAdicionar(codigo,nome,qtd){
+  var existente=cadPedItens.find(function(it){return it.codigo===codigo;});
+  if(existente){ existente.qtd+=qtd; } else { cadPedItens.push({codigo:codigo,nome:nome,qtd:qtd}); }
+}
+
+// ── Escolher Produtos: lista com busca por nome + seleção múltipla ──
+var escProdSelecionados={}; // {codigo: true}
+function abrirEscolherProdutos(){
+  escProdSelecionados={};
+  document.getElementById('escProdBusca').value='';
+  document.getElementById('escProdQtdPadrao').value='1';
+  renderEscolherProdutos();
+  document.getElementById('ovEscolherProdutos').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('escProdBusca').focus();},150);
+}
+function renderEscolherProdutos(){
+  var q=(document.getElementById('escProdBusca').value||'').trim().toLowerCase();
+  var lista=(produtosAdmin||[]).filter(function(p){ return !q || String(p.nome).toLowerCase().indexOf(q)!==-1 || String(p.codigo).toLowerCase().indexOf(q)!==-1; });
+  var el=document.getElementById('escProdLista');
+  var nSel=Object.keys(escProdSelecionados).filter(function(k){return escProdSelecionados[k];}).length;
+  var btn=document.getElementById('btnAdicionarSelecionados');
+  if(btn) btn.textContent = nSel? ('Adicionar '+nSel+' selecionado'+(nSel===1?'':'s')) : 'Adicionar selecionados';
+  if(!lista.length){el.innerHTML='<div style="font-size:12px;color:var(--td);padding:14px;text-align:center">Nenhum produto encontrado.</div>';return;}
+  el.innerHTML=lista.slice(0,200).map(function(p){
+    var checked=!!escProdSelecionados[p.codigo];
+    var codEsc=p.codigo.replace(/'/g,"\\'");
+    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleEscProd(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
+      '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+p.codigo+')</span></span>'+
+    '</label>';
+  }).join('')+(lista.length>200?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 200 de '+lista.length+' — use a busca</div>':'');
+}
+function toggleEscProd(cod){ escProdSelecionados[cod]=!escProdSelecionados[cod]; renderEscolherProdutos(); }
+function adicionarProdutosSelecionados(){
+  var qtd=parseInt(document.getElementById('escProdQtdPadrao').value,10)||1;
+  var cods=Object.keys(escProdSelecionados).filter(function(k){return escProdSelecionados[k];});
+  if(!cods.length){toast('Selecione ao menos 1 produto');return;}
+  cods.forEach(function(cod){
+    if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod))return;
+    cadPedAdicionar(cod,produtosCache[cod],qtd);
+  });
+  renderCadPedItens();
+  fecharOv('ovEscolherProdutos');
+  toast('✔ '+cods.length+' produto(s) adicionado(s)');
+}
+
+// ── Importar/baixar modelo Excel (colunas: Produto | Quantidade — Produto é o nome, igual ao cadastro de Peças) ──
+function baixarModeloPedidoExcel(){
+  var exemploNome=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].nome:'NOME_DO_PRODUTO_AQUI';
+  var linhas=[['Produto','Quantidade'],[exemploNome,10]];
+  var payload=JSON.stringify({linhas:linhas}).replace(/</g,'\\u003c');
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para baixar o modelo');return;}
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando modelo...</title>'+
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>'+
+    '<style>body{font-family:Segoe UI,sans-serif;background:#0a0e0c;color:#e8f0ea;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:14px;text-align:center;padding:20px}'+
+    '.b{background:#00833E;border:none;color:#fff;padding:14px 22px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:none}'+
+    '.sp{width:34px;height:34px;border:4px solid #28352d;border-top-color:#00833E;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head>'+
+    '<body><div class="sp" id="sp"></div><div id="msg">Gerando modelo...</div>'+
+    '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
+    '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:32},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
+    'XLSX.writeFile(wb,"modelo_pedido.xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! Preencha Produto (nome igual ao cadastro de Peças) e Quantidade, depois importe de volta no Cadastrar Pedido.";document.getElementById("bd").style.display="inline-block";}'+
+    'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
+    'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
+  w.document.write(h);w.document.close();
+}
+function handleImportExcelPedido(fileInput){
+  var file=fileInput.files&&fileInput.files[0];
+  fileInput.value=''; // permite reimportar o mesmo arquivo de novo depois, se precisar
+  if(!file)return;
+  if(!produtosCache){toast('Cadastro de peças ainda não carregou — aguarde a conexão e tente de novo');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var sheet=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      processarImportExcelPedido(rows);
+    }catch(err){
+      alert('Não consegui ler esse arquivo: '+err.message);
+    }
+  };
+  reader.onerror=function(){ alert('Falha ao ler o arquivo.'); };
+  reader.readAsArrayBuffer(file);
+}
+function processarImportExcelPedido(rows){
+  var porNome={};
+  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
+  var achados=0, naoAchados=[];
+  (rows||[]).forEach(function(r){
+    var nomeRaw=String(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')).trim();
+    var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
+    if(!nomeRaw||!qtd||qtd<=0)return;
+    var cod=porNome[nomeRaw.toLowerCase()];
+    if(!cod){ naoAchados.push(nomeRaw); return; }
+    achados++;
+    cadPedAdicionar(cod,produtosCache[cod],qtd);
+  });
+  renderCadPedItens();
+  if(!achados&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
+  if(naoAchados.length){
+    alert('Importado: '+achados+' item(ns).\n\nNão encontrado(s) no cadastro de Peças (nome tem que ser idêntico) — '+naoAchados.length+':\n'+naoAchados.slice(0,15).join('\n')+(naoAchados.length>15?'\n...':''));
+  }else{
+    toast('✔ '+achados+' item(ns) importado(s) do Excel');
+  }
+}
 
 var salvandoPedidoEsperado=false;
 function salvarPedidoEsperado(){
