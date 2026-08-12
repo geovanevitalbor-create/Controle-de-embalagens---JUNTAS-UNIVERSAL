@@ -866,7 +866,6 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div class="md-row"><label class="lbl req">Cliente</label><input class="inp" type="text" id="fatCliente" placeholder="Nome do cliente"><div id="fatClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
       <div class="md-row"><label class="lbl req">Data de Faturamento</label><input class="inp" type="date" id="fatData"><div id="fatDataErr" style="color:var(--rd);font-size:11px;display:none">Informe a data de faturamento.</div></div>
       <div class="md-row"><label class="lbl req">Número da Nota Fiscal</label><input class="inp" type="text" id="fatNF" placeholder="Ex: NF-0001234"><div id="fatNFErr" style="color:var(--rd);font-size:11px;display:none">Informe o número da NF.</div></div>
-      <div class="md-row"><label class="lbl req">Lote de fabricação</label><input class="inp" type="text" id="fatLote" placeholder="Ex: 0085426F22"><div id="fatLoteErr" style="color:var(--rd);font-size:11px;display:none">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
       <div class="md-row"><label class="lbl">Transportadora</label><input class="inp" type="text" id="fatTransp" placeholder="Ex: RPD"></div>
       <div class="md-row"><label class="lbl">Data de fabricação</label><input class="inp" type="text" id="fatDataFab" placeholder="Ex: 23/06/2026"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFaturar" onclick="confirmarFaturamento()">✅ Confirmar Faturamento</button></div>
@@ -899,6 +898,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
       <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
       <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="inpPedPop" placeholder="Ex: PED-2025-001"><div id="pedPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
+      <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
       <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">✔ Confirmar e iniciar</button></div>
     </div>
   </div>
@@ -910,10 +910,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">🏷️ Etiqueta da Caixa</span><button class="md-x" onclick="fecharEtqCxObrigatoria()">✕</button></div>
     <div class="md-body">
       <div style="font-size:13px;color:var(--tx);margin-bottom:16px" id="etqCxInfo"></div>
-      <div class="md-acts">
-        <button class="btn-cncl" onclick="fecharEtqCxObrigatoria()">Depois</button>
-        <button class="btn-ok green" onclick="imprimirEtiquetaCaixaAtual()">🖨️ Imprimir Etiqueta da Caixa</button>
+      <div class="print-opts">
+        <button class="popt g" onclick="imprimirEtiquetaCaixaAtual()"><span class="popt-ico">🏷️</span><span class="popt-txt"><span class="popt-t">Etiqueta da Caixa</span><span class="popt-s">Interna, com QR de controle</span></span></button>
+        <button class="popt p" onclick="imprimirEtiquetaClienteCaixaAtual()"><span class="popt-ico">📦</span><span class="popt-txt"><span class="popt-t">Etiqueta do Cliente</span><span class="popt-s">EAN + QR + lote, vai na caixa de saída</span></span></button>
       </div>
+      <div class="md-acts" style="margin-top:12px"><button class="btn-cncl" onclick="fecharEtqCxObrigatoria()" style="width:100%">Depois</button></div>
     </div>
   </div>
 </div>
@@ -968,7 +969,7 @@ const Backend={
   async buscarProduto(codigo){ try{ var c=encodeURIComponent(String(codigo).trim()); var r=await sbFetch('GET','/produtos?codigo=eq.'+c+'&select=nome&limit=1',null); if(r&&r.length>0)return {nome:r[0].nome,codigo:codigo,encontrado:true}; return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; }catch(e){ return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; } },
   async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2))},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2)),cliente_lote:s.lote||null},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&order=id.desc&limit=200',null); var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarPedidosFaturamento(){ try{ var base=await Backend.listarEmbalagens(); if(base.status!=='ok')return base; var nfs=await sbFetch('GET','/notas_fiscais?select=*',null); var m={}; (nfs||[]).forEach(function(n){ m[n.sessao]={nf:n.nf||'',faturado:n.faturado===true,cliente:n.cliente||'',dataFaturamento:_dataBR(n.data_faturamento)}; }); var peds=base.embalagens.map(function(e){ var info=m[e.sessao]||{}; return Object.assign({},e,{nf:info.nf||'',faturado:info.faturado===true,cliente:info.cliente||'',dataFaturamento:info.dataFaturamento||''}); }); return {status:'ok',pedidos:peds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarNF(sessao,nf,faturado,cliente,dataFat){ try{ await sbFetch('POST','/notas_fiscais?on_conflict=sessao',{sessao:sessao,nf:nf||null,faturado:!!faturado,cliente:cliente||null,data_faturamento:dataFat?dataFat:null,atualizado_em:new Date().toISOString()},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1024,7 +1025,7 @@ let salvandoFatura=false;
 let finalizandoEmbalagem=false;
 let fechandoCaixa=false;
 
-function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',peso:0};}
+function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',lote:'',peso:0};}
 let sess=novaSess();
 let cxFech=[], cxAtual={};
 try{const s=localStorage.getItem(SK);if(s){const d=JSON.parse(s);sess=d.sess||novaSess();cxFech=d.cxFech||[];cxAtual=d.cxAtual||{};}}catch{}
@@ -1658,12 +1659,14 @@ function atualizarBtnFin(){
 }
 
 // ═══════════════════════════════════════
-// ETIQUETA DA CAIXA — obrigatória a cada fechamento (não é a etiqueta com EAN, essa é a interna com QR)
+// ETIQUETA DA CAIXA — obrigatória a cada fechamento. Duas opções desde a bipagem:
+// a interna (controle) ou a do cliente (EAN/QR/lote) — qualquer uma das duas marca
+// a caixa como "etiquetada" e libera o Finalizar Embalagem.
 // ═══════════════════════════════════════
 var caixaAguardandoEtq=null;
 function abrirEtqCxObrigatoria(cx){
   caixaAguardandoEtq=cx;
-  document.getElementById('etqCxInfo').textContent='Caixa '+cx.num+' fechada — '+cx.totalUnid+' un · '+cx.peso.toFixed(2)+' kg. Imprima a etiqueta e cole na caixa antes de seguir.';
+  document.getElementById('etqCxInfo').textContent='Caixa '+cx.num+' fechada — '+cx.totalUnid+' un · '+cx.peso.toFixed(2)+' kg. Escolha qual etiqueta imprimir e cole na caixa antes de seguir.';
   document.getElementById('ovEtqCx').classList.remove('hidden');
 }
 function fecharEtqCxObrigatoria(){
@@ -1674,6 +1677,18 @@ function fecharEtqCxObrigatoria(){
 function imprimirEtiquetaCaixaAtual(){
   if(!caixaAguardandoEtq)return;
   imprimirEtiquetaCaixaUnica(caixaAguardandoEtq);
+  caixaAguardandoEtq.etqImpressa=true;
+  caixaAguardandoEtq=null;
+  salvarSess();renderCxFech();atualizarBtnFin();
+  fecharOv('ovEtqCx');
+  focusScan();
+}
+// Imprime a etiqueta DO CLIENTE (EAN+QR+lote) direto da bipagem, pra só essa caixa —
+// usa o lote que foi travado no início da sessão (popup "Quem está embalando?").
+function imprimirEtiquetaClienteCaixaAtual(){
+  if(!caixaAguardandoEtq)return;
+  if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
+  montarImprimirEtqCliente([caixaAguardandoEtq], sess.ped, sess.id, sess.lote, '', '', null);
   caixaAguardandoEtq.etqImpressa=true;
   caixaAguardandoEtq=null;
   salvarSess();renderCxFech();atualizarBtnFin();
@@ -1753,7 +1768,7 @@ function confirmarFin(){
   var now=new Date();
   var hora=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
   dadosFin={
-    session:{id:sess.id,pedido:sess.ped,peso:peso,operador:sess.op,baia:sess.baia},
+    session:{id:sess.id,pedido:sess.ped,peso:peso,operador:sess.op,baia:sess.baia,lote:sess.lote||''},
     caixas:calcCaixas(),
     dataEmbalagem:new Date().toLocaleDateString('pt-BR'),
     horaEmbalagem:hora
@@ -1997,10 +2012,13 @@ function renderFat(lista){
               (p.cliente?'<div class="fat-info-row"><span class="fat-info-key">Cliente</span><span class="fat-info-val">'+String(p.cliente)+'</span></div>':'')+
               (p.dataFaturamento?'<div class="fat-info-row"><span class="fat-info-key">Data Fat.</span><span class="fat-info-val">'+String(p.dataFaturamento)+'</span></div>':'')+
               (p.cliLote?'<div class="fat-info-row"><span class="fat-info-key">Lote</span><span class="fat-info-val">'+String(p.cliLote)+'</span></div>':'')+
-            '</div>'+
-            (p.caixas&&p.caixas.length?'<button class="btn-faturar" style="margin-top:8px" onclick="imprimirEtqClienteFat('+idx+')">🖨 Imprimir etiqueta do cliente</button>':'')
+            '</div>'
             :
             '<button class="btn-faturar" onclick="abrirFaturarPedido('+idx+')">💰 Faturar Pedido</button>'
+          )+
+          (p.caixas&&p.caixas.length&&p.cliLote?
+            '<button class="btn-faturar" style="margin-top:8px;background:var(--gn)" onclick="imprimirEtqClienteFat('+idx+')">🖨 Reimprimir etiqueta do cliente</button>'
+            :''
           )+
         '</div>'+
       '</div>'+
@@ -2033,6 +2051,7 @@ function abrirFaturarPedido(idx){
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Data embalagem</span><span class="fat-resumo-val">'+String(p.data)+(p.hora?' '+p.hora:'')+'</span></div>'+
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Operador</span><span class="fat-resumo-val">'+(p.operador||'—')+'</span></div>'+
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Baia</span><span class="fat-resumo-val">'+(p.baia||'—')+'</span></div>'+
+    '<div class="fat-resumo-row"><span class="fat-resumo-key">Lote</span><span class="fat-resumo-val">'+(p.cliLote||'— (não veio da bipagem)')+'</span></div>'+
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Caixas</span><span class="fat-resumo-val">'+(Number(p.totalCaixas)||0)+'</span></div>'+
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Unidades</span><span class="fat-resumo-val">'+totalUnid+'</span></div>'+
     '<div class="fat-resumo-row"><span class="fat-resumo-key">Peso total</span><span class="fat-resumo-val">'+(p.peso||'—')+' kg</span></div>';
@@ -2040,10 +2059,9 @@ function abrirFaturarPedido(idx){
   document.getElementById('fatCliente').value='';
   document.getElementById('fatData').value=new Date().toISOString().split('T')[0];
   document.getElementById('fatNF').value='';
-  document.getElementById('fatLote').value=p.cliLote||'';
   document.getElementById('fatTransp').value=p.cliTransp||'';
   document.getElementById('fatDataFab').value=p.cliData||p.data||'';
-  ['fatClienteErr','fatDataErr','fatNFErr','fatLoteErr'].forEach(function(id){document.getElementById(id).style.display='none';});
+  ['fatClienteErr','fatDataErr','fatNFErr'].forEach(function(id){document.getElementById(id).style.display='none';});
 
   salvandoFatura=false;
   var btn=document.getElementById('btnConfirmFaturar');
@@ -2060,7 +2078,6 @@ function confirmarFaturamento(){
   var cliente=document.getElementById('fatCliente').value.trim();
   var data=document.getElementById('fatData').value.trim();
   var nf=document.getElementById('fatNF').value.trim();
-  var lote=document.getElementById('fatLote').value.trim();
   var transp=document.getElementById('fatTransp').value.trim();
   var dataFab=document.getElementById('fatDataFab').value.trim();
   var ok=true;
@@ -2071,8 +2088,6 @@ function confirmarFaturamento(){
   else{document.getElementById('fatDataErr').style.display='none';}
   if(!nf){document.getElementById('fatNFErr').style.display='block';ok=false;}
   else{document.getElementById('fatNFErr').style.display='none';}
-  if(!lote){document.getElementById('fatLoteErr').style.display='block';ok=false;}
-  else{document.getElementById('fatLoteErr').style.display='none';}
   if(!ok)return;
 
   salvandoFatura=true;
@@ -2082,6 +2097,7 @@ function confirmarFaturamento(){
 
   var p=pedidoFaturando.pedido;
   var sessaoId=String(p.sessao||p.id||'');
+  var loteAtual=p.cliLote||''; // lote já veio da bipagem — Faturamento não digita, só resalva o mesmo valor
 
   function liberar(){
     salvandoFatura=false;
@@ -2096,25 +2112,25 @@ function confirmarFaturamento(){
     setTimeout(function(){filtrarFat();},300);
   }
 
-  // Grava lote/transportadora/data de fabricação na mesma embalagem — sem isso a
-  // etiqueta do cliente não tem de onde puxar o lote depois. Erro aqui é avisado
-  // (toast), nunca escondido: o pedido já está faturado nesse ponto, então silenciar
-  // essa falha deixaria o lote sumido sem ninguém perceber até a hora de imprimir.
+  // Regrava transportadora/data de fabricação na mesma embalagem, preservando o lote que
+  // já veio da bipagem (loteAtual). Erro aqui é avisado (toast), nunca escondido: o pedido
+  // já está faturado nesse ponto, então silenciar essa falha deixaria os dados sumidos
+  // sem ninguém perceber até a hora de imprimir.
   function salvarDadosCliente(){
     try{
       google.script.run
         .withSuccessHandler(function(r2){
-          if(r2&&r2.status==='ok'){ p.cliLote=lote;p.cliTransp=transp;p.cliData=dataFab; }
-          else{ toast('⚠ Faturado, mas o lote não salvou — reabra e confirme de novo'); }
+          if(r2&&r2.status==='ok'){ p.cliTransp=transp;p.cliData=dataFab; }
+          else{ toast('⚠ Faturado, mas transportadora/data não salvaram — reabra e confirme de novo'); }
           finalizarOk();
         })
         .withFailureHandler(function(){
-          toast('⚠ Faturado, mas o lote não salvou (sem conexão) — reabra e confirme de novo');
+          toast('⚠ Faturado, mas transportadora/data não salvaram (sem conexão) — reabra e confirme de novo');
           finalizarOk();
         })
-        .salvarInfoCliente(sessaoId,lote,transp,dataFab);
+        .salvarInfoCliente(sessaoId,loteAtual,transp,dataFab);
     }catch(e){
-      toast('⚠ Faturado, mas o lote não salvou: '+e.message);
+      toast('⚠ Faturado, mas transportadora/data não salvaram: '+e.message);
       finalizarOk();
     }
   }
@@ -2224,16 +2240,18 @@ function popularSels(){
   validarCampos();
 }
 
-// Popup obrigatório de seleção de operador e baia (aparece ao limpar sessão / iniciar)
+// Popup obrigatório de seleção de operador, baia, pedido e lote (aparece ao limpar sessão / iniciar)
 function abrirOperBaia(){
   var sp=document.getElementById('selOpPop'), bp=document.getElementById('selBaiaPop');
   var curOp=document.getElementById('selOp').value||'', curBa=document.getElementById('selBaia').value||'';
   sp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===curOp?' selected':'')+'>'+o+'</option>';}).join('');
   bp.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===curBa?' selected':'')+'>'+b+'</option>';}).join('');
   document.getElementById('inpPedPop').value=sess.ped||'';
+  document.getElementById('inpLotePop').value=sess.lote||'';
   document.getElementById('opPopErr').style.display='none';
   document.getElementById('baPopErr').style.display='none';
   document.getElementById('pedPopErr').style.display='none';
+  document.getElementById('lotePopErr').style.display='none';
   document.getElementById('ovOperBaia').classList.remove('hidden');
   setTimeout(function(){sp.focus();},120);
 }
@@ -2241,14 +2259,16 @@ function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('
 function confirmarOperBaia(){
   var op=document.getElementById('selOpPop').value, ba=document.getElementById('selBaiaPop').value;
   var ped=document.getElementById('inpPedPop').value.trim();
+  var lote=document.getElementById('inpLotePop').value.trim();
   var ok=true;
   if(!op){document.getElementById('opPopErr').style.display='block';ok=false;} else {document.getElementById('opPopErr').style.display='none';}
   if(!ba){document.getElementById('baPopErr').style.display='block';ok=false;} else {document.getElementById('baPopErr').style.display='none';}
   if(!ped){document.getElementById('pedPopErr').style.display='block';ok=false;} else {document.getElementById('pedPopErr').style.display='none';}
+  if(!lote){document.getElementById('lotePopErr').style.display='block';ok=false;} else {document.getElementById('lotePopErr').style.display='none';}
   if(!ok)return;
   document.getElementById('selOp').value=op;
   document.getElementById('selBaia').value=ba;
-  sess.op=op; sess.baia=ba; sess.ped=ped; salvarSess();
+  sess.op=op; sess.baia=ba; sess.ped=ped; sess.lote=lote; salvarSess();
   document.getElementById('ovOperBaia').classList.add('hidden');
   validarCampos();
   focusScan();
@@ -2465,15 +2485,15 @@ function rEtq(i){dadosFin=prepDados(todasEmb[i]);if(dadosFin.caixas.length)impEt
 function rTudo(i){rRel(i);setTimeout(function(){rEtq(i);},600);}
 function rCli(i){dadosFin=prepDados(todasEmb[i]);if(!dadosFin.caixas.length){alert('Sem caixas detalhadas.');return;}imprimirEtqClienteCom(dadosFin.cliLote,dadosFin.cliTransp,dadosFin.cliData);}
 
-// Etiqueta do cliente a partir do Faturamento — só existe pedido faturado aqui, então o
-// lote já veio do modal "Faturar Pedido" (ver confirmarFaturamento). Sem senha extra: quem
-// chegou até esse botão já passou pela senha de Faturamento pra entrar na tela.
+// Reimpressão da etiqueta do cliente a partir do Faturamento — o lote já veio da bipagem
+// (salvo em cliLote assim que a embalagem foi finalizada), não depende mais de faturado=true.
+// Sem senha extra: quem chegou até esse botão já passou pela senha de Faturamento pra entrar na tela.
 function imprimirEtqClienteFat(idx){
   var p=todosPed[idx];
   if(!p){toast('Pedido não encontrado');return;}
-  if(!p.faturado){toast('Este pedido ainda não foi faturado');return;}
   dadosFin=prepDados(p);
   if(!dadosFin.caixas.length){alert('Sem caixas detalhadas para etiquetar.');return;}
+  if(!dadosFin.cliLote){toast('Este pedido ainda não tem lote registrado na bipagem');return;}
   imprimirEtqClienteCom(dadosFin.cliLote,dadosFin.cliTransp,dadosFin.cliData);
 }
 function rSimples(e){var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+e.pedido+'</title><style>body{font-family:sans-serif;padding:20px;font-size:13px}h1{font-size:18px;font-weight:800;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5;font-weight:700}</style></head><body><h1>'+e.pedido+'</h1><table><tbody><tr><td><b>Pedido</b></td><td>'+e.pedido+'</td></tr><tr><td><b>Data</b></td><td>'+e.data+'</td></tr><tr><td><b>Operador</b></td><td>'+e.operador+'</td></tr><tr><td><b>Baia</b></td><td>'+e.baia+'</td></tr><tr><td><b>Caixas</b></td><td>'+e.totalCaixas+'</td></tr><tr><td><b>Unidades</b></td><td>'+e.totalUnid+'</td></tr><tr><td><b>Peso</b></td><td>'+e.peso+' kg</td></tr></tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>';var w=window.open('','_blank');w.document.write(h);w.document.close();}
@@ -2520,14 +2540,16 @@ function impTudo(){impRel();setTimeout(impEtq,600);}
 
 // ═══════════════════════════════════════
 // ETIQUETA DO CLIENTE (padrão fornecedor: EAN 1D + QR, uma por peça de cada caixa)
-// Campos que o sistema não tem (lote, volume/peso, transportadora, data) são digitados no modal.
+// Campos que o sistema não tem (transportadora, data) são digitados no Faturamento.
+// O lote vem da sessão de bipagem (sess.lote), travado no popup "Quem está embalando?".
 // ═══════════════════════════════════════
 // Gera o "SSCC" de 12 posições da caixa (não é um SSCC GS1 real — o padrão oficial exige
 // 18 dígitos + prefixo de empresa registrado na GS1 — mas segue o formato de 12 posições pedido).
 // Usa o id real da caixa no Supabase quando disponível: é permanente, então fica igual em
-// qualquer reimpressão futura. Sem id ainda (ex.: etiqueta impressa offline, antes do sync),
-// cai para um valor derivado do id da sessão (que já é fixo e salvo) + número da caixa —
-// então também continua estável se essa mesma etiqueta for reimpressa depois.
+// qualquer reimpressão futura. Sem id ainda (ex.: etiqueta impressa offline, antes do sync,
+// ou impressão feita direto na bipagem antes de finalizar a embalagem), cai para um valor
+// derivado do id da sessão (que já é fixo e salvo) + número da caixa — então também
+// continua estável se essa mesma etiqueta for reimpressa depois.
 function gerarSSCCCaixa(cx,sessaoId){
   if(cx.id){
     return String(cx.id).padStart(12,'0').slice(-12);
@@ -2544,23 +2566,25 @@ function montarQRGS1(sscc,codigoProduto,lote,qtd){
   return '(00)'+sscc+'(02)'+String(codigoProduto||'')+'(11)'+(lote||'')+'(37)'+qtd;
 }
 
-// Núcleo: monta e imprime as etiquetas do cliente usando dadosFin + os campos informados
-function imprimirEtqClienteCom(lote,transp,dfab){
-  var d=dadosFin;
-  if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
+// Núcleo reutilizável: monta e imprime etiquetas do cliente pra um conjunto de caixas.
+// totalCaixasConhecido: null/0 quando ainda não se sabe o total final do pedido (ex.: print
+// direto da bipagem, antes de finalizar) — nesse caso a etiqueta mostra só "Caixa X", sem "/Y".
+function montarImprimirEtqCliente(caixasArr, pedidoNum, sessaoId, lote, transp, dfab, totalCaixasConhecido){
+  if(!caixasArr||!caixasArr.length){alert('Sem dados.');return;}
   lote=lote||''; transp=transp||''; dfab=dfab||'';
 
-  var tot=d.caixas.reduce(function(s,cx){return s+cx.totalUnid;},0);
-  var ppu=tot>0?d.session.peso/tot:0;
+  var tot=caixasArr.reduce(function(s,cx){return s+cx.totalUnid;},0);
+  var pesoTotal=caixasArr.reduce(function(s,cx){return s+(cx.peso||0);},0);
+  var ppu=tot>0?pesoTotal/tot:0;
   var labels=[], qrList=[], bcList=[], idx=0;
-  d.caixas.forEach(function(cx){
+  caixasArr.forEach(function(cx){
     var ps=cx.peso>0?cx.peso.toFixed(2):(ppu*cx.totalUnid).toFixed(2);
-    var sscc=gerarSSCCCaixa(cx,d.session.id); // uma vez por caixa — não por peça
+    var sscc=gerarSSCCCaixa(cx,sessaoId); // uma vez por caixa — não por peça
     (cx.itens||[]).forEach(function(it){
       var id=idx++; var cod=String(it.codigo||'');
       // código Sabó = nome da peça (convenção do cadastro); cai pro EAN só se nome estiver vazio
       var codSabo=String(it.nome||'').trim()||cod;
-      labels.push({id:id,cod:cod,codSabo:codSabo,qty:it.qty,cx:cx.num,total:d.caixas.length,peso:ps});
+      labels.push({id:id,cod:cod,codSabo:codSabo,qty:it.qty,cx:cx.num,total:totalCaixasKnownOrArr(totalCaixasConhecido,caixasArr),peso:ps,ped:pedidoNum});
       qrList.push({id:'qr_'+id,data:montarQRGS1(sscc,codSabo,lote,it.qty)});
       bcList.push({id:'bc_'+id,cod:cod});
     });
@@ -2574,15 +2598,15 @@ function imprimirEtqClienteCom(lote,transp,dfab){
       '<div class="cr"><div class="mib">MADE IN BRAZIL</div>'+
       '<svg id="bc_'+l.id+'" class="bcsvg"></svg>'+
       '<div class="foot">'+
-        '<div><span class="fk">VOL/PESO:</span> '+l.total+' VOL / '+l.peso+' kg</div>'+
+        '<div><span class="fk">VOL/PESO:</span> '+(l.total||l.cx)+' VOL / '+l.peso+' kg</div>'+
         (lote?'<div><span class="fk">LOTE FABR.:</span> '+lote+'</div>':'')+
         (transp?'<div><span class="fk">TRANSP.:</span> '+transp+'</div>':'')+
         (dfab?'<div><span class="fk">DATA FABR.:</span> '+dfab+'</div>':'')+
-        '<div class="cxi">Caixa '+l.cx+' / '+l.total+' · Ped. '+d.session.pedido+'</div>'+
+        '<div class="cxi">Ped. '+l.ped+' · Caixa '+l.cx+(l.total?' / '+l.total:'')+'</div>'+
       '</div></div>'+
     '</div>';}).join('');
 
-  var css='*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#e5e5e5;padding:10px}.clabel{width:95mm;height:76mm;padding:4mm;margin:0 auto 10px;display:flex;gap:4mm;overflow:hidden;background:#fff;border:1px solid #ccc;color:#000;page-break-after:always}.cl{flex:1;display:flex;flex-direction:column;min-width:0}.ck{font-size:11px;font-weight:800;letter-spacing:.05em}.cbig{font-family:Courier New,monospace;font-size:21px;font-weight:900;line-height:1;letter-spacing:.02em;white-space:nowrap;overflow:hidden;margin:1px 0 7px}.qtyv{font-size:38px;font-weight:900;line-height:.95}.qrc{margin-top:auto;padding-top:6px}.cr{width:41mm;flex-shrink:0;display:flex;flex-direction:column;text-align:center}.mib{font-size:11px;font-weight:800;letter-spacing:.1em;margin-bottom:3px}.bcsvg{width:100%;max-height:54px}.foot{margin-top:auto;text-align:left;font-size:9px;line-height:1.55}.foot .fk{font-weight:800}.cxi{margin-top:3px;font-size:8px;color:#555;font-weight:700}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.clabel{border:none;margin:0}}';
+  var css='*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#e5e5e5;padding:10px}.clabel{width:95mm;height:76mm;padding:4mm;margin:0 auto 10px;display:flex;gap:4mm;overflow:hidden;background:#fff;border:1px solid #ccc;color:#000;page-break-after:always}.cl{flex:1;display:flex;flex-direction:column;min-width:0}.ck{font-size:11px;font-weight:800;letter-spacing:.05em}.cbig{font-family:Courier New,monospace;font-size:21px;font-weight:900;line-height:1;letter-spacing:.02em;white-space:nowrap;overflow:hidden;margin:1px 0 7px}.qtyv{font-size:38px;font-weight:900;line-height:.95}.qrc{margin-top:auto;padding-top:6px}.cr{width:41mm;flex-shrink:0;display:flex;flex-direction:column;text-align:center}.mib{font-size:11px;font-weight:800;letter-spacing:.1em;margin-bottom:3px}.bcsvg{width:100%;max-height:54px}.foot{margin-top:auto;text-align:left;font-size:9px;line-height:1.55}.foot .fk{font-weight:800}.cxi{margin-top:3px;font-size:10px;color:#000;font-weight:800}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.clabel{border:none;margin:0}}';
 
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta do Cliente</title>'+
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>'+
@@ -2596,6 +2620,22 @@ function imprimirEtqClienteCom(lote,transp,dfab){
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para imprimir');return;}
   w.document.write(h);w.document.close();
+}
+// Resolve o total de caixas a mostrar na etiqueta: usa o valor explícito quando informado
+// (impressão avulsa, total ainda desconhecido), senão usa o tamanho do array (impressão em lote).
+function totalCaixasKnownOrArr(totalCaixasConhecido,caixasArr){
+  if(totalCaixasConhecido===null||totalCaixasConhecido===undefined) {
+    return caixasArr.length>1?caixasArr.length:0; // 0 = omite "/Y" quando é só 1 caixa avulsa
+  }
+  return totalCaixasConhecido;
+}
+
+// Núcleo: monta e imprime as etiquetas do cliente usando dadosFin + os campos informados
+// (chamado do Faturamento e do Histórico, onde o total de caixas já é conhecido)
+function imprimirEtqClienteCom(lote,transp,dfab){
+  var d=dadosFin;
+  if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
+  montarImprimirEtqCliente(d.caixas, d.session.pedido, d.session.id, lote, transp, dfab, d.caixas.length);
 }
 
 // ═══════════════════════════════════════
