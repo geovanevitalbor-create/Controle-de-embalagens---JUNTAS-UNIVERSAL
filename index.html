@@ -699,7 +699,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         </div>
       </div>
       <div id="pedEsperSec" style="margin-bottom:14px"></div>
-      <input class="fat-search" id="fatSearch" placeholder="🔍 Buscar por pedido, operador ou NF..." oninput="filtrarFat()">
+      <input autocomplete="off" class="fat-search" id="fatSearch" placeholder="🔍 Buscar por pedido, operador ou NF..." oninput="filtrarFat()">
       <div class="fat-filters">
         <button class="fat-filter active" onclick="setFiltroStatus('todos',this)">Todos</button>
         <button class="fat-filter" onclick="setFiltroStatus('embalado',this)">📦 Embalado</button>
@@ -734,7 +734,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <section class="adm-panel active" id="pane-op">
         <h2 class="adm-panel-title">Operadores <span class="adm-panel-count" id="opCount"></span></h2>
         <div class="adm-addbar">
-          <input class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
+          <input autocomplete="off" class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
           <button class="adm-btn-add" onclick="addOp()">Adicionar</button>
         </div>
         <div class="adm-hint">Salva sozinho ao adicionar ou remover.</div>
@@ -744,7 +744,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <section class="adm-panel" id="pane-baia">
         <h2 class="adm-panel-title">Baias <span class="adm-panel-count" id="baiaCount"></span></h2>
         <div class="adm-addbar">
-          <input class="adm-input" id="addBaiaI" placeholder="Ex: Baia 01" onkeydown="if(event.key==='Enter')addBaia()">
+          <input autocomplete="off" class="adm-input" id="addBaiaI" placeholder="Ex: Baia 01" onkeydown="if(event.key==='Enter')addBaia()">
           <button class="adm-btn-add" onclick="addBaia()">Adicionar</button>
         </div>
         <div class="adm-hint">Salva sozinho ao adicionar ou remover.</div>
@@ -754,8 +754,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <section class="adm-panel" id="pane-prod">
         <h2 class="adm-panel-title">Peças</h2>
         <div class="adm-addcard">
-          <div class="adm-field"><label class="adm-field-lbl">Código de barras (EAN)</label><input class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
-          <div class="adm-field"><label class="adm-field-lbl">Código Sabó</label><input class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
+          <div class="adm-field"><label class="adm-field-lbl">Código de barras (EAN)</label><input autocomplete="off" class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
+          <div class="adm-field"><label class="adm-field-lbl">Código Sabó</label><input autocomplete="off" class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
           <button class="adm-btn-add wide" onclick="addProd()">Adicionar peça</button>
           <div id="addProdErr" class="adm-err"></div>
         </div>
@@ -792,7 +792,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="peso-its" id="pesoIts"></div>
         <div style="width:100%">
           <label class="lbl req" style="margin-bottom:7px;display:block">Peso desta caixa (obrigatório)</label>
-          <div class="peso-row"><input class="peso-inp" type="number" id="pesoInp" placeholder="0.00" step="0.01" min="0.01" onkeydown="if(event.key==='Enter')okPeso()"><span class="peso-unit">kg</span></div>
+          <div class="peso-row"><input autocomplete="off" class="peso-inp" type="number" id="pesoInp" placeholder="0.00" step="0.01" min="0.01" onkeydown="if(event.key==='Enter')okPeso()"><span class="peso-unit">kg</span></div>
           <div class="peso-err" id="pesoErr">Informe o peso da caixa (maior que 0).</div>
         </div>
         <button class="btn-ok" id="btnOkPeso" onclick="okPeso()" style="width:100%;padding:13px;font-size:14px">📦 Fechar Caixa</button>
@@ -810,7 +810,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="senha-ico">🔐</div>
         <div class="senha-ttl" id="senhaTtl">Área Restrita</div>
         <div class="senha-sub">Digite a senha para continuar</div>
-        <input type="password" id="senhaInp" placeholder="••••••" maxlength="20" onkeydown="if(event.key==='Enter')checkSenha()">
+        <input autocomplete="one-time-code" type="password" id="senhaInp" placeholder="••••••" maxlength="20" onkeydown="if(event.key==='Enter')checkSenha()">
         <div class="senha-err" id="senhaErr">Senha incorreta.</div>
         <button class="btn-ok" onclick="checkSenha()" style="width:100%">Entrar</button>
       </div>
@@ -824,8 +824,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">🔒 Adicionar Quantidade Manual</span><button class="md-x" onclick="fecharOv('ovQtdManual')">✕</button></div>
     <div class="md-body">
       <div style="font-size:11px;color:var(--td);margin-bottom:12px">Uso restrito ao admin — soma direto na caixa atual, sem bipar um por um. Confirme o código e a quantidade exata antes de adicionar.</div>
-      <div class="md-row"><label class="lbl req">Código (EAN / QR)</label><input class="inp" type="text" id="qtdManualCod" placeholder="Bipe ou digite o código" onkeydown="if(event.key==='Enter')document.getElementById('qtdManualQtd').focus()"></div>
-      <div class="md-row"><label class="lbl req">Quantidade</label><input class="inp" type="number" id="qtdManualQtd" placeholder="Ex: 300" min="1" step="1" onkeydown="if(event.key==='Enter')confirmarQtdManual()"></div>
+      <div class="md-row"><label class="lbl req">Código (EAN / QR)</label><input autocomplete="off" class="inp" type="text" id="qtdManualCod" placeholder="Bipe ou digite o código" onkeydown="if(event.key==='Enter')document.getElementById('qtdManualQtd').focus()"></div>
+      <div class="md-row"><label class="lbl req">Quantidade</label><input autocomplete="off" class="inp" type="number" id="qtdManualQtd" placeholder="Ex: 300" min="1" step="1" onkeydown="if(event.key==='Enter')confirmarQtdManual()"></div>
       <div id="qtdManualErr" style="color:var(--rd);font-size:11px;display:none"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovQtdManual')">Cancelar</button><button class="btn-ok" onclick="confirmarQtdManual()">✔ Adicionar</button></div>
     </div>
@@ -869,11 +869,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">💰 Faturar Pedido</span><button class="md-x" onclick="fecharOv('ovFaturar')">✕</button></div>
     <div class="md-body">
       <div class="fat-form-section" id="fatResumoPed"></div>
-      <div class="md-row"><label class="lbl req">Cliente</label><input class="inp" type="text" id="fatCliente" placeholder="Nome do cliente"><div id="fatClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
-      <div class="md-row"><label class="lbl req">Data de Faturamento</label><input class="inp" type="date" id="fatData"><div id="fatDataErr" style="color:var(--rd);font-size:11px;display:none">Informe a data de faturamento.</div></div>
-      <div class="md-row"><label class="lbl req">Número da Nota Fiscal</label><input class="inp" type="text" id="fatNF" placeholder="Ex: NF-0001234"><div id="fatNFErr" style="color:var(--rd);font-size:11px;display:none">Informe o número da NF.</div></div>
-      <div class="md-row"><label class="lbl">Transportadora</label><input class="inp" type="text" id="fatTransp" placeholder="Ex: RPD"></div>
-      <div class="md-row"><label class="lbl">Data de fabricação</label><input class="inp" type="text" id="fatDataFab" placeholder="Ex: 23/06/2026"></div>
+      <div class="md-row"><label class="lbl req">Cliente</label><input autocomplete="off" class="inp" type="text" id="fatCliente" placeholder="Nome do cliente"><div id="fatClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
+      <div class="md-row"><label class="lbl req">Data de Faturamento</label><input autocomplete="off" class="inp" type="date" id="fatData"><div id="fatDataErr" style="color:var(--rd);font-size:11px;display:none">Informe a data de faturamento.</div></div>
+      <div class="md-row"><label class="lbl req">Número da Nota Fiscal</label><input autocomplete="off" class="inp" type="text" id="fatNF" placeholder="Ex: NF-0001234"><div id="fatNFErr" style="color:var(--rd);font-size:11px;display:none">Informe o número da NF.</div></div>
+      <div class="md-row"><label class="lbl">Transportadora</label><input autocomplete="off" class="inp" type="text" id="fatTransp" placeholder="Ex: RPD"></div>
+      <div class="md-row"><label class="lbl">Data de fabricação</label><input autocomplete="off" class="inp" type="text" id="fatDataFab" placeholder="Ex: 23/06/2026"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFaturar" onclick="confirmarFaturamento()">✅ Confirmar Faturamento</button></div>
     </div>
   </div>
@@ -884,13 +884,13 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <div class="md">
     <div class="md-hdr"><span class="md-title">📝 Cadastrar Pedido</span><button class="md-x" onclick="fecharOv('ovCadastrarPedido')">✕</button></div>
     <div class="md-body">
-      <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="cadPedNum" placeholder="Ex: PED-2025-001"><div id="cadPedNumErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
+      <div class="md-row"><label class="lbl req">Número do Pedido</label><input autocomplete="off" class="inp" type="text" id="cadPedNum" placeholder="Ex: PED-2025-001"><div id="cadPedNumErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
       <div class="lbl" style="margin:12px 0 6px">Itens esperados</div>
       <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
         <button class="adm-btn-add" onclick="abrirEscolherProdutos()">🔎 Escolher Produtos</button>
         <button class="adm-btn-add" style="background:var(--gn)" onclick="document.getElementById('cadPedExcelFile').click()">📤 Importar Excel</button>
         <button class="btn-cncl" onclick="baixarModeloPedidoExcel()">⬇ Baixar modelo</button>
-        <input type="file" id="cadPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelPedido(this)">
+        <input autocomplete="off" type="file" id="cadPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelPedido(this)">
       </div>
       <div id="cadPedItensList"></div>
       <div id="cadPedItensErr" style="color:var(--rd);font-size:11px;display:none">Adicione ao menos 1 item — escolha na lista, importe um Excel, ou os dois.</div>
@@ -906,7 +906,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-body">
       <input class="adm-search" id="escProdBusca" placeholder="🔍 Buscar por nome..." oninput="renderEscolherProdutos()" style="margin-bottom:10px" autocomplete="off">
       <div id="escProdLista" style="max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
-      <div class="md-row"><label class="lbl">Quantidade para cada um selecionado</label><input class="inp" type="number" id="escProdQtdPadrao" value="1" min="1"></div>
+      <div class="md-row"><label class="lbl">Quantidade para cada um selecionado</label><input autocomplete="off" class="inp" type="number" id="escProdQtdPadrao" value="1" min="1"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEscolherProdutos')">Cancelar</button><button class="btn-ok green" id="btnAdicionarSelecionados" onclick="adicionarProdutosSelecionados()">Adicionar selecionados</button></div>
     </div>
   </div>
@@ -936,8 +936,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador, a baia e o pedido para iniciar a sessão.</div>
       <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
       <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
-      <div class="md-row"><label class="lbl req">Número do Pedido</label><input class="inp" type="text" id="inpPedPop" placeholder="Ex: PED-2025-001"><div id="pedPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
-      <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
+      <div class="md-row"><label class="lbl req">Número do Pedido</label><input autocomplete="off" class="inp" type="text" id="inpPedPop" placeholder="Ex: PED-2025-001"><div id="pedPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
+      <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
       <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">✔ Confirmar e iniciar</button></div>
     </div>
   </div>
@@ -2241,7 +2241,7 @@ function renderCadPedItens(){
   el.innerHTML=cadPedItens.map(function(it,i){
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:12px">'+
       '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
-      '<input class="inp" type="number" min="1" value="'+it.qtd+'" style="width:74px;padding:8px;min-height:0" onchange="cadPedSetQtd('+i+',this.value)">'+
+      '<input autocomplete="off" class="inp" type="number" min="1" value="'+it.qtd+'" style="width:74px;padding:8px;min-height:0" onchange="cadPedSetQtd('+i+',this.value)">'+
       '<button class="btn-rm" onclick="cadPedRemoveItem('+i+')" style="padding:6px 10px">✕</button>'+
     '</div>';
   }).join('');
@@ -2275,7 +2275,7 @@ function renderEscolherProdutos(){
     var checked=!!escProdSelecionados[p.codigo];
     var codEsc=p.codigo.replace(/'/g,"\\'");
     return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
-      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleEscProd(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
+      '<input autocomplete="off" type="checkbox" '+(checked?'checked':'')+' onchange="toggleEscProd(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
       '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+p.codigo+')</span></span>'+
     '</label>';
   }).join('')+(lista.length>200?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 200 de '+lista.length+' — use a busca</div>':'');
@@ -2474,7 +2474,7 @@ function renderCfg(id,arr,kind){
   el.innerHTML=arr.map(function(v,i){
     if(editCfgKind===kind && editCfgIdx===i){
       return '<div class="adm-row full" style="gap:6px">'+
-        '<input class="adm-input" id="editCfgInp" value="'+escAttr(v)+'" style="padding:11px 12px" onkeydown="if(event.key===\'Enter\')saveCfgEdit(\''+kind+'\','+i+')">'+
+        '<input autocomplete="off" class="adm-input" id="editCfgInp" value="'+escAttr(v)+'" style="padding:11px 12px" onkeydown="if(event.key===\'Enter\')saveCfgEdit(\''+kind+'\','+i+')">'+
         '<button class="adm-btn-add" onclick="saveCfgEdit(\''+kind+'\','+i+')" style="padding:0 14px">Salvar</button>'+
         '<button class="adm-icon-btn cancel" onclick="cancelCfgEdit()" title="Cancelar">'+ICO_X+'</button>'+
       '</div>';
@@ -2613,8 +2613,8 @@ function renderProdList(){
     if(p.codigo===editandoCod){
       // linha em modo edição: dois campos + salvar/cancelar
       return '<div class="prod-item full" style="gap:6px">'+
-        '<input class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
-        '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
+        '<input autocomplete="off" class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
+        '<input autocomplete="off" class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
         '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
         '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">'+ICO_X+'</button>'+
       '</div>';
@@ -2743,7 +2743,7 @@ function renderHist(lista){
 // Corpo expandido de uma linha do Histórico: campo de pedido editável + um card por caixa.
 function renderHistBody(e,ri){
   var pedRow='<div class="md-row" style="margin-bottom:0"><label class="lbl">Número do Pedido</label><div style="display:flex;gap:6px">'+
-    '<input class="inp" id="histPedInp-'+ri+'" value="'+escAttr(e.pedido)+'" style="flex:1">'+
+    '<input autocomplete="off" class="inp" id="histPedInp-'+ri+'" value="'+escAttr(e.pedido)+'" style="flex:1">'+
     '<button class="adm-btn-add" onclick="salvarPedidoHist('+ri+')">Salvar</button>'+
   '</div></div>';
   var caixasHtml=(e.caixas&&e.caixas.length)?(e.caixas.map(function(cx){return renderCaixaEditCard(cx,ri);}).join('')):'<div style="font-size:11px;color:var(--td)">Sem caixas nesta embalagem.</div>';
@@ -2766,18 +2766,18 @@ function renderCaixaEditCard(cx,ri){
   var itensRows=(histEditDraft.itens||[]).map(function(it,i){
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'+
       '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
-      '<input class="inp" type="number" min="0" step="1" value="'+it.qty+'" style="width:70px;padding:8px;min-height:0" onchange="histDraftSetQty('+i+',this.value)">'+
+      '<input autocomplete="off" class="inp" type="number" min="0" step="1" value="'+it.qty+'" style="width:70px;padding:8px;min-height:0" onchange="histDraftSetQty('+i+',this.value)">'+
       '<button class="btn-rm" onclick="histDraftRemoveItem('+i+','+ri+')" style="padding:6px 10px">✕</button>'+
     '</div>';
   }).join('');
   return '<div class="cx-detalhe" style="border-color:var(--ac)">'+
     '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' — editando</span></div>'+
-    '<div class="md-row" style="margin-bottom:8px"><label class="lbl">Peso (kg)</label><input class="inp" type="number" min="0" step="0.01" value="'+histEditDraft.peso+'" style="min-height:0;padding:9px" onchange="histDraftSetPeso(this.value)"></div>'+
+    '<div class="md-row" style="margin-bottom:8px"><label class="lbl">Peso (kg)</label><input autocomplete="off" class="inp" type="number" min="0" step="0.01" value="'+histEditDraft.peso+'" style="min-height:0;padding:9px" onchange="histDraftSetPeso(this.value)"></div>'+
     '<div class="lbl" style="margin-bottom:5px">Itens</div>'+
     itensRows+
     '<div style="display:flex;gap:6px;margin:8px 0">'+
-      '<input class="inp" id="histAddCod-'+ri+'" placeholder="Código" style="width:40%;padding:8px;font-size:12px;min-height:0">'+
-      '<input class="inp" id="histAddQtd-'+ri+'" type="number" placeholder="Qtd" min="1" style="width:70px;padding:8px;font-size:12px;min-height:0">'+
+      '<input autocomplete="off" class="inp" id="histAddCod-'+ri+'" placeholder="Código" style="width:40%;padding:8px;font-size:12px;min-height:0">'+
+      '<input autocomplete="off" class="inp" id="histAddQtd-'+ri+'" type="number" placeholder="Qtd" min="1" style="width:70px;padding:8px;font-size:12px;min-height:0">'+
       '<button class="adm-btn-add" onclick="histDraftAddItem('+ri+')" style="padding:0 12px;font-size:12px">+ item</button>'+
     '</div>'+
     '<div style="display:flex;gap:6px;margin-top:10px">'+
