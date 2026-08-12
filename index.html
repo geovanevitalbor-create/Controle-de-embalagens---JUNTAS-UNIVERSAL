@@ -917,6 +917,14 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL DETALHE DO PEDIDO — itens, saldo, histórico de dias e ações, aberto ao tocar num pedido -->
+<div class="ov hidden" id="ovDetalhePedido">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title" id="detPedTitulo">Pedido</span><button class="md-x" onclick="fecharDetalhePedido()">✕</button></div>
+    <div class="md-body" id="detPedBody"></div>
+  </div>
+</div>
+
 <!-- MODAL ESCOLHER PRODUTOS — multi-seleção por nome, usado no cadastro de pedido -->
 <div class="ov hidden" id="ovEscolherProdutos">
   <div class="md">
@@ -2555,7 +2563,7 @@ function salvarPedidoEsperado(){
 }
 
 // Lista os pedidos cadastrados (abertos e fechados) acima da lista de pedidos embalados.
-var pedidosEsperados=[], pedEsperOpenSet={};
+var pedidosEsperados=[];
 function carregarPedidosEsperados(){
   try{
     google.script.run
@@ -2588,6 +2596,7 @@ function atualizarProgressoPedidosAbertos(){
               alvo.itens.forEach(function(it){ var m=mapa[it.codigo]; if(m){ it.embalado=m.embalado; it.saldo=m.saldo; } });
               alvo.totalEmbalado=d.totalEmbalado; alvo.totalSaldo=d.totalSaldo; alvo.totalEsperado=d.totalEsperado;
               renderPedidosEsperados();
+              if(detPedAtual===alvo.id) renderDetalhePedido();
             }
           }
         })
@@ -2596,22 +2605,26 @@ function atualizarProgressoPedidosAbertos(){
     }catch(e){}
   });
 }
-var pedEsperDias={}; // {pedidoNome: [dias]} — carregado ao expandir
-function togPedEsper(id){
-  pedEsperOpenSet[id]=!pedEsperOpenSet[id];
-  renderPedidosEsperados();
-  if(pedEsperOpenSet[id]){
-    var p=pedidosEsperados.find(function(x){return x.id===id;});
-    if(p) carregarDiasPedido(p.pedido);
-  }
-}
+var pedEsperDias={}; // {pedidoNome: [dias] | 'erro'} — carregado ao abrir o detalhe
 function carregarDiasPedido(pedidoNome){
   try{
     google.script.run
-      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedEsperDias[pedidoNome]=d.dias||[]; renderPedidosEsperados(); } })
-      .withFailureHandler(function(){})
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){ pedEsperDias[pedidoNome]=d.dias||[]; }
+        else{ pedEsperDias[pedidoNome]='erro'; console.error('listarDiasEmbalagemPedido retornou erro:',d&&d.msg); }
+        if(detPedAtual!==null) renderDetalhePedido();
+      })
+      .withFailureHandler(function(e){
+        pedEsperDias[pedidoNome]='erro';
+        console.error('listarDiasEmbalagemPedido falhou (conexão):',e);
+        if(detPedAtual!==null) renderDetalhePedido();
+      })
       .listarDiasEmbalagemPedido(pedidoNome);
-  }catch(e){}
+  }catch(e){
+    pedEsperDias[pedidoNome]='erro';
+    console.error('listarDiasEmbalagemPedido: exceção local:',e);
+    if(detPedAtual!==null) renderDetalhePedido();
+  }
 }
 function renderPedidosEsperados(){
   var el=document.getElementById('pedEsperSec'); if(!el)return;
@@ -2621,27 +2634,52 @@ function renderPedidosEsperados(){
       var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
       var totEmb=p.totalEmbalado||0;
       var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
-      var aberto=!!pedEsperOpenSet[p.id];
-      return '<div class="ped-card" style="margin-bottom:6px">'+
-        '<div class="ped-hdr" onclick="togPedEsper('+p.id+')">'+
+      return '<div class="ped-card" style="margin-bottom:6px;cursor:pointer" onclick="abrirDetalhePedido('+p.id+')">'+
+        '<div class="ped-hdr">'+
           '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+p.itens.length+' produto(s) · '+totEmb+' / '+totEsp+' un. embaladas</div>'+
           '<div style="background:var(--bg);border-radius:20px;height:5px;margin-top:5px;overflow:hidden;max-width:200px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div></div>'+
           '<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>'+
         '</div>'+
-        (aberto?('<div class="ped-body open"><div class="ped-body-inner">'+
-          (p.itens.length?p.itens.map(function(it){
-            var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
-            return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
-              '<span class="it-cons-q" style="font-family:var(--mo)">'+emb+'/'+esp+' <span style="color:var(--td)">· saldo '+sld+'</span></span></div>';
-          }).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
-          renderDiasPedidoHtml(p.pedido)+
-          '<div style="display:flex;gap:6px;margin-top:10px">'+
-            (p.fechado?'<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">Reabrir</button>':'<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>')+
-            '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
-          '</div>'+
-        '</div></div>'):'')+
       '</div>';
     }).join('');
+}
+// Modal de detalhe de um pedido — itens, histórico de dias, ações. Substitui o expandir
+// inline: card só mostra o resumo, o clique abre a janela com tudo.
+var detPedAtual=null;
+function abrirDetalhePedido(id){
+  var p=pedidosEsperados.find(function(x){return x.id===id;});
+  if(!p)return;
+  detPedAtual=id;
+  document.getElementById('detPedTitulo').textContent=p.pedido;
+  renderDetalhePedido();
+  document.getElementById('ovDetalhePedido').classList.remove('hidden');
+  carregarDiasPedido(p.pedido);
+}
+function fecharDetalhePedido(){ detPedAtual=null; document.getElementById('ovDetalhePedido').classList.add('hidden'); }
+function renderDetalhePedido(){
+  var body=document.getElementById('detPedBody'); if(!body)return;
+  var p=pedidosEsperados.find(function(x){return x.id===detPedAtual;});
+  if(!p){ body.innerHTML='<div style="font-size:12px;color:var(--td)">Pedido não encontrado — pode ter sido excluído.</div>'; return; }
+  var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+  var totEmb=p.totalEmbalado||0;
+  var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
+  body.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+      '<span style="font-size:12px;color:var(--td)">'+totEmb+' / '+totEsp+' un. embaladas</span>'+
+      '<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>'+
+    '</div>'+
+    '<div style="background:var(--bg);border-radius:20px;height:6px;overflow:hidden;margin-bottom:14px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>'+
+    '<div class="ped-sec-ttl" style="margin-top:0">Itens do pedido</div>'+
+    (p.itens.length?p.itens.map(function(it){
+      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+      return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
+        '<span class="it-cons-q" style="font-family:var(--mo)">'+emb+'/'+esp+' <span style="color:var(--td)">· saldo '+sld+'</span></span></div>';
+    }).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+    renderDiasPedidoHtml(p.pedido)+
+    '<div style="display:flex;gap:6px;margin-top:14px">'+
+      (p.fechado?'<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">Reabrir</button>':'<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>')+
+      '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
+    '</div>';
 }
 // Bloco "Dias de embalagem" dentro do card expandido de um pedido — cada dia é a unidade
 // faturável: mostra qtd/caixas do dia, selo da NF se já faturado, botão Faturar se não.
@@ -2650,6 +2688,10 @@ function toggleDiaPedido(pedido,data){ diaOpenSet[pedido+'|'+data]=!diaOpenSet[p
 function renderDiasPedidoHtml(pedidoNome){
   var dias=pedEsperDias[pedidoNome];
   if(dias===undefined) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Carregando histórico...</div>';
+  if(dias==='erro'){
+    var pedEscErr=String(pedidoNome).replace(/'/g,"\\'");
+    return '<div style="font-size:11px;color:var(--rd);padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠ Não consegui carregar o histórico.<button class="btn-gh" style="width:auto;padding:6px 12px" onclick="carregarDiasPedido(\''+pedEscErr+'\')">🔄 Tentar de novo</button></div>';
+  }
   if(!dias.length) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Nenhuma embalagem registrada ainda pra este pedido.</div>';
   var pedEsc=String(pedidoNome).replace(/'/g,"\\'");
   return '<div class="ped-sec-ttl">Histórico de embalagens — toque num dia pra ver o detalhe</div>'+
@@ -2721,18 +2763,18 @@ function confirmarFaturarDia(){
 function fecharPedEsper(id){
   if(!confirm('Fechar este pedido? Ele vai parar de aparecer pro operador na bipagem (quando essa parte existir).'))return;
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido fechado');carregarPedidosEsperados();}else{toast('⚠ Não fechou — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).fecharPedidoEsperado(id);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido fechado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não fechou — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).fecharPedidoEsperado(id);
   }catch(e){toast('⚠ Sem conexão');}
 }
 function reabrirPedEsper(id){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id);
   }catch(e){toast('⚠ Sem conexão');}
 }
 function excluirPedEsper(id){
   if(!confirm('Excluir este pedido cadastrado e todos os itens esperados dele? Isso não pode ser desfeito.'))return;
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('🗑 Pedido excluído');carregarPedidosEsperados();}else{toast('⚠ Não excluiu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).excluirPedidoEsperado(id);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('🗑 Pedido excluído');fecharDetalhePedido();carregarPedidosEsperados();}else{toast('⚠ Não excluiu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).excluirPedidoEsperado(id);
   }catch(e){toast('⚠ Sem conexão');}
 }
 
