@@ -933,12 +933,22 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <div class="md" style="max-width:440px">
     <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
     <div class="md-body">
-      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador, a baia e o pedido para iniciar a sessão.</div>
+      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Selecione o operador, a baia e o lote. O pedido é escolhido no próximo passo.</div>
       <div class="md-row"><label class="lbl req">Operador</label><select class="sel" id="selOpPop"><option value="">Selecione operador...</option></select><div id="opPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione o operador.</div></div>
       <div class="md-row"><label class="lbl req">Baia</label><select class="sel" id="selBaiaPop"><option value="">Selecione baia...</option></select><div id="baPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Selecione a baia.</div></div>
-      <div class="md-row"><label class="lbl req">Número do Pedido</label><input autocomplete="off" class="inp" type="text" id="inpPedPop" placeholder="Ex: PED-2025-001"><div id="pedPopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
       <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
-      <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">✔ Confirmar e iniciar</button></div>
+      <div class="md-acts" style="margin-top:6px"><button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:14px;font-size:15px">Continuar → escolher pedido</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ESCOLHER PEDIDO — cards com os pedidos abertos, segundo passo pra iniciar a bipagem -->
+<div class="ov hidden" id="ovEscolherPedidoBip">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">📦 Qual pedido?</span><button class="md-x" onclick="fecharEscolherPedidoBip()">✕</button></div>
+    <div class="md-body">
+      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Toque no pedido que vai embalar agora.</div>
+      <div id="escPedBipLista" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto"></div>
     </div>
   </div>
 </div>
@@ -1009,12 +1019,13 @@ const Backend={
   async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2)),cliente_lote:s.lote||null},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&order=id.desc&limit=200',null); var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null); var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarPedidosFaturamento(){ try{ var base=await Backend.listarEmbalagens(); if(base.status!=='ok')return base; var nfs=await sbFetch('GET','/notas_fiscais?select=*',null); var m={}; (nfs||[]).forEach(function(n){ m[n.sessao]={nf:n.nf||'',faturado:n.faturado===true,cliente:n.cliente||'',dataFaturamento:_dataBR(n.data_faturamento)}; }); var peds=base.embalagens.map(function(e){ var info=m[e.sessao]||{}; return Object.assign({},e,{nf:info.nf||'',faturado:info.faturado===true,cliente:info.cliente||'',dataFaturamento:info.dataFaturamento||''}); }); return {status:'ok',pedidos:peds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarNF(sessao,nf,faturado,cliente,dataFat){ try{ await sbFetch('POST','/notas_fiscais?on_conflict=sessao',{sessao:sessao,nf:nf||null,faturado:!!faturado,cliente:cliente||null,data_faturamento:dataFat?dataFat:null,atualizado_em:new Date().toISOString()},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarConfiguracoes(config){ try{ var t=config.tipo==='operador'?'/operadores':'/baias'; await sbFetch('DELETE',t+'?id=gt.0',null); if(config.valores&&config.valores.length){ await sbFetch('POST',t,config.valores.map(function(v){return {nome:v,ativo:true};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async carregarConfiguracoes(){ try{ var ops=await sbFetch('GET','/operadores?select=nome&order=nome.asc',null); var bs=await sbFetch('GET','/baias?select=nome&order=nome.asc',null); return {status:'ok',operadores:(ops||[]).map(function(o){return o.nome;}),baias:(bs||[]).map(function(b){return b.nome;})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } if(item.tipo==='iniciarSessao'){ await Backend.iniciarSessaoEmbalagem(item.dados); n++; } if(item.tipo==='fecharCaixa'){ await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); n++; } if(item.tipo==='finalizarSimples'){ await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1029,6 +1040,16 @@ const Backend={
   // ver aviso no chat). Cadastro manual por enquanto; import XML entra depois plugando na mesma tabela.
   async criarPedidoEsperado(pedido,itens){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var existe=await sbFetch('GET','/pedidos?pedido=eq.'+encodeURIComponent(p)+'&select=id',null); if(existe&&existe.length)return {status:'erro',msg:'Esse pedido já está cadastrado.'}; var pr=await sbFetch('POST','/pedidos',{pedido:p,fechado:false,criado_em:new Date().toISOString()},{'Prefer':'return=representation'}); var pedidoId=pr&&pr[0]&&pr[0].id; if(!pedidoId)return {status:'erro',msg:'Não recebi o id do pedido criado — confira se a tabela pedidos existe.'}; if(itens&&itens.length){ await sbFetch('POST','/itens_pedido',itens.map(function(it){return {pedido_id:pedidoId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade_esperada:Number(it.qtd)||0};})); } return {status:'ok',pedidoId:pedidoId}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarPedidosEsperados(){ try{ var peds=await sbFetch('GET','/pedidos?select=*&order=id.desc',null); var res=await Promise.all((peds||[]).map(async function(p){ var itens=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+p.id+'&select=id,codigo_produto,nome_produto,quantidade_esperada',null); return {id:p.id,pedido:p.pedido,fechado:p.fechado===true,criadoEm:p.criado_em,itens:(itens||[]).map(function(it){return {id:it.id,codigo:it.codigo_produto,nome:it.nome_produto,qtdEsperada:it.quantidade_esperada};})}; })); return {status:'ok',pedidos:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Grava a sessão no servidor assim que operador/baia/pedido/lote são confirmados — não mais
+  // só no fim. finalizada:false até confirmarFin() marcar como true. É essa gravação antecipada
+  // que permite Faturamento enxergar progresso em andamento, não só sessões já terminadas.
+  async iniciarSessaoEmbalagem(s){ try{ await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,finalizada:false},{'Prefer':'return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Grava UMA caixa (e seus itens) assim que ela fecha, em vez de esperar o fim da sessão inteira.
+  async registrarCaixaFechada(sessaoId,cx){ try{ var cr=await sbFetch('POST','/caixas',{sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } if(cid){ await Backend.recalcularEsalvarAgregados(sessaoId); } return {status:'ok',caixaId:cid||null}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Progresso de um pedido: esperado (de itens_pedido) vs. embalado (somando itens_caixa de
+  // TODAS as sessões desse pedido, em andamento ou finalizadas) vs. saldo. Base de tudo: cartões
+  // na bipagem, bloqueio de bipagem fora do esperado, e a tela de tempo real do Faturamento.
+  async buscarProgressoPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var itens=(itensEsp||[]).map(function(it){ var emb=embaladoMap[it.codigo_produto]||0; var esp=Number(it.quantidade_esperada)||0; return {codigo:it.codigo_produto,nome:it.nome_produto,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async reabrirPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:false}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirPedidoEsperado(pedidoId){ try{ await sbFetch('DELETE','/itens_pedido?pedido_id=eq.'+pedidoId,null); await sbFetch('DELETE','/pedidos?id=eq.'+pedidoId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
@@ -1078,7 +1099,7 @@ let salvandoFatura=false;
 let finalizandoEmbalagem=false;
 let fechandoCaixa=false;
 
-function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',lote:'',peso:0};}
+function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',lote:'',peso:0,pedidoProgresso:null};}
 let sess=novaSess();
 let cxFech=[], cxAtual={};
 try{const s=localStorage.getItem(SK);if(s){const d=JSON.parse(s);sess=d.sess||novaSess();cxFech=d.cxFech||[];cxAtual=d.cxAtual||{};}}catch{}
@@ -1106,7 +1127,7 @@ function irPara(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('scr-'+id).classList.add('active');
   if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba||!sess.ped)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
-  if(id==='fat'){carregarFat();carregarPedidosEsperados();}
+  if(id==='fat'){carregarFat();carregarPedidosEsperados();iniciarPollingFaturamento();}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
 function irParaProtegido(id){
@@ -1116,6 +1137,7 @@ function irParaProtegido(id){
 }
 function voltarInicio(){
   pararBipCam();
+  pararPollingFaturamento();
   admOk=false; fatOk=false; // ao sair, exige a senha novamente na próxima entrada
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('startScreen').style.display='flex';
@@ -1333,6 +1355,9 @@ function registrar(codigo){
   // Cache carregado: decisão instantânea (funciona offline)
   if(produtosCache){
     if(Object.prototype.hasOwnProperty.call(produtosCache,chave)){
+      var checagem=checarContraPedido(chave);
+      if(checagem.status==='fora'){ mostrarForaDoPedido(chave,produtosCache[chave]); return; }
+      if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,produtosCache[chave]); return; }
       contabilizar(chave,produtosCache[chave]);
     }else{
       mostrarNaoExiste(chave);
@@ -1345,7 +1370,12 @@ function registrar(codigo){
     try{
       google.script.run
         .withSuccessHandler(function(d){
-          if(d&&d.encontrado) contabilizar(chave,d.nome);
+          if(d&&d.encontrado){
+            var checagem=checarContraPedido(chave);
+            if(checagem.status==='fora'){ mostrarForaDoPedido(chave,d.nome); return; }
+            if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,d.nome); return; }
+            contabilizar(chave,d.nome);
+          }
           else mostrarNaoExiste(chave);
         })
         .withFailureHandler(function(){mostrarSemValidacao(chave);})
@@ -1392,12 +1422,55 @@ function contabilizar(codigo,nome){
   cxAtual[codigo].nome=nome;cxAtual[codigo].qty++;
   var tot=Object.values(cxAtual).reduce(function(s,i){return s+i.qty;},0);
   document.getElementById('cxCount').textContent=tot;
-  showFb('✔ '+nome+'  +1  (caixa: '+tot+')','ok');
+  var restanteMsg=restanteDoPedidoMsg(codigo);
+  showFb('✔ '+nome+'  +1  (caixa: '+tot+')'+restanteMsg,'ok');
   animZone('success');beepSucesso();renderTabela(codigo);renderStats();
   document.getElementById('btnCx').disabled=false;
   atualizarBtnFin();
   salvarSess();
   enviar({tipo:'scan',codigo:codigo,nome:nome,qty:1,operador:op,baia:baia,sessaoId:sess.id,ts:new Date().toISOString()});
+}
+
+// Confere o código bipado contra o progresso do pedido selecionado (sess.pedidoProgresso).
+// Sem progresso carregado (ex: falha ao buscar ao escolher o pedido) não bloqueia — deixa
+// passar como antes, pra não travar o operador por causa de uma falha de rede momentânea.
+function checarContraPedido(codigo){
+  if(!sess.pedidoProgresso) return {status:'ok'};
+  var info=sess.pedidoProgresso[codigo];
+  if(!info) return {status:'fora'};
+  var jaNestaSessao=(sess.itens[codigo]?sess.itens[codigo].qty:0);
+  var restante=info.esperado-info.embaladoServidor-jaNestaSessao;
+  if(restante<=0) return {status:'excedido'};
+  return {status:'ok',restante:restante};
+}
+// Texto "faltam X un." pra colar no feedback de sucesso, quando há progresso de pedido carregado.
+function restanteDoPedidoMsg(codigo){
+  if(!sess.pedidoProgresso||!sess.pedidoProgresso[codigo]) return '';
+  var info=sess.pedidoProgresso[codigo];
+  var restante=Math.max(0,info.esperado-info.embaladoServidor-(sess.itens[codigo]?sess.itens[codigo].qty:0));
+  return ' — faltam '+restante+' un. do pedido';
+}
+function mostrarForaDoPedido(codigo,nome){
+  document.getElementById('scanInput').disabled=true;
+  document.getElementById('btnBipCam').disabled=true;
+  if(bipCamStream && bipCamInterval){clearInterval(bipCamInterval);bipCamInterval=null;}
+  document.getElementById('naoExisteTitle').textContent='FORA DESTE PEDIDO';
+  document.getElementById('naoExisteSub').textContent=nome+' não está na lista de itens esperados do pedido '+sess.ped+'.';
+  document.getElementById('naoExisteCod').textContent=codigo;
+  document.getElementById('naoExisteOv').classList.remove('hidden');
+  animZone('error');beepAtencao();showFb('⛔ Fora do pedido: '+nome,'err');
+  setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
+}
+function mostrarSaldoExcedido(codigo,nome){
+  document.getElementById('scanInput').disabled=true;
+  document.getElementById('btnBipCam').disabled=true;
+  if(bipCamStream && bipCamInterval){clearInterval(bipCamInterval);bipCamInterval=null;}
+  document.getElementById('naoExisteTitle').textContent='SALDO JÁ COMPLETO';
+  document.getElementById('naoExisteSub').textContent='Já foi embalada a quantidade esperada de '+nome+' pra este pedido.';
+  document.getElementById('naoExisteCod').textContent=codigo;
+  document.getElementById('naoExisteOv').classList.remove('hidden');
+  animZone('error');beepAtencao();showFb('⛔ Saldo completo: '+nome,'err');
+  setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
 }
 
 // ═══════════════════════════════════════
@@ -1685,14 +1758,30 @@ function okPeso(){
   document.getElementById('btnOkPeso').disabled=true;
   document.getElementById('btnOkPeso').textContent='Fechando...';
 
-  cxFech.push(Object.assign({},pendingCx,{peso:peso,etqImpressa:false}));
+  var novaCaixa=Object.assign({},pendingCx,{peso:peso,etqImpressa:false});
+  cxFech.push(novaCaixa);
   pendingCx=null;cxAtual={};
   document.getElementById('cxCount').textContent='0';
   document.getElementById('btnCx').disabled=true;
   fecharOv('ovPeso');
   salvarSess();renderCxFech();renderTabela(null);renderStats();atualizarBtnFin();
-  var cxFechada=cxFech[cxFech.length-1];
-  showFb('📦 Caixa '+cxFechada.num+' fechada — '+cxFechada.totalUnid+' un · '+peso+' kg','ok');
+  showFb('📦 Caixa '+novaCaixa.num+' fechada — '+novaCaixa.totalUnid+' un · '+peso+' kg','ok');
+
+  // Grava a caixa no servidor agora — não mais só no fim da sessão inteira. É isso que dá
+  // pro Faturamento enxergar progresso enquanto o operador ainda está bipando.
+  var sessaoIdAtual=sess.id;
+  var payloadFila={tipo:'fecharCaixa',dados:{sessaoId:sessaoIdAtual,caixa:novaCaixa}};
+  if(online){
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.status==='ok'&&r.caixaId){ novaCaixa.id=r.caixaId; salvarSess(); }
+          else{ addFila(payloadFila); }
+        })
+        .withFailureHandler(function(){ addFila(payloadFila); })
+        .registrarCaixaFechada(sessaoIdAtual,novaCaixa);
+    }catch(e){ addFila(payloadFila); }
+  }else{ addFila(payloadFila); }
 
   setTimeout(function(){
     fechandoCaixa=false;
@@ -1700,7 +1789,7 @@ function okPeso(){
     document.getElementById('btnOkPeso').textContent='📦 Fechar Caixa';
   },500);
 
-  abrirEtqCxObrigatoria(cxFechada);
+  abrirEtqCxObrigatoria(novaCaixa);
 }
 
 // Finalizar só libera com pelo menos 1 caixa fechada E todas com etiqueta impressa
@@ -1835,7 +1924,6 @@ function confirmarFin(){
     dataEmbalagem:new Date().toLocaleDateString('pt-BR'),
     horaEmbalagem:hora
   };
-  var payload={tipo:'finalizar',dados:dadosFin};
 
   function finalizar(){
     finalizandoEmbalagem=false;
@@ -1846,14 +1934,21 @@ function confirmarFin(){
     document.getElementById('ovImpr').classList.remove('hidden');
   }
 
+  // As caixas já foram gravadas uma a uma ao fechar (ver okPeso) — aqui só marca a
+  // embalagem como finalizada=true. Se por algum motivo a sessão nunca chegou a ser criada
+  // no servidor (ex: começou totalmente offline), o PATCH não erra, só não acha nada pra
+  // marcar — por isso sempre enfileira 'finalizarSimples' como rede de segurança, mesmo
+  // quando a chamada direta "funciona".
+  var sessaoIdAtual=sess.id;
+  var payload={tipo:'finalizarSimples',dados:{sessaoId:sessaoIdAtual}};
   if(online){
     try{
       google.script.run
-        .withSuccessHandler(function(r){if(r&&r.caixaIds){dadosFin.caixas.forEach(function(cx,i){cx.id=r.caixaIds[i]||null;});}toast('✔ Embalagem salva');finalizar();})
-        .withFailureHandler(function(){addFila(payload);finalizar();})
-        .registrarFinalizacaoApp(dadosFin);
-    }catch{addFila(payload);finalizar();}
-  }else{addFila(payload);finalizar();}
+        .withSuccessHandler(function(r){ if(r&&r.status==='ok'){toast('✔ Embalagem finalizada');}else{addFila(payload);} finalizar(); })
+        .withFailureHandler(function(){ addFila(payload); finalizar(); })
+        .marcarEmbalagemFinalizada(sessaoIdAtual);
+    }catch(e){ addFila(payload); finalizar(); }
+  }else{ addFila(payload); finalizar(); }
 }
 
 function novaEmb(){if(!confirm('Nova embalagem?'))return;fecharOv('ovImpr');limpar();}
@@ -2391,26 +2486,65 @@ var pedidosEsperados=[], pedEsperOpenSet={};
 function carregarPedidosEsperados(){
   try{
     google.script.run
-      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); } })
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); } })
       .withFailureHandler(function(){})
       .listarPedidosEsperados();
   }catch(e){}
+}
+var fatPollingInterval=null;
+function iniciarPollingFaturamento(){
+  pararPollingFaturamento();
+  fatPollingInterval=setInterval(function(){
+    var el=document.getElementById('scr-fat');
+    if(!el||!el.classList.contains('active')){ pararPollingFaturamento(); return; }
+    atualizarProgressoPedidosAbertos();
+  },12000);
+}
+function pararPollingFaturamento(){ if(fatPollingInterval){ clearInterval(fatPollingInterval); fatPollingInterval=null; } }
+// Busca embalado/saldo de cada pedido aberto e funde no que já está na tela — é isso que faz
+// o Faturamento "atualizar sozinho" sem precisar apertar nada, a cada 12s enquanto a tela está aberta.
+function atualizarProgressoPedidosAbertos(){
+  pedidosEsperados.filter(function(p){return !p.fechado;}).forEach(function(p){
+    try{
+      google.script.run
+        .withSuccessHandler(function(d){
+          if(d&&d.status==='ok'){
+            var alvo=pedidosEsperados.find(function(x){return x.pedido===p.pedido;});
+            if(alvo){
+              var mapa={}; (d.itens||[]).forEach(function(it){mapa[it.codigo]={embalado:it.embalado,saldo:it.saldo};});
+              alvo.itens.forEach(function(it){ var m=mapa[it.codigo]; if(m){ it.embalado=m.embalado; it.saldo=m.saldo; } });
+              alvo.totalEmbalado=d.totalEmbalado; alvo.totalSaldo=d.totalSaldo; alvo.totalEsperado=d.totalEsperado;
+              renderPedidosEsperados();
+            }
+          }
+        })
+        .withFailureHandler(function(){})
+        .buscarProgressoPedido(p.pedido);
+    }catch(e){}
+  });
 }
 function togPedEsper(id){ pedEsperOpenSet[id]=!pedEsperOpenSet[id]; renderPedidosEsperados(); }
 function renderPedidosEsperados(){
   var el=document.getElementById('pedEsperSec'); if(!el)return;
   if(!pedidosEsperados.length){ el.innerHTML=''; return; }
-  el.innerHTML='<div class="fat-form-title" style="margin:0 0 6px 2px">📝 Pedidos cadastrados</div>'+
+  el.innerHTML='<div class="fat-form-title" style="margin:0 0 6px 2px">📝 Pedidos cadastrados <span style="font-weight:400;color:var(--td)">· atualiza sozinho</span></div>'+
     pedidosEsperados.map(function(p){
-      var tot=p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+      var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+      var totEmb=p.totalEmbalado||0;
+      var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
       var aberto=!!pedEsperOpenSet[p.id];
       return '<div class="ped-card" style="margin-bottom:6px">'+
         '<div class="ped-hdr" onclick="togPedEsper('+p.id+')">'+
-          '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+p.itens.length+' produto(s) · '+tot+' un. esperadas</div></div>'+
+          '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+p.itens.length+' produto(s) · '+totEmb+' / '+totEsp+' un. embaladas</div>'+
+          '<div style="background:var(--bg);border-radius:20px;height:5px;margin-top:5px;overflow:hidden;max-width:200px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div></div>'+
           '<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>'+
         '</div>'+
         (aberto?('<div class="ped-body open"><div class="ped-body-inner">'+
-          (p.itens.length?p.itens.map(function(it){return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span><span class="it-cons-q">'+it.qtdEsperada+' un.</span></div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+          (p.itens.length?p.itens.map(function(it){
+            var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+            return '<div class="it-cons"><span class="it-cons-n">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
+              '<span class="it-cons-q" style="font-family:var(--mo)">'+emb+'/'+esp+' <span style="color:var(--td)">· saldo '+sld+'</span></span></div>';
+          }).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
           '<div style="display:flex;gap:6px;margin-top:10px">'+
             (p.fechado?'<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">Reabrir</button>':'<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>')+
             '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
@@ -2525,11 +2659,9 @@ function abrirOperBaia(){
   var curOp=document.getElementById('selOp').value||'', curBa=document.getElementById('selBaia').value||'';
   sp.innerHTML='<option value="">Selecione operador...</option>'+ops.map(function(o){return '<option value="'+o+'"'+(o===curOp?' selected':'')+'>'+o+'</option>';}).join('');
   bp.innerHTML='<option value="">Selecione baia...</option>'+baias.map(function(b){return '<option value="'+b+'"'+(b===curBa?' selected':'')+'>'+b+'</option>';}).join('');
-  document.getElementById('inpPedPop').value=sess.ped||'';
   document.getElementById('inpLotePop').value=sess.lote||'';
   document.getElementById('opPopErr').style.display='none';
   document.getElementById('baPopErr').style.display='none';
-  document.getElementById('pedPopErr').style.display='none';
   document.getElementById('lotePopErr').style.display='none';
   document.getElementById('ovOperBaia').classList.remove('hidden');
   setTimeout(function(){sp.focus();},120);
@@ -2537,20 +2669,103 @@ function abrirOperBaia(){
 function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('hidden'); focusScan(); }
 function confirmarOperBaia(){
   var op=document.getElementById('selOpPop').value, ba=document.getElementById('selBaiaPop').value;
-  var ped=document.getElementById('inpPedPop').value.trim();
   var lote=document.getElementById('inpLotePop').value.trim();
   var ok=true;
   if(!op){document.getElementById('opPopErr').style.display='block';ok=false;} else {document.getElementById('opPopErr').style.display='none';}
   if(!ba){document.getElementById('baPopErr').style.display='block';ok=false;} else {document.getElementById('baPopErr').style.display='none';}
-  if(!ped){document.getElementById('pedPopErr').style.display='block';ok=false;} else {document.getElementById('pedPopErr').style.display='none';}
   if(!lote){document.getElementById('lotePopErr').style.display='block';ok=false;} else {document.getElementById('lotePopErr').style.display='none';}
   if(!ok)return;
   document.getElementById('selOp').value=op;
   document.getElementById('selBaia').value=ba;
-  sess.op=op; sess.baia=ba; sess.ped=ped; sess.lote=lote; salvarSess();
+  sess.op=op; sess.baia=ba; sess.lote=lote; salvarSess();
   document.getElementById('ovOperBaia').classList.add('hidden');
-  validarCampos();
-  focusScan();
+  abrirEscolherPedidoBip();
+}
+
+// ── Escolha de pedido em cards (segundo passo) ──
+function abrirEscolherPedidoBip(){
+  document.getElementById('escPedBipLista').innerHTML='<div style="text-align:center;padding:20px"><div class="fat-spinner" style="margin:0 auto"></div></div>';
+  document.getElementById('ovEscolherPedidoBip').classList.remove('hidden');
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){ renderEscolherPedidoBip((d.pedidos||[]).filter(function(p){return !p.fechado;})); }
+        else{ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar pedidos')+'</div>'; }
+      })
+      .withFailureHandler(function(e){ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
+      .listarPedidosEsperados();
+  }catch(e){ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
+}
+function fecharEscolherPedidoBip(){
+  document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
+  abrirOperBaia(); // sem pedido escolhido, volta pro passo anterior — não deixa numa tela sem saída
+}
+function renderEscolherPedidoBip(lista){
+  var el=document.getElementById('escPedBipLista');
+  if(!lista.length){ el.innerHTML='<div class="fat-empty">📭 Nenhum pedido em aberto. Cadastre um em Faturamento › Novo Pedido.</div>'; return; }
+  el.innerHTML=lista.map(function(p){
+    var tot=p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+    return '<button class="start-card bip" style="padding:15px" onclick="selecionarPedidoBip(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">'+
+      '<div class="start-card-ico" style="width:38px;height:38px;font-size:17px">📦</div>'+
+      '<div class="start-card-txt"><div class="start-card-t" style="font-size:16px">'+escAttr(p.pedido)+'</div><div class="start-card-s">'+p.itens.length+' produto(s) · '+tot+' un. esperadas</div></div>'+
+      '<div class="start-card-arrow">›</div>'+
+    '</button>';
+  }).join('');
+}
+// Grava o pedido escolhido, busca o progresso (esperado/já embalado/saldo) pra habilitar
+// bloqueio e o "faltam X" na hora de bipar, grava a sessão no servidor, e libera a bipagem.
+function selecionarPedidoBip(pedido){
+  sess.ped=pedido; salvarSess();
+  var listaEl=document.getElementById('escPedBipLista');
+  listaEl.innerHTML='<div style="text-align:center;padding:20px"><div class="fat-spinner" style="margin:0 auto"></div><div style="margin-top:8px;font-size:12px;color:var(--td)">Carregando progresso do pedido...</div></div>';
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){
+          var mapa={};
+          d.itens.forEach(function(it){ mapa[it.codigo]={nome:it.nome,esperado:it.esperado,embaladoServidor:it.embalado}; });
+          sess.pedidoProgresso=mapa;
+        }else{
+          sess.pedidoProgresso=null;
+          toast('⚠ Não consegui carregar o progresso — bipagem sem checar saldo por enquanto');
+        }
+        salvarSess();
+        iniciarSessaoNoServidorSeNecessario();
+        document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
+        document.getElementById('selOp').value=sess.op;
+        document.getElementById('selBaia').value=sess.baia;
+        validarCampos();
+        focusScan();
+      })
+      .withFailureHandler(function(){
+        sess.pedidoProgresso=null; salvarSess();
+        iniciarSessaoNoServidorSeNecessario();
+        document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
+        document.getElementById('selOp').value=sess.op;
+        document.getElementById('selBaia').value=sess.baia;
+        validarCampos();
+        focusScan();
+        toast('⚠ Sem conexão pra checar o progresso do pedido — sincroniza quando voltar');
+      })
+      .buscarProgressoPedido(pedido);
+  }catch(e){
+    sess.pedidoProgresso=null; salvarSess();
+    document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
+    validarCampos(); focusScan();
+  }
+}
+function iniciarSessaoNoServidorSeNecessario(){
+  var s={id:sess.id,pedido:sess.ped,operador:sess.op,baia:sess.baia,lote:sess.lote,data:sess.data,hora:new Date().getHours().toString().padStart(2,'0')+':'+new Date().getMinutes().toString().padStart(2,'0')+':'+new Date().getSeconds().toString().padStart(2,'0')};
+  if(online){
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){ if(!r||r.status!=='ok'){ addFila({tipo:'iniciarSessao',dados:s}); } })
+        .withFailureHandler(function(){ addFila({tipo:'iniciarSessao',dados:s}); })
+        .iniciarSessaoEmbalagem(s);
+    }catch(e){ addFila({tipo:'iniciarSessao',dados:s}); }
+  }else{
+    addFila({tipo:'iniciarSessao',dados:s});
+  }
 }
 function addOp(){
   var inp=document.getElementById('addOpI');var v=inp.value.trim();
