@@ -369,7 +369,7 @@ tr.nw td{animation:fl 1s ease-out}
 
 .prod-list{margin-top:0}
 .prod-item{display:flex;align-items:center;gap:10px;
-  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:11px;padding:11px 12px}
+  background-color:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:11px 12px}
 .prod-item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .prod-item-row{display:flex;align-items:baseline;gap:7px;min-width:0}
 .prod-item-tag{font-size:8px;font-weight:700;letter-spacing:.08em;color:var(--td);flex-shrink:0;width:34px}
@@ -497,7 +497,8 @@ tr.nw td{animation:fl 1s ease-out}
 .adm-tab:active{transform:scale(.98)}
 .adm-content{flex:1;overflow-y:auto;padding:20px 26px}
 .adm-panel-title{font-family:var(--f-d);font-size:26px;letter-spacing:.02em;color:var(--tx);
-  margin-bottom:16px;padding-left:13px;border-left:4px solid var(--pu)}
+  margin-bottom:16px;padding-left:13px;border-left:4px solid var(--pu);display:flex;align-items:baseline;gap:10px}
+.adm-panel-count{font-family:var(--mo);font-size:12px;font-weight:400;color:var(--td);letter-spacing:0}
 .adm-panel{display:none;animation:admFade .2s ease-out}
 .adm-panel.active{display:block}
 @keyframes admFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -535,17 +536,25 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   background-repeat:no-repeat;background-position:14px center}
 
 .adm-list{display:flex;flex-direction:column;gap:8px;padding-bottom:24px}
-#pane-op .adm-list,#pane-baia .adm-list,#pane-prod .adm-list{
+#pane-op .adm-list,#pane-baia .adm-list{
+  display:flex;flex-direction:column;gap:0;max-width:540px;
+  background-color:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+#pane-prod .adm-list{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:9px}
 .full{grid-column:1/-1}
 .adm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  background-color:var(--s1);border:1px solid var(--bd);border-left:3px solid rgba(139,92,246,.4);border-radius:10px;padding:14px 15px}
+  background:transparent;border:none;border-bottom:1px solid var(--bd);border-radius:0;padding:15px 16px}
+.adm-row:last-child{border-bottom:none}
+.adm-row.full{background-color:var(--s2);border-radius:8px;margin:2px}
 .adm-row-txt{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.adm-icon-btn{width:36px;height:36px;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;border:1px solid transparent;line-height:1}
-.adm-icon-btn.del{background:var(--rdd);border-color:rgba(224,57,47,.35);color:var(--rd)}
-.adm-icon-btn.edit{background:var(--acg);border-color:rgba(0,131,62,.4);color:var(--brand2)}
-.adm-icon-btn.cancel{background:var(--s3);border-color:var(--bd2);color:var(--tm)}
+.adm-icon-btn{width:34px;height:34px;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;border:none;line-height:1;background:transparent;transition:background .1s}
+.adm-icon-btn.del{color:var(--rd)}
+.adm-icon-btn.del:active{background:var(--rdd)}
+.adm-icon-btn.edit{color:var(--brand2)}
+.adm-icon-btn.edit:active{background:var(--acg)}
+.adm-icon-btn.cancel{color:var(--tm)}
+.adm-icon-btn.cancel:active{background:var(--s3)}
 .adm-icon-btn:active{transform:scale(.9)}
 .adm-empty2{padding:34px 16px;text-align:center;color:var(--td);grid-column:1/-1;
   background-color:var(--s1);border:1px dashed var(--bd);border-radius:12px}
@@ -717,7 +726,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       <div class="adm-content">
       <section class="adm-panel active" id="pane-op">
-        <h2 class="adm-panel-title">Operadores</h2>
+        <h2 class="adm-panel-title">Operadores <span class="adm-panel-count" id="opCount"></span></h2>
         <div class="adm-addbar">
           <input class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
           <button class="adm-btn-add" onclick="addOp()">Adicionar</button>
@@ -727,7 +736,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </section>
 
       <section class="adm-panel" id="pane-baia">
-        <h2 class="adm-panel-title">Baias</h2>
+        <h2 class="adm-panel-title">Baias <span class="adm-panel-count" id="baiaCount"></span></h2>
         <div class="adm-addbar">
           <input class="adm-input" id="addBaiaI" placeholder="Ex: Baia 01" onkeydown="if(event.key==='Enter')addBaia()">
           <button class="adm-btn-add" onclick="addBaia()">Adicionar</button>
@@ -2153,8 +2162,14 @@ function admTab(t){
 
 // Renderiza a lista de operadores ou baias (linhas grandes com botão remover)
 var editCfgKind=null, editCfgIdx=null; // linha de operador/baia em edição
+// Ícones outline (substituem emoji ✎/✕ nos botões de ação do Admin — consistente entre aparelhos, currentColor herda a cor do botão)
+var ICO_EDIT='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M13.8 3.3l2.9 2.9L6.4 16.5l-4 1 1-4L13.8 3.3z"/></svg>';
+var ICO_X='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="14" height="14"><path d="M5 5l10 10M15 5L5 15"/></svg>';
+
 function renderCfg(id,arr,kind){
   var el=document.getElementById(id);if(!el)return;
+  var cntEl=document.getElementById(kind==='op'?'opCount':'baiaCount');
+  if(cntEl)cntEl.textContent=arr.length?('('+arr.length+')'):'';
   if(!arr.length){
     el.innerHTML='<div class="adm-empty2"><div class="em-ic">'+(kind==='op'?'👤':'📍')+'</div>'+
       'Nenhum '+(kind==='op'?'operador':'baia')+' cadastrado. Use o campo acima para adicionar.</div>';
@@ -2166,12 +2181,12 @@ function renderCfg(id,arr,kind){
       return '<div class="adm-row full" style="gap:6px">'+
         '<input class="adm-input" id="editCfgInp" value="'+escAttr(v)+'" style="padding:11px 12px" onkeydown="if(event.key===\'Enter\')saveCfgEdit(\''+kind+'\','+i+')">'+
         '<button class="adm-btn-add" onclick="saveCfgEdit(\''+kind+'\','+i+')" style="padding:0 14px">Salvar</button>'+
-        '<button class="adm-icon-btn cancel" onclick="cancelCfgEdit()" title="Cancelar">✕</button>'+
+        '<button class="adm-icon-btn cancel" onclick="cancelCfgEdit()" title="Cancelar">'+ICO_X+'</button>'+
       '</div>';
     }
     return '<div class="adm-row"><span class="adm-row-txt">'+v+'</span>'+
-      '<button class="adm-icon-btn edit" onclick="editCfg(\''+kind+'\','+i+')" title="Editar">✎</button>'+
-      '<button class="adm-icon-btn del" onclick="'+delFn+'('+i+')" title="Remover">✕</button></div>';
+      '<button class="adm-icon-btn edit" onclick="editCfg(\''+kind+'\','+i+')" title="Editar">'+ICO_EDIT+'</button>'+
+      '<button class="adm-icon-btn del" onclick="'+delFn+'('+i+')" title="Remover">'+ICO_X+'</button></div>';
   }).join('');
   if(editCfgKind===kind){var f=document.getElementById('editCfgInp');if(f){f.focus();f.select();}}
 }
@@ -2301,7 +2316,7 @@ function renderProdList(){
         '<input class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
         '<input class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
         '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
-        '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">✕</button>'+
+        '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">'+ICO_X+'</button>'+
       '</div>';
     }
     return '<div class="prod-item">'+
@@ -2310,8 +2325,8 @@ function renderProdList(){
         '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+p.nome+'</span></div>'+
       '</div>'+
       '<div class="prod-item-acts">'+
-        '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">✎</button>'+
-        '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">✕</button>'+
+        '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">'+ICO_EDIT+'</button>'+
+        '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">'+ICO_X+'</button>'+
       '</div></div>';
   }).join('')+(lista.length>300?'<div style="text-align:center;font-size:10px;color:var(--td);padding:8px">Mostrando 300 de '+lista.length+' — use o filtro</div>':'');
   if(editandoCod){var f=document.getElementById('editProdNome');if(f)f.focus();}
