@@ -403,6 +403,11 @@ tr.nw td{animation:fl 1s ease-out}
 .ov{position:fixed;inset:0;background:rgba(4,10,6,.88);z-index:600;
   display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .ov.hidden{display:none}
+/* ovDetalhePedido e ovCadastrarPedido têm botões que abrem OUTROS modais por cima deles
+   (senha, motivo, adicionar item/produto, faturar). Sem isso, se o sub-modal aparecer antes
+   deles no HTML, o "recipiente" (mesmo z-index) fica por cima e esconde o sub-modal — só
+   aparecia ao fechar o recipiente. Damos a eles z-index menor pra sempre perderem a disputa. */
+#ovDetalhePedido,#ovCadastrarPedido{z-index:590}
 .md{background-color:var(--s1);border:1px solid var(--bd);border-top:2px solid var(--ac);border-radius:14px 14px 0 0;
   width:100%;max-height:90vh;overflow-y:auto}
 .md-hdr{padding:15px 19px;border-bottom:1px solid var(--bd);
@@ -1069,7 +1074,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
 <!-- MODAL PENDÊNCIAS DE FATURAMENTO — quais pedidos têm produção embalada e não faturada -->
 <div class="ov hidden" id="ovPendenciasFaturamento">
-  <div class="md">
+  <div class="md" style="max-width:760px">
     <div class="md-hdr"><span class="md-title">🔴 Pendências de Faturamento</span><button class="md-x" onclick="fecharOv('ovPendenciasFaturamento')">✕</button></div>
     <div class="md-body">
       <div id="pendenciasFatSec"></div>
@@ -1354,7 +1359,32 @@ const Backend={
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
-  async buscarPendenciasFaturamento(){ try{ var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,total_caixas,total_unidades',null); var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null); var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; }); var porPedido={}; (embs||[]).forEach(function(e){ var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return; if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0}; porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0; }); return {status:'ok',pendencias:Object.values(porPedido)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async buscarPendenciasFaturamento(){ try{
+    var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades',null);
+    var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null);
+    var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; });
+    var porPedido={}; var sessoesPendentes=[];
+    (embs||[]).forEach(function(e){
+      var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return;
+      if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0};
+      porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0;
+      if(e.sessao&&sessoesPendentes.indexOf(e.sessao)===-1) sessoesPendentes.push(e.sessao);
+    });
+    var pecas=[];
+    if(sessoesPendentes.length){
+      try{
+        var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoesPendentes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id',null);
+        var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
+        if(caixaIds.length){
+          var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=nome_produto,codigo_produto,quantidade',null);
+          var mapaPecas={};
+          (itensTodos||[]).forEach(function(it){ var k=it.codigo_produto||it.nome_produto; if(!k)return; if(!mapaPecas[k]) mapaPecas[k]={codigo:it.codigo_produto||'',nome:it.nome_produto||k,unidades:0}; mapaPecas[k].unidades+=Number(it.quantidade)||0; });
+          pecas=Object.values(mapaPecas).sort(function(a,b){return b.unidades-a.unidades;});
+        }
+      }catch(e4){}
+    }
+    return {status:'ok',pendencias:Object.values(porPedido),pecas:pecas};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -2982,6 +3012,7 @@ function carregarPedidosEsperados(){
 // Pendências de faturamento: quais pedidos têm produção embalada e ainda não faturada.
 // Alimenta o selo vermelho nos cards e o banner clicável com o relatório em PDF.
 var pedidosPendentesFat={}; // {pedido: {dias,caixas,unidades}}
+var pendenciasPecasCache=[];
 function carregarPendenciasFaturamento(){
   try{
     google.script.run
@@ -2989,6 +3020,7 @@ function carregarPendenciasFaturamento(){
         if(d&&d.status==='ok'){
           pedidosPendentesFat={};
           (d.pendencias||[]).forEach(function(p){ pedidosPendentesFat[p.pedido]=p; });
+          pendenciasPecasCache=d.pecas||[];
           renderPedidosEsperados();
           renderBannerPendenciasFat();
           renderBannerProntoFinalizar();
@@ -3030,28 +3062,44 @@ function renderBannerProntoFinalizar(){
 }
 function abrirPendenciasFaturamento(){
   var lista=Object.values(pedidosPendentesFat);
+  var pecas=pendenciasPecasCache||[];
   var el=document.getElementById('pendenciasFatSec');
   if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhuma pendência no momento.</div>'; }
   else{
     var totCx=lista.reduce(function(s,p){return s+p.caixas;},0), totUn=lista.reduce(function(s,p){return s+p.unidades;},0);
     el.innerHTML=
-      '<div class="ped-kpis" style="margin-bottom:14px">'+
+      '<div class="ped-kpis" style="margin-bottom:16px">'+
         '<div class="ped-kpi bl"><div class="ped-kpiv">'+lista.length+'</div><div class="ped-kpil">Pedidos</div></div>'+
         '<div class="ped-kpi gn"><div class="ped-kpiv">'+totCx+'</div><div class="ped-kpil">Caixas</div></div>'+
         '<div class="ped-kpi yw"><div class="ped-kpiv">'+totUn+'</div><div class="ped-kpil">Unidades</div></div>'+
       '</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">'+
+      '<colgroup><col style="width:46%"><col style="width:18%"><col style="width:18%"><col style="width:18%"></colgroup>'+
       '<thead><tr><th style="text-align:left;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Pedido</th>'+
       '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Dias</th>'+
       '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Caixas</th>'+
       '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Un.</th></tr></thead><tbody>'+
-      lista.map(function(p){
-        return '<tr><td style="padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(p.pedido)+'</td>'+
-          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd)">'+p.dias+'</td>'+
-          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.caixas+'</td>'+
-          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.unidades+'</td></tr>';
+      lista.map(function(p,i){
+        var alvo=pedidosEsperados.find(function(x){return x.pedido===p.pedido;});
+        var bg=i%2?'background:rgba(255,255,255,.02)':'';
+        return '<tr style="cursor:pointer;'+bg+'" onmouseover="this.style.background=\'var(--acd)\'" onmouseout="this.style.background=\''+(i%2?'rgba(255,255,255,.02)':'transparent')+'\'" onclick="fecharOv(\'ovPendenciasFaturamento\')'+(alvo?';abrirDetalhePedido('+alvo.id+')':'')+'">'+
+          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escAttr(p.pedido)+'</td>'+
+          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd)">'+p.dias+'</td>'+
+          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.caixas+'</td>'+
+          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.unidades+'</td></tr>';
       }).join('')+
-      '</tbody></table>';
+      '</tbody></table>'+
+      (pecas.length?(
+        '<div class="ped-sec-ttl">Peças pendentes de faturar</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr><th style="text-align:left;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Peça</th>'+
+        '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Unidades</th></tr></thead><tbody>'+
+        pecas.map(function(p){
+          return '<tr><td style="padding:7px 6px;border-bottom:1px solid var(--bd)">'+escAttr(p.nome)+(p.codigo?' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span>':'')+'</td>'+
+            '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--rd)">'+p.unidades+'</td></tr>';
+        }).join('')+
+        '</tbody></table>'
+      ):'');
   }
   document.getElementById('ovPendenciasFaturamento').classList.remove('hidden');
 }
@@ -3063,6 +3111,9 @@ function imprimirPendenciasFaturamento(){
   var logoSrc=logoEl?logoEl.src:'';
   var linhas=lista.map(function(p){
     return '<tr><td>'+escAttr(p.pedido)+'</td><td style="text-align:right">'+p.dias+'</td><td style="text-align:right">'+p.caixas+'</td><td style="text-align:right">'+p.unidades+'</td></tr>';
+  }).join('');
+  var linhasPecas=(pendenciasPecasCache||[]).map(function(p){
+    return '<tr><td>'+escAttr(p.nome)+(p.codigo?' ('+escAttr(p.codigo)+')':'')+'</td><td style="text-align:right">'+p.unidades+'</td></tr>';
   }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pendências de Faturamento</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
@@ -3079,6 +3130,7 @@ function imprimirPendenciasFaturamento(){
     'th{background:#c1392b;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
     'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
     'tr:nth-child(even) td{background:#f9f9f9}'+
+    '.sec-ttl{font-size:12px;font-weight:800;color:#c1392b;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
     '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
     '@page{size:A4;margin:14mm}'+
     '</style></head><body>'+
@@ -3090,6 +3142,10 @@ function imprimirPendenciasFaturamento(){
       '<div class="kpi"><div class="v">'+totUn+'</div><div class="l">Unidades</div></div>'+
     '</div>'+
     '<table><thead><tr><th>Pedido</th><th style="text-align:right">Dias pendentes</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'+
+    (linhasPecas?(
+      '<div class="sec-ttl">Peças pendentes de faturar</div>'+
+      '<table><thead><tr><th>Peça</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhasPecas+'</tbody></table>'
+    ):'')+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
     '</body></html>';
@@ -3438,17 +3494,18 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
     lista.map(function(fz){
       var aberto=!!finCaixasOpenSet[fz.sessao];
       var temCaixas=fz.detalheCaixas&&fz.detalheCaixas.length;
-      return '<div class="cx-detalhe">'+
+      return '<div class="cx-detalhe" style="cursor:pointer" onclick="togFinCaixas(\''+fz.sessao+'\')">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
           '<div><div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">Finalização '+fz.numero+(fz.finalizada?'':' <span style="color:var(--yw);font-size:10px;font-family:var(--f-b);letter-spacing:0">· em andamento</span>')+'</div>'+
           '<div style="font-size:10px;color:var(--td);margin-top:2px">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div>'+
-          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg'+(temCaixas?(' · <span style="color:var(--brand2);cursor:pointer;text-decoration:underline" onclick="togFinCaixas(\''+fz.sessao+'\')">'+(aberto?'ocultar itens':'ver itens das caixas')+'</span>'):'')+'</div></div>'+
+          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg</div></div>'+
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
-            :'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')"'+(fz.finalizada?'':' title="Atenção: essa sessão ainda está em andamento"')+'>💰 Faturar</button>')+
+            :'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')"'+(fz.finalizada?'':' title="Atenção: essa sessão ainda está em andamento"')+'>💰 Faturar</button>')+
         '</div>'+
+        (temCaixas?('<div style="font-size:10px;color:var(--brand2);margin-top:8px;display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</div>'):'')+
         (aberto&&temCaixas?(
-          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px">'+
+          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px" onclick="event.stopPropagation()">'+
           fz.detalheCaixas.map(function(cx){
             return '<div style="font-size:11px"><b style="color:var(--tm)">📦 Caixa '+cx.num+'</b> <span style="color:var(--td)">· '+(cx.totalUnid||0)+' un · '+cx.peso+' kg</span>'+
               (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="color:var(--td);padding-left:14px;margin-top:2px">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="color:var(--td);padding-left:14px;margin-top:2px">Sem itens</div>')+
