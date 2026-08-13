@@ -1115,6 +1115,18 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL SELECIONAR FINALIZAÇÕES — escolhe quais entram nessa NF, antes de informar NF/cliente/data -->
+<div class="ov hidden" id="ovSelecionarFinalizacoes">
+  <div class="md" style="max-width:540px">
+    <div class="md-hdr"><span class="md-title">Selecionar Finalizações</span><button class="md-x" onclick="fecharOv('ovSelecionarFinalizacoes')">✕</button></div>
+    <div class="md-body">
+      <div style="font-size:12px;color:var(--td);margin-bottom:12px">Escolha quais finalizações entram nessa nota fiscal — não precisa ser todas, nem em ordem.</div>
+      <div id="selFinLista" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:14px"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovSelecionarFinalizacoes')">Cancelar</button><button class="btn-ok green" id="btnContinuarSelFin" onclick="continuarSelecaoFinalizacoes()">Continuar →</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL FATURAR UM DIA — NF pra tudo que um pedido embalou numa data -->
 <div class="ov hidden" id="ovFaturarDia">
   <div class="md" style="max-width:440px">
@@ -1331,23 +1343,20 @@ const Backend={
   // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
   // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
   // faz sentido clicar Faturar finalização por finalização.
-  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{
+  async faturarTudoPendente(pedido,sessoesEscolhidas,nf,cliente,dataFat){ try{
     var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'};
-    var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem,finalizada',null);
-    var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem,evento_numero',null);
-    var fatSessaoSet={}, fatDiaSet={}, maxEvento=0; // dia é fallback só pra registros antigos (de antes dessa migração) sem sessao
-    (jaFat||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.data_embalagem]=true; if(Number(f.evento_numero)>maxEvento) maxEvento=Number(f.evento_numero); });
+    if(!sessoesEscolhidas||!sessoesEscolhidas.length)return {status:'erro',msg:'Selecione ao menos uma finalização.'};
+    var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&sessao=in.('+sessoesEscolhidas.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=sessao,data_embalagem,finalizada',null);
+    var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,evento_numero',null);
+    var fatSessaoSet={}, maxEvento=0;
+    (jaFat||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; if(Number(f.evento_numero)>maxEvento) maxEvento=Number(f.evento_numero); });
     var novoEvento=maxEvento+1;
-    var pendentes=(embs||[]).filter(function(e){
-      if(!e.sessao) return false;
-      if(e.finalizada===false) return false;
-      if(fatSessaoSet[e.sessao]) return false;
-      if(fatDiaSet[e.data_embalagem]) return false;
-      return true;
-    });
-    if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido — pode ser que a única produção pendente ainda esteja em andamento.'};
-    await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,evento_numero:novoEvento,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
-    return {status:'ok',quantidade:pendentes.length,evento:novoEvento};
+    // Revalida no servidor: só entra quem realmente está finalizada e ainda sem NF — protege
+    // contra o caso de algo ter mudado entre abrir a seleção e confirmar.
+    var validas=(embs||[]).filter(function(e){ return e.finalizada!==false && !fatSessaoSet[e.sessao] && sessoesEscolhidas.indexOf(e.sessao)!==-1; });
+    if(!validas.length)return {status:'erro',msg:'Nenhuma das finalizações selecionadas está disponível pra faturar agora — pode já ter sido faturada, ou ainda estar em andamento.'};
+    await sbFetch('POST','/faturamentos_parciais',validas.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,evento_numero:novoEvento,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
+    return {status:'ok',quantidade:validas.length,evento:novoEvento};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
   // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
@@ -3571,7 +3580,7 @@ function renderDetalhePedido(){
   var saldoZerado=totEsp>0&&totEmb>=totEsp;
   if(temPendenteFat){
     var labelFaturar=saldoZerado?'💰 Faturar':'💰 Faturar Parcial';
-    acoes+='<button class="adm-btn-add" style="flex:2;background:var(--gn)" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\','+(!saldoZerado)+')">'+labelFaturar+'</button>';
+    acoes+='<button class="adm-btn-add" style="flex:2;background:var(--gn)" onclick="abrirSelecaoFinalizacoes(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">'+labelFaturar+'</button>';
   }
   body.innerHTML=
     exportBtns+
@@ -3775,9 +3784,52 @@ function abrirFaturarDia(pedido,data,dataBR,sessao){
 }
 // Pedido já bateu 100% — fatura de uma vez tudo que ainda não tem NF, em vez de finalização
 // por finalização. Reaproveita o mesmo modal, só muda o modo e qual função do Backend chama.
-function abrirFaturarTudo(pedido,parcial){
-  fatDiaCtx={pedido:pedido,modo:'tudo'};
-  document.getElementById('fatDiaTitulo').textContent=parcial?('Faturar parcial — '+pedido+' (só o que já foi finalizado)'):('Faturar '+pedido);
+// Passo 1: escolher quais finalizações elegíveis (finalizadas e sem NF) entram nessa leva.
+// Começa tudo marcado — desmarcar é a exceção, não o padrão.
+var selFinEscolhidas={}; // {sessao: true}
+var selFinPedidoCtx=null;
+function abrirSelecaoFinalizacoes(pedido){
+  var lista=pedEsperFinalizacoes[pedido];
+  if(!Array.isArray(lista)){ toast('Aguarde o histórico carregar antes de faturar'); return; }
+  var elegiveis=lista.filter(function(fz){ return fz.finalizada && !fz.faturado; });
+  if(!elegiveis.length){ toast('Nada disponível pra faturar nesse pedido agora'); return; }
+  selFinPedidoCtx=pedido;
+  selFinEscolhidas={};
+  elegiveis.forEach(function(fz){ selFinEscolhidas[fz.sessao]=true; });
+  renderSelecaoFinalizacoes(elegiveis);
+  document.getElementById('ovSelecionarFinalizacoes').classList.remove('hidden');
+}
+function renderSelecaoFinalizacoes(elegiveis){
+  var el=document.getElementById('selFinLista');
+  el.innerHTML=elegiveis.map(function(fz){
+    var checked=!!selFinEscolhidas[fz.sessao];
+    var sessEsc=String(fz.sessao).replace(/'/g,"\\'");
+    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
+      '<input autocomplete="off" type="checkbox" '+(checked?'checked':'')+' onchange="toggleSelFinalizacao(\''+sessEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
+      '<div style="flex:1"><div style="font-family:var(--f-d);font-size:15px;letter-spacing:.02em">Finalização '+fz.numero+'</div>'+
+      '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · '+fz.caixas+' cx · '+fz.unidades+' un</div></div>'+
+    '</label>';
+  }).join('');
+  var n=Object.keys(selFinEscolhidas).filter(function(k){return selFinEscolhidas[k];}).length;
+  var btn=document.getElementById('btnContinuarSelFin');
+  if(btn) btn.textContent=n?('Continuar com '+n+' selecionada'+(n===1?'':'s')+' →'):'Continuar →';
+}
+function toggleSelFinalizacao(sessao){
+  selFinEscolhidas[sessao]=!selFinEscolhidas[sessao];
+  var lista=pedEsperFinalizacoes[selFinPedidoCtx]||[];
+  renderSelecaoFinalizacoes(lista.filter(function(fz){ return fz.finalizada && !fz.faturado; }));
+}
+function continuarSelecaoFinalizacoes(){
+  var sessoes=Object.keys(selFinEscolhidas).filter(function(k){return selFinEscolhidas[k];});
+  if(!sessoes.length){ toast('Selecione ao menos uma finalização'); return; }
+  fecharOv('ovSelecionarFinalizacoes');
+  abrirFaturarTudo(selFinPedidoCtx,sessoes);
+}
+// Passo 2: NF/cliente/data pras finalizações já escolhidas no passo 1.
+function abrirFaturarTudo(pedido,sessoesEscolhidas){
+  fatDiaCtx={pedido:pedido,sessoesEscolhidas:sessoesEscolhidas,modo:'tudo'};
+  var n=sessoesEscolhidas.length;
+  document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — '+n+' finalização'+(n===1?'':'ões')+' selecionada'+(n===1?'':'s');
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
@@ -3812,7 +3864,7 @@ function confirmarFaturarDia(){
   function aoFalhar(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); }
   try{
     if(ctx.modo==='tudo'){
-      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,nf,cliente,dataFat);
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,ctx.sessoesEscolhidas,nf,cliente,dataFat);
     }else{
       google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,ctx.sessao,nf,cliente,dataFat);
     }
