@@ -1322,7 +1322,7 @@ const Backend={
   // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
   // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
   // faz sentido clicar Faturar finalização por finalização.
-  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var datas=[]; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem,finalizada',null); var datas=[]; var diasComPendencia={}; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); if(e.finalizada===false) diasComPendencia[e.data_embalagem]=true; }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]&&!diasComPendencia[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido — pode ser que a única produção pendente ainda esteja em andamento.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
   // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
   async buscarRelatorioFaturamento(dataInicio,dataFim){ try{
@@ -1360,12 +1360,14 @@ const Backend={
   // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
   async buscarPendenciasFaturamento(){ try{
-    var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades',null);
+    var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades,finalizada',null);
     var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null);
     var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; });
+    var diasEmAndamento={};
+    (embs||[]).forEach(function(e){ if(e.finalizada===false) diasEmAndamento[e.pedido+'|'+e.data_embalagem]=true; });
     var porPedido={}; var sessoesPendentes=[];
     (embs||[]).forEach(function(e){
-      var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return;
+      var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return; if(diasEmAndamento[key]) return;
       if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0};
       porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0;
       if(e.sessao&&sessoesPendentes.indexOf(e.sessao)===-1) sessoesPendentes.push(e.sessao);
@@ -3462,7 +3464,7 @@ function renderDetalhePedido(){
   // Pedido bateu 100% e ainda tem finalização sem NF — oferece faturar tudo de uma vez,
   // em vez de exigir clicar Faturar em cada finalização separadamente.
   var listaFin=pedEsperFinalizacoes[p.pedido];
-  var temPendenteFat=Array.isArray(listaFin)&&listaFin.some(function(fz){return !fz.faturado;});
+  var temPendenteFat=Array.isArray(listaFin)&&listaFin.some(function(fz){return !fz.faturado&&fz.finalizada;});
   var saldoZerado=totEsp>0&&totEmb>=totEsp;
   var botaoFaturarTudo=(saldoZerado&&temPendenteFat)
     ?('<button class="adm-btn-add" style="width:100%;background:var(--gn);padding:13px;margin-top:12px" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">💰 Faturar pedido inteiro de uma vez</button>')
@@ -3508,7 +3510,9 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
           '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg</div></div>'+
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
-            :'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')"'+(fz.finalizada?'':' title="Atenção: essa sessão ainda está em andamento"')+'>💰 Faturar</button>')+
+            :(fz.finalizada
+              ?'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')">💰 Faturar</button>'
+              :'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--yw);white-space:nowrap" title="Só pode faturar depois que essa sessão for finalizada na bipagem">⏳ Aguardando finalizar</span>'))+
         '</div>'+
         (temCaixas?('<div style="font-size:10px;color:var(--brand2);margin-top:8px;display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</div>'):'')+
         (aberto&&temCaixas?(
