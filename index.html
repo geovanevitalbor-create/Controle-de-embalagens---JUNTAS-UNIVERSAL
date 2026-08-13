@@ -130,12 +130,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .scan-zone.success{border-color:var(--gn);background-color:var(--gnd);box-shadow:0 0 0 4px var(--gng),0 0 40px 12px var(--gng)}
 .scan-zone.error{border-color:var(--rd);background-color:var(--rdd);box-shadow:0 0 0 4px rgba(224,57,47,.2),0 0 40px 12px rgba(224,57,47,.22)}
 .scan-zone.blocked{border-color:var(--rd);background-color:#1a0e0c}
-.scan-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.scan-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-bottom:10px}
 .scan-lbl{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--td)}
 .blink{width:7px;height:7px;background:var(--ac);border-radius:50%;animation:pulse 1.2s infinite}
 .blink.red{background:var(--rd)}
-.cx-ct{display:flex;flex-direction:column;align-items:flex-end}
-.cx-ct-v{font-family:var(--f-d);font-size:28px;color:var(--yw);line-height:.9}
+.cx-ct{display:flex;flex-direction:column;align-items:center}
+.cx-ct-v{font-family:var(--f-d);font-size:52px;color:var(--yw);line-height:.9}
 .cx-ct-l{font-size:8px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 
 .scan-input-row{display:flex;gap:8px;align-items:stretch}
@@ -354,7 +354,7 @@ tr.nw td{animation:fl 1s ease-out}
   font-weight:600;background:var(--gn);color:#fff;margin-top:9px}
 .btn-save:hover{opacity:.85}
 .hist-row{background-color:var(--s2);border:1px solid var(--bd);border-radius:9px;margin-bottom:7px;padding:11px 13px}
-.hist-body{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)}
+.hist-body{display:none;margin-top:10px;padding:10px 14px 14px;border-top:1px dashed var(--bd)}
 .hist-body.open{display:block}
 .hist-body-inner{display:flex;flex-direction:column;gap:10px}
 /* Cards de seleção touch (operador/baia no popup da bipagem) */
@@ -2123,16 +2123,11 @@ function limpar(manterDadosFin){
   document.getElementById('btnFin').disabled=true;
   document.getElementById('cxCount').textContent='0';
   document.getElementById('sessId').textContent=sess.id;
-  if(!manterDadosFin){
-    // Limpeza manual (ou nova embalagem): zera operador/baia e pede seleção no popup
-    document.getElementById('selOp').value='';
-    document.getElementById('selBaia').value='';
-    validarCampos();
-    abrirOperBaia();
-  } else {
-    validarCampos();
-    focusScan();
-  }
+  document.getElementById('selOp').value='';
+  document.getElementById('selBaia').value='';
+  // Finalizar ou limpar manualmente — nos dois casos, volta pra tela inicial de verdade em
+  // vez de reabrir o popup dentro da bipagem. Escolher o próximo processo é decisão nova.
+  voltarInicio();
 }
 
 // ═══════════════════════════════════════
@@ -2554,8 +2549,10 @@ function adicionarProdutosSelecionados(){
 // ── Importar/baixar modelo Excel (colunas: Produto | Quantidade — Produto é o nome, igual ao cadastro de Peças) ──
 function baixarModeloPedidoExcel(){
   var exemploNome=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].nome:'NOME_DO_PRODUTO_AQUI';
-  var linhas=[['Produto','Quantidade'],[exemploNome,10]];
-  var payload=JSON.stringify({linhas:linhas}).replace(/</g,'\\u003c');
+  var linhasItens=[['Produto','Quantidade'],[exemploNome,10]];
+  var linhasDados=[['Produtos cadastrados — copie o nome exato daqui pra coluna Produto da aba Itens']];
+  (produtosAdmin||[]).forEach(function(p){ linhasDados.push([p.nome]); });
+  var payload=JSON.stringify({itens:linhasItens,dados:linhasDados}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar o modelo');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando modelo...</title>'+
@@ -2566,8 +2563,9 @@ function baixarModeloPedidoExcel(){
     '<body><div class="sp" id="sp"></div><div id="msg">Gerando modelo...</div>'+
     '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
     '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
-    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:32},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
-    'XLSX.writeFile(wb,"modelo_pedido.xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! Preencha Produto (nome igual ao cadastro de Peças) e Quantidade, depois importe de volta no Cadastrar Pedido.";document.getElementById("bd").style.display="inline-block";}'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
+    'var s2=XLSX.utils.aoa_to_sheet(D.dados);s2["!cols"]=[{wch:40}];XLSX.utils.book_append_sheet(wb,s2,"Dados");'+
+    'XLSX.writeFile(wb,"modelo_pedido.xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! Aba Itens: preencha Produto e Quantidade. Aba Dados: lista de nomes válidos pra copiar (sem dropdown automático, mas evita erro de digitação). Depois importe de volta no Cadastrar Pedido.";document.getElementById("bd").style.display="inline-block";}'+
     'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
     'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
   w.document.write(h);w.document.close();
@@ -3400,8 +3398,15 @@ function renderHist(lista){
     ris.forEach(function(ri){ var e=todasEmb[ri]; totCx+=e.totalCaixas||0; totUn+=e.totalUnid||0; });
     var abertoPed=!!histPedOpenSet[pedNum];
     var pedKey=String(pedNum).replace(/'/g,"\\'");
-    return '<div class="hist-row">'+
-      '<div class="hist-top" onclick="togHistPed(\''+pedKey+'\')" style="cursor:pointer"><span class="hist-ped">'+escAttr(pedNum)+'</span><span class="hist-dat">'+ris.length+' finalização(ões) · '+totCx+' cx · '+totUn+' un</span></div>'+
+    var pedLabel=pedNum?escAttr(pedNum):'<span style="color:var(--td);font-style:italic">(sem número)</span>';
+    return '<div class="ped-card" style="margin-bottom:8px">'+
+      '<div class="ped-hdr" onclick="togHistPed(\''+pedKey+'\')" style="cursor:pointer">'+
+        '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
+          '<div style="width:40px;height:40px;border-radius:10px;background:var(--pud);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📦</div>'+
+          '<div style="min-width:0"><div class="ped-num" style="font-size:18px">'+pedLabel+'</div><div class="ped-sub">'+ris.length+' finalização(ões) · '+totCx+' cx · '+totUn+' un</div></div>'+
+        '</div>'+
+        '<span style="font-size:20px;color:var(--td);flex-shrink:0;display:inline-block;transition:transform .15s;transform:rotate('+(abertoPed?'90':'0')+'deg)">›</span>'+
+      '</div>'+
       (abertoPed?('<div class="hist-body open"><div class="hist-body-inner">'+
         ris.map(function(ri){
           var e=todasEmb[ri];
