@@ -903,6 +903,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <span>🏷️ Filtrar por peças <span id="histPecasCountLabel" style="color:var(--td);font-weight:400"></span></span>
           <span>▾</span>
         </button>
+        <div id="histLimiteAviso" style="display:none;align-items:center;gap:8px;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:9px 12px;font-size:11px;margin-bottom:10px">
+          ⚠ Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
+        </div>
         <div class="adm-list" id="histLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
       </section>
       </div>
@@ -1051,6 +1054,19 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL ADICIONAR ITEM A PEDIDO EXISTENTE -->
+<div class="ov hidden" id="ovAdicionarItemPedido">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">+ Adicionar Produto ao Pedido</span><button class="md-x" onclick="fecharOv('ovAdicionarItemPedido')">✕</button></div>
+    <div class="md-body">
+      <input class="adm-search" id="addItemBusca" placeholder="🔍 Buscar produto..." oninput="renderAddItemLista()" style="margin-bottom:10px" autocomplete="off">
+      <div id="addItemLista" style="max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+      <div class="md-row"><label class="lbl req">Quantidade</label><input autocomplete="off" class="inp" type="number" id="addItemQtd" min="1" value="1"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovAdicionarItemPedido')">Cancelar</button><button class="btn-ok green" onclick="confirmarAdicionarItemPedido()">+ Adicionar</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PENDÊNCIAS DE FATURAMENTO — quais pedidos têm produção embalada e não faturada -->
 <div class="ov hidden" id="ovPendenciasFaturamento">
   <div class="md">
@@ -1154,6 +1170,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </div>
 
       <div id="popStepLote" style="display:none">
+        <div id="avisoConcorrenciaPop" style="display:none;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:10px 12px;font-size:11px;margin-bottom:12px;line-height:1.5"></div>
         <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
         <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">✔ Confirmar e iniciar</button>
         <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(3)">← Voltar</button>
@@ -1228,7 +1245,35 @@ const Backend={
   async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2)),cliente_lote:s.lote||null},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null); var fatMap={}; try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,nf,cliente',null); (fats||[]).forEach(function(f){ fatMap[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){} var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); var fat=fatMap[e.pedido+'|'+e.data_embalagem]; return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Antes: 1 consulta por embalagem (caixas) + 1 por caixa (itens) — com 200 embalagens e
+  // ~3 caixas cada, isso passava de 800 idas ao Supabase. Agora: 4 consultas fixas, sempre,
+  // não importa quantas embalagens existam — busca tudo em lote e monta no navegador.
+  async listarEmbalagens(){ try{
+    var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null);
+    if(!emb||!emb.length) return {status:'ok',embalagens:[]};
+    var fatMap={};
+    try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,nf,cliente',null); (fats||[]).forEach(function(f){ fatMap[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
+    var sessoes=emb.map(function(e){return e.sessao;}).filter(function(s,i,arr){return s&&arr.indexOf(s)===i;});
+    var caixasPorSessao={};
+    if(sessoes.length){
+      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao,numero,peso,total_unidades&order=numero.asc',null);
+      var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
+      var itensPorCaixa={};
+      if(caixaIds.length){
+        var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+        (itensTodos||[]).forEach(function(it){ if(!itensPorCaixa[it.caixa_id]) itensPorCaixa[it.caixa_id]=[]; itensPorCaixa[it.caixa_id].push({codigo:it.codigo_produto,nome:it.nome_produto,qty:it.quantidade}); });
+      }
+      (caixasTodas||[]).forEach(function(cx){
+        if(!caixasPorSessao[cx.sessao]) caixasPorSessao[cx.sessao]=[];
+        caixasPorSessao[cx.sessao].push({id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:itensPorCaixa[cx.id]||[]});
+      });
+    }
+    var res=emb.map(function(e){
+      var fat=fatMap[e.pedido+'|'+e.data_embalagem];
+      return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixasPorSessao[e.sessao]||[]};
+    });
+    return {status:'ok',embalagens:res};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarPedidosFaturamento(){ try{ var base=await Backend.listarEmbalagens(); if(base.status!=='ok')return base; var nfs=await sbFetch('GET','/notas_fiscais?select=*',null); var m={}; (nfs||[]).forEach(function(n){ m[n.sessao]={nf:n.nf||'',faturado:n.faturado===true,cliente:n.cliente||'',dataFaturamento:_dataBR(n.data_faturamento)}; }); var peds=base.embalagens.map(function(e){ var info=m[e.sessao]||{}; return Object.assign({},e,{nf:info.nf||'',faturado:info.faturado===true,cliente:info.cliente||'',dataFaturamento:info.dataFaturamento||''}); }); return {status:'ok',pedidos:peds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarNF(sessao,nf,faturado,cliente,dataFat){ try{ await sbFetch('POST','/notas_fiscais?on_conflict=sessao',{sessao:sessao,nf:nf||null,faturado:!!faturado,cliente:cliente||null,data_faturamento:dataFat?dataFat:null,atualizado_em:new Date().toISOString()},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarConfiguracoes(config){ try{ var t=config.tipo==='operador'?'/operadores':'/baias'; await sbFetch('DELETE',t+'?id=gt.0',null); if(config.valores&&config.valores.length){ await sbFetch('POST',t,config.valores.map(function(v){return {nome:v,ativo:true};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1269,7 +1314,7 @@ const Backend={
     // período de 6 meses com muitas finalizações.
     var pecas=[];
     if(todasSessoes.length){
-      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+todasSessoes.join(',')+')&select=id',null);
+      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+todasSessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id',null);
       var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
       if(caixaIds.length){
         var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=nome_produto,codigo_produto,quantidade',null);
@@ -1311,13 +1356,23 @@ const Backend={
   // Progresso de um pedido: esperado (de itens_pedido) vs. embalado (somando itens_caixa de
   // TODAS as sessões desse pedido, em andamento ou finalizadas) vs. saldo. Base de tudo: cartões
   // na bipagem, bloqueio de bipagem fora do esperado, e a tela de tempo real do Faturamento.
+  // Checa se existe outra sessão ativa (ainda não finalizada) hoje no mesmo pedido — alimenta
+  // o aviso de "outro operador já está nisso" no passo do lote, antes de começar a bipar.
+  async verificarConcorrenciaPedido(pedido,sessaoAtual){ try{ var p=String(pedido||'').trim(); if(!p) return {status:'ok',ativos:[]}; var hoje=new Date().toISOString().split('T')[0]; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&finalizada=eq.false&data_embalagem=eq.'+hoje+'&select=sessao,operador,baia,hora_embalagem&order=id.desc&limit=5',null); var ativos=(embs||[]).filter(function(e){return e.sessao!==sessaoAtual;}).map(function(e){return {operador:e.operador||'',baia:e.baia||'',hora:e.hora_embalagem||''};}); return {status:'ok',ativos:ativos}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Editar itens de um pedido já cadastrado — atualizar quantidade, remover, adicionar novo.
+  async atualizarItemPedido(itemId,novaQuantidade){ try{ await sbFetch('PATCH','/itens_pedido?id=eq.'+itemId,{quantidade_esperada:novaQuantidade}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async removerItemPedido(itemId){ try{ await sbFetch('DELETE','/itens_pedido?id=eq.'+itemId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async adicionarItemPedido(pedidoId,codigo,nome,quantidade){ try{ await sbFetch('POST','/itens_pedido',{pedido_id:pedidoId,codigo_produto:codigo,nome_produto:nome,quantidade_esperada:quantidade}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarProgressoPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var itens=(itensEsp||[]).map(function(it){ var emb=embaladoMap[it.codigo_produto]||0; var esp=Number(it.quantidade_esperada)||0; return {codigo:it.codigo_produto,nome:it.nome_produto,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'fechado',motivo:null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Finalizar é mais definitivo que fechar: além de sumir da lista do operador (fechado:true
   // junto), marca finalizado:true — o front para de mostrar saldo/progresso desse pedido,
   // tratando como encerrado (embalou o que embalou, não vai embalar mais nada).
-  async finalizarPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:true,finalizado:true}; if(motivo)patch.motivo_nao_concluido=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async reabrirPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:false,finalizado:false}; if(motivo)patch.motivo_reabertura=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async finalizarPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:true,finalizado:true}; if(motivo)patch.motivo_nao_concluido=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'finalizado',motivo:motivo||null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async reabrirPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:false,finalizado:false}; if(motivo)patch.motivo_reabertura=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'reaberto',motivo:motivo||null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Histórico completo de eventos de um pedido — todas as vezes que foi fechado/reaberto/
+  // finalizado, cada um com seu próprio motivo, sem sobrescrever como o campo único fazia.
+  async listarEventosPedido(pedidoId){ try{ var ev=await sbFetch('GET','/pedido_eventos?pedido_id=eq.'+pedidoId+'&select=*&order=criado_em.desc',null); return {status:'ok',eventos:(ev||[]).map(function(e){return {tipo:e.tipo,motivo:e.motivo||'',quando:new Date(e.criado_em).toLocaleString('pt-BR')};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirPedidoEsperado(pedidoId){ try{ await sbFetch('DELETE','/itens_pedido?pedido_id=eq.'+pedidoId,null); await sbFetch('DELETE','/pedidos?id=eq.'+pedidoId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
 (function(){
@@ -3031,8 +3086,12 @@ function iniciarPollingFaturamento(){
 function pararPollingFaturamento(){ if(fatPollingInterval){ clearInterval(fatPollingInterval); fatPollingInterval=null; } }
 // Busca embalado/saldo de cada pedido aberto e funde no que já está na tela — é isso que faz
 // o Faturamento "atualizar sozinho" sem precisar apertar nada, a cada 12s enquanto a tela está aberta.
+// BUGFIX: antes filtrava !p.fechado — um pedido FECHADO ainda tem produção real que precisa
+// aparecer (fechado só significa "parou de aceitar bipagem nova", não "acabou de vez"). Só
+// finalizado é o estado que realmente não muda mais. Era por isso que pedido fechado ficava
+// travado mostrando "0 embalado" pra sempre, mesmo com finalizações reais registradas.
 function atualizarProgressoPedidosAbertos(){
-  pedidosEsperados.filter(function(p){return !p.fechado;}).forEach(function(p){
+  pedidosEsperados.filter(function(p){return !p.finalizado;}).forEach(function(p){
     try{
       google.script.run
         .withSuccessHandler(function(d){
@@ -3155,12 +3214,102 @@ function renderHistoricoFatSec(){
 // Modal de detalhe de um pedido — itens, histórico de finalizações, ações. Substitui o
 // expandir inline: card só mostra o resumo, o clique abre a janela com tudo.
 var detPedAtual=null;
+var editandoItensPedido=false;
+var pedEventosCache={}; // {pedidoId: [eventos] | 'erro' | undefined}
+function carregarEventosPedido(pedidoId){
+  pedEventosCache[pedidoId]=undefined;
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        pedEventosCache[pedidoId]=(d&&d.status==='ok')?(d.eventos||[]):'erro';
+        if(detPedAtual===pedidoId) renderDetalhePedido();
+      })
+      .withFailureHandler(function(){ pedEventosCache[pedidoId]='erro'; if(detPedAtual===pedidoId) renderDetalhePedido(); })
+      .listarEventosPedido(pedidoId);
+  }catch(e){ pedEventosCache[pedidoId]='erro'; }
+}
+function renderEventosPedidoHtml(pedidoId){
+  var lista=pedEventosCache[pedidoId];
+  if(lista===undefined||lista==='erro'||!lista.length) return '';
+  var iconePorTipo={fechado:'🔒',reaberto:'↩',finalizado:'✔'};
+  var labelPorTipo={fechado:'Fechado',reaberto:'Reaberto',finalizado:'Finalizado'};
+  return '<div class="ped-sec-ttl">Histórico de eventos</div>'+
+    '<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:4px">'+
+    lista.map(function(e){
+      return '<div style="display:flex;align-items:flex-start;gap:8px;font-size:11px;padding:7px 0;border-bottom:1px dashed var(--bd)">'+
+        '<span style="flex-shrink:0">'+(iconePorTipo[e.tipo]||'•')+'</span>'+
+        '<div style="min-width:0"><b>'+(labelPorTipo[e.tipo]||e.tipo)+'</b> <span style="color:var(--td)">· '+e.quando+'</span>'+
+        (e.motivo?('<div style="color:var(--tm);margin-top:2px">'+escAttr(e.motivo)+'</div>'):'')+
+        '</div></div>';
+    }).join('')+
+    '</div>';
+}
+function toggleEditarItensPedido(){ editandoItensPedido=!editandoItensPedido; renderDetalhePedido(); }
+function salvarQtdItemPedido(itemId,jaEmbalado){
+  var input=document.getElementById('itQtd-'+itemId);
+  var novaQtd=parseInt(input.value,10);
+  if(isNaN(novaQtd)||novaQtd<0){toast('⚠ Quantidade inválida');return;}
+  if(novaQtd<jaEmbalado){
+    if(!confirm('Essa quantidade ('+novaQtd+') é menor que o que já foi embalado ('+jaEmbalado+' un). Confirma mesmo assim?'))return;
+  }
+  try{
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.status==='ok'){toast('✔ Quantidade atualizada');carregarPedidosEsperados();}
+      else{toast('⚠ Não salvou — tente de novo');}
+    }).withFailureHandler(function(){toast('⚠ Sem conexão');}).atualizarItemPedido(itemId,novaQtd);
+  }catch(e){toast('⚠ Sem conexão');}
+}
+// Remover item de pedido é destrutivo — mesma trava de senha master das outras exclusões.
+function pedirRemoverItemPedido(itemId){
+  exigirSenhaMaster(function(){
+    if(!confirm('Remover esse produto do pedido? Isso não pode ser desfeito.'))return;
+    try{
+      google.script.run.withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){toast('🗑 Produto removido');carregarPedidosEsperados();}
+        else{toast('⚠ Não removeu — tente de novo');}
+      }).withFailureHandler(function(){toast('⚠ Sem conexão');}).removerItemPedido(itemId);
+    }catch(e){toast('⚠ Sem conexão');}
+  });
+}
+var addItemPedIdCtx=null, addItemProdSel=null;
+function abrirAdicionarItemPedido(pedidoId){
+  addItemPedIdCtx=pedidoId; addItemProdSel=null;
+  document.getElementById('addItemBusca').value='';
+  document.getElementById('addItemQtd').value='1';
+  renderAddItemLista();
+  document.getElementById('ovAdicionarItemPedido').classList.remove('hidden');
+}
+function renderAddItemLista(){
+  var q=(document.getElementById('addItemBusca').value||'').trim().toLowerCase();
+  var lista=(produtosAdmin||[]).filter(function(p){ return !q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1; });
+  var el=document.getElementById('addItemLista');
+  if(!lista.length){ el.innerHTML='<div style="font-size:12px;color:var(--td);padding:12px;text-align:center">Nenhum produto encontrado.</div>'; return; }
+  el.innerHTML=lista.slice(0,100).map(function(p){
+    var sel=addItemProdSel&&addItemProdSel.codigo===p.codigo;
+    var codEsc=p.codigo.replace(/'/g,"\\'"), nomeEsc=String(p.nome).replace(/'/g,"\\'");
+    return '<button style="text-align:left;padding:9px 12px;background:'+(sel?'var(--acd)':'var(--s2)')+';border:1px solid '+(sel?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer;font-size:12px;color:var(--tx)" onclick="selecionarAddItemProd(\''+codEsc+'\',\''+nomeEsc+'\')">'+escAttr(p.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span></button>';
+  }).join('')+(lista.length>100?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 100 de '+lista.length+' — use a busca</div>':'');
+}
+function selecionarAddItemProd(codigo,nome){ addItemProdSel={codigo:codigo,nome:nome}; renderAddItemLista(); }
+function confirmarAdicionarItemPedido(){
+  if(!addItemProdSel){toast('Escolha um produto primeiro');return;}
+  var qtd=parseInt(document.getElementById('addItemQtd').value,10);
+  if(!qtd||qtd<=0){toast('Quantidade inválida');return;}
+  try{
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.status==='ok'){fecharOv('ovAdicionarItemPedido');toast('✔ Produto adicionado');carregarPedidosEsperados();}
+      else{toast('⚠ Não adicionou — tente de novo');}
+    }).withFailureHandler(function(){toast('⚠ Sem conexão');}).adicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd);
+  }catch(e){toast('⚠ Sem conexão');}
+}
 function abrirDetalhePedido(id){
   var p=pedidosEsperados.find(function(x){return x.id===id;});
   if(!p)return;
   detPedAtual=id;
+  editandoItensPedido=false;
   document.getElementById('detPedTitulo').textContent=p.pedido;
   renderDetalhePedido();
+  carregarEventosPedido(id);
   document.getElementById('ovDetalhePedido').classList.remove('hidden');
   carregarFinalizacoesPedido(p.pedido);
 }
@@ -3181,23 +3330,38 @@ function renderDetalhePedido(){
     (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:6px;overflow:hidden;margin-bottom:14px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>');
   var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
   var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
-  var itensHtml=p.itens.length?(
-    '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-    '<thead><tr>'+
-      '<th style="text-align:left;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Produto</th>'+
-      '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Original</th>'+
-      '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Embalado</th>'+
-      '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Saldo</th>'+
-    '</tr></thead><tbody>'+
-    p.itens.map(function(it){
-      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
-      return '<tr><td style="padding:7px 4px;border-bottom:1px solid var(--bd)">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+it.codigo+')</span></td>'+
-        '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd)">'+esp+'</td>'+
-        '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:var(--brand2)">'+emb+'</td>'+
-        '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:'+(sld>0?'var(--yw)':'var(--td)')+'">'+sld+'</td></tr>';
-    }).join('')+
-    '</tbody></table>'
-  ):'<div style="font-size:11px;color:var(--td)">Sem itens</div>';
+  var podeEditarItens=!p.finalizado;
+  var itensHtml;
+  if(editandoItensPedido&&podeEditarItens){
+    itensHtml=(p.itens.length?p.itens.map(function(it){
+      var emb=it.embalado||0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--bd)">'+
+        '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
+        '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.id+'">'+
+        '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido('+it.id+','+emb+')" title="Salvar quantidade">💾</button>'+
+        '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
+      '</div>';
+    }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 0">Sem itens ainda.</div>')+
+    '<button class="adm-btn-add" style="width:100%;margin-top:10px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)" onclick="abrirAdicionarItemPedido('+p.id+')">+ Adicionar produto</button>';
+  }else{
+    itensHtml=p.itens.length?(
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr>'+
+        '<th style="text-align:left;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Produto</th>'+
+        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Original</th>'+
+        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Embalado</th>'+
+        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Saldo</th>'+
+      '</tr></thead><tbody>'+
+      p.itens.map(function(it){
+        var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+        return '<tr><td style="padding:7px 4px;border-bottom:1px solid var(--bd)">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+it.codigo+')</span></td>'+
+          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd)">'+esp+'</td>'+
+          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:var(--brand2)">'+emb+'</td>'+
+          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:'+(sld>0?'var(--yw)':'var(--td)')+'">'+sld+'</td></tr>';
+      }).join('')+
+      '</tbody></table>'
+    ):'<div style="font-size:11px;color:var(--td)">Sem itens</div>';
+  }
   var acoes;
   var btnSec='style="flex:1;background:transparent;border:1.5px solid var(--bd2);color:var(--tm)"';
   if(p.finalizado){
@@ -3222,10 +3386,13 @@ function renderDetalhePedido(){
     cabecalho+
     motivoBox+
     motivoReabBox+
-    '<div class="ped-sec-ttl" style="margin-top:0">Itens do pedido</div>'+
+    '<div class="ped-sec-ttl" style="margin-top:0;display:flex;justify-content:space-between;align-items:center">Itens do pedido'+
+      (podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="toggleEditarItensPedido()">'+(editandoItensPedido?'✔ Concluir edição':'✎ Editar itens')+'</button>'):'')+
+    '</div>'+
     itensHtml+
     botaoFaturarTudo+
     renderFinalizacoesPedidoHtml(p.pedido)+
+    renderEventosPedidoHtml(p.id)+
     '<div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">'+
       acoes+
       '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
@@ -3483,12 +3650,12 @@ function confirmarFinalizarComMotivo(){
 }
 function executarFinalizarPedido(id,motivo){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✅ Pedido finalizado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não finalizou — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).finalizarPedidoEsperado(id,motivo);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✅ Pedido finalizado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não finalizou.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}}).withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));}).finalizarPedidoEsperado(id,motivo);
   }catch(e){toast('⚠ Sem conexão');}
 }
 function reabrirPedEsper(id,motivo){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id,motivo);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não reabriu.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}}).withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));}).reabrirPedidoEsperado(id,motivo);
   }catch(e){toast('⚠ Sem conexão');}
 }
 // Reabrir exige senha master (mesma trava das exclusões) + motivo — reabertura desfaz uma
@@ -3760,7 +3927,27 @@ function renderPedCardsPop(lista){
 function pickPedido(pedido){
   popPedSel=pedido;
   buscarProgressoParaSessAtual(pedido);
+  checarConcorrenciaPedido(pedido);
   mostrarStepPop(4);
+}
+// Avisa (não bloqueia) se outra sessão ainda ativa hoje já está nesse mesmo pedido — pode ser
+// legítimo dois operadores no mesmo pedido em baias diferentes, então só sinaliza.
+function checarConcorrenciaPedido(pedido){
+  var avisoEl=document.getElementById('avisoConcorrenciaPop');
+  if(avisoEl){ avisoEl.style.display='none'; avisoEl.innerHTML=''; }
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'&&d.ativos&&d.ativos.length&&avisoEl){
+          avisoEl.innerHTML='⚠ <b>Atenção:</b><br>'+d.ativos.map(function(a){
+            return escAttr(a.operador||'Alguém')+(a.baia?' na '+escAttr(a.baia):'')+(a.hora?' desde '+String(a.hora).substring(0,5):'')+' já está bipando esse pedido hoje.';
+          }).join('<br>');
+          avisoEl.style.display='block';
+        }
+      })
+      .withFailureHandler(function(){})
+      .verificarConcorrenciaPedido(pedido,sess.id);
+  }catch(e){}
 }
 function buscarProgressoParaSessAtual(pedido){
   try{
@@ -4006,7 +4193,13 @@ function carregarHist(){
   try{
     google.script.run
       .withSuccessHandler(function(d){
-        try{if(d&&d.status==='ok'){todasEmb=d.embalagens||[];popularHistFiltros();renderHist(todasEmb);}else{el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro')+'</div>';}}
+        try{
+          if(d&&d.status==='ok'){
+            todasEmb=d.embalagens||[];popularHistFiltros();renderHist(todasEmb);
+            var avisoEl=document.getElementById('histLimiteAviso');
+            if(avisoEl) avisoEl.style.display=(todasEmb.length>=200)?'flex':'none';
+          }else{el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro')+'</div>';}
+        }
         catch(e2){el.innerHTML='<div class="adm-empty">⚠ Erro: '+e2.message+'</div>';console.error(e2);}
       })
       .withFailureHandler(function(e){el.innerHTML='<div class="adm-empty">📡 Falha'+(e&&e.message?': '+e.message:'')+'</div>';console.error(e);})
