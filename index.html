@@ -904,9 +904,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           </div>
           <button class="adm-btn-ghost" onclick="document.getElementById('histDataInicio').value='';document.getElementById('histDataFim').value='';filtrarHist();" title="Limpar período">✕</button>
         </div>
-        <button class="adm-btn-add" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px" onclick="abrirFiltroPecasHist()">
-          <span>🏷️ Filtrar por peças <span id="histPecasCountLabel" style="color:var(--td);font-weight:400"></span></span>
-          <span>▾</span>
+        <button class="adm-search" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:pointer" onclick="abrirFiltroPecasHist()">
+          <span>🏷️ Filtrar por peças <span id="histPecasCountLabel" style="color:var(--brand2);font-weight:600"></span></span>
+          <span style="color:var(--td)">▾</span>
         </button>
         <div id="histLimiteAviso" style="display:none;align-items:center;gap:8px;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:9px 12px;font-size:11px;margin-bottom:10px">
           ⚠ Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
@@ -1334,9 +1334,10 @@ const Backend={
   async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{
     var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'};
     var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem,finalizada',null);
-    var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem',null);
-    var fatSessaoSet={}, fatDiaSet={}; // dia é fallback só pra registros antigos (de antes dessa migração) sem sessao
-    (jaFat||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.data_embalagem]=true; });
+    var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem,evento_numero',null);
+    var fatSessaoSet={}, fatDiaSet={}, maxEvento=0; // dia é fallback só pra registros antigos (de antes dessa migração) sem sessao
+    (jaFat||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.data_embalagem]=true; if(Number(f.evento_numero)>maxEvento) maxEvento=Number(f.evento_numero); });
+    var novoEvento=maxEvento+1;
     var pendentes=(embs||[]).filter(function(e){
       if(!e.sessao) return false;
       if(e.finalizada===false) return false;
@@ -1345,11 +1346,33 @@ const Backend={
       return true;
     });
     if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido — pode ser que a única produção pendente ainda esteja em andamento.'};
-    await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
-    return {status:'ok',quantidade:pendentes.length};
+    await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,evento_numero:novoEvento,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
+    return {status:'ok',quantidade:pendentes.length,evento:novoEvento};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
   // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
+  // Agrupa os faturamentos por evento (pedido+evento_numero) — cada vez que "Faturar"/"Faturar
+  // Parcial" é clicado no pedido, todas as sessões incluídas naquela leva ganham o mesmo
+  // número. Usado na aba Faturados pra mostrar "PEDIDO 01/01", "PEDIDO 01/02" etc.
+  async listarEventosFaturados(){ try{
+    var fats=await sbFetch('GET','/faturamentos_parciais?evento_numero=not.is.null&select=*&order=pedido.asc,evento_numero.asc',null);
+    if(!fats||!fats.length) return {status:'ok',eventos:[]};
+    var sessoes=fats.map(function(f){return f.sessao;}).filter(function(s){return s;});
+    var statsPorSessao={};
+    if(sessoes.length){
+      var embs=await sbFetch('GET','/embalagens?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=sessao,total_caixas,total_unidades',null);
+      (embs||[]).forEach(function(e){ statsPorSessao[e.sessao]={caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0}; });
+    }
+    var grupos={}, ordem=[];
+    fats.forEach(function(f){
+      var key=f.pedido+'|'+f.evento_numero;
+      if(!grupos[key]){ grupos[key]={pedido:f.pedido,evento:f.evento_numero,nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento),caixas:0,unidades:0,sessoes:0}; ordem.push(key); }
+      var st=f.sessao?statsPorSessao[f.sessao]:null;
+      if(st){ grupos[key].caixas+=st.caixas; grupos[key].unidades+=st.unidades; }
+      grupos[key].sessoes++;
+    });
+    return {status:'ok',eventos:ordem.map(function(k){return grupos[k];})};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarRelatorioFaturamento(dataInicio,dataFim){ try{
     var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null);
     if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0,pecas:[]};
@@ -3264,13 +3287,46 @@ function setPedFiltroStatus(v,btn){
   pedFiltroStatus=v;
   document.querySelectorAll('#fpane-pedidos .fat-filter').forEach(function(b){b.classList.remove('active');});
   if(btn) btn.classList.add('active');
-  renderPedidosEsperados();
+  if(v==='faturado'){ carregarEventosFaturados(); } else { renderPedidosEsperados(); }
+}
+// Cache dos eventos de faturamento — carregado sob demanda só quando a aba Faturados abre.
+var eventosFaturadosCache=null;
+function carregarEventosFaturados(){
+  var el=document.getElementById('pedEsperSec'); if(el) el.innerHTML='<div class="fat-spin-wrap"><div class="fat-spinner"></div></div>';
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){ eventosFaturadosCache=(d&&d.status==='ok')?(d.eventos||[]):[]; renderEventosFaturadosSec(); })
+      .withFailureHandler(function(){ eventosFaturadosCache=[]; renderEventosFaturadosSec(); })
+      .listarEventosFaturados();
+  }catch(e){ eventosFaturadosCache=[]; renderEventosFaturadosSec(); }
+}
+// Cada faturamento (evento) vira uma linha própria: "PEDIDO/01", "PEDIDO/02"... — não agrupa
+// mais por pedido, porque o mesmo pedido pode ter sido faturado em levas diferentes.
+function renderEventosFaturadosSec(){
+  var el=document.getElementById('pedEsperSec'); if(!el)return;
+  var lista=eventosFaturadosCache||[];
+  var textoEl=document.getElementById('pedFiltroTexto');
+  var texto=(textoEl?textoEl.value:'').trim().toLowerCase();
+  if(texto) lista=lista.filter(function(e){return String(e.pedido).toLowerCase().indexOf(texto)!==-1;});
+  if(!(eventosFaturadosCache||[]).length){ el.innerHTML='<div class="fat-empty">Nenhum pedido faturado ainda.</div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum evento encontrado com esse filtro.</div>'; return; }
+  el.innerHTML=lista.map(function(ev){
+    var alvo=pedidosEsperados.find(function(x){return x.pedido===ev.pedido;});
+    var numFmt=String(ev.evento).padStart(2,'0');
+    return '<div class="ped-card" style="margin-bottom:6px;'+(alvo?'cursor:pointer':'')+'"'+(alvo?(' onclick="abrirDetalhePedido('+alvo.id+')"'):'')+'>'+
+      '<div class="ped-hdr">'+
+        '<div><div class="ped-num">'+escAttr(ev.pedido)+'/'+numFmt+'</div>'+
+        '<div class="ped-sub">'+ev.sessoes+' finalização(ões) · '+ev.caixas+' cx · '+ev.unidades+' un'+(ev.nf?(' · NF '+escAttr(ev.nf)):'')+'</div></div>'+
+        '<span class="ped-badge fat">✔ Faturado</span>'+
+      '</div>'+
+    '</div>';
+  }).join('');
 }
 function renderPedidosEsperados(){
+  if(pedFiltroStatus==='faturado'){ renderEventosFaturadosSec(); return; }
   var el=document.getElementById('pedEsperSec'); if(!el)return;
   var lista=filtrarListaPedidos(pedidosEsperados,'pedFiltroTexto','pedFiltroData');
   if(pedFiltroStatus==='aberto') lista=lista.filter(function(p){return !p.fechado;});
-  if(pedFiltroStatus==='faturado') lista=lista.filter(function(p){return (p.totalEmbalado||0)>0 && !pedidosPendentesFat[p.pedido];});
   if(!pedidosEsperados.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido cadastrado ainda — toque no + pra criar o primeiro.</div>'; return; }
   if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido encontrado com esse filtro.</div>'; return; }
   el.innerHTML=
@@ -3507,14 +3563,16 @@ function renderDetalhePedido(){
     acoes='<button class="adm-btn-add" '+btnSec+' onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
           '<button class="adm-btn-add" style="flex:2;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }
-  // Pedido bateu 100% e ainda tem finalização sem NF — oferece faturar tudo de uma vez,
-  // em vez de exigir clicar Faturar em cada finalização separadamente.
+  // Faturar agora é ação do pedido, ao lado de Fechar/Finalizar/Reabrir/Excluir — não é mais
+  // um botão por finalização. Rótulo muda conforme o saldo: zerado = "Faturar", com saldo
+  // ainda pendente = "Faturar Parcial" (fatura só o que já foi finalizado, o resto fica de fora).
   var listaFin=pedEsperFinalizacoes[p.pedido];
   var temPendenteFat=Array.isArray(listaFin)&&listaFin.some(function(fz){return !fz.faturado&&fz.finalizada;});
   var saldoZerado=totEsp>0&&totEmb>=totEsp;
-  var botaoFaturarTudo=(saldoZerado&&temPendenteFat)
-    ?('<button class="adm-btn-add" style="width:100%;background:var(--gn);padding:13px;margin-top:12px" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">💰 Faturar pedido inteiro de uma vez</button>')
-    :'';
+  if(temPendenteFat){
+    var labelFaturar=saldoZerado?'💰 Faturar':'💰 Faturar Parcial';
+    acoes+='<button class="adm-btn-add" style="flex:2;background:var(--gn)" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\','+(!saldoZerado)+')">'+labelFaturar+'</button>';
+  }
   body.innerHTML=
     exportBtns+
     cabecalho+
@@ -3524,7 +3582,6 @@ function renderDetalhePedido(){
       (podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="toggleEditarItensPedido()">'+(editandoItensPedido?'✔ Concluir edição':'✎ Editar itens')+'</button>'):'')+
     '</div>'+
     itensHtml+
-    botaoFaturarTudo+
     renderFinalizacoesPedidoHtml(p.pedido)+
     renderEventosPedidoHtml(p.id)+
     '<div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">'+
@@ -3544,7 +3601,6 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
     return '<div style="font-size:11px;color:var(--rd);padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠ Não consegui carregar o histórico.<button class="btn-gh" style="width:auto;padding:6px 12px" onclick="carregarFinalizacoesPedido(\''+pedEscErr+'\')">🔄 Tentar de novo</button></div>';
   }
   if(!lista.length) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Nenhuma produção finalizada ainda pra este pedido.</div>';
-  var pedEsc=String(pedidoNome).replace(/'/g,"\\'");
   return '<div class="ped-sec-ttl">Histórico — finalizações</div>'+
     lista.map(function(fz){
       var aberto=!!finCaixasOpenSet[fz.sessao];
@@ -3557,7 +3613,7 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
             :(fz.finalizada
-              ?'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\',\''+(fz.sessao||'').replace(/'/g,"\\\\'")+'\')">💰 Faturar</button>'
+              ?'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--td);white-space:nowrap">Aguardando faturamento</span>'
               :'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--yw);white-space:nowrap" title="Só pode faturar depois que essa sessão for finalizada na bipagem">⏳ Aguardando finalizar</span>'))+
         '</div>'+
         (temCaixas?('<div style="font-size:10px;color:var(--brand2);margin-top:8px;display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</div>'):'')+
@@ -3719,9 +3775,9 @@ function abrirFaturarDia(pedido,data,dataBR,sessao){
 }
 // Pedido já bateu 100% — fatura de uma vez tudo que ainda não tem NF, em vez de finalização
 // por finalização. Reaproveita o mesmo modal, só muda o modo e qual função do Backend chama.
-function abrirFaturarTudo(pedido){
+function abrirFaturarTudo(pedido,parcial){
   fatDiaCtx={pedido:pedido,modo:'tudo'};
-  document.getElementById('fatDiaTitulo').textContent='Faturar pedido '+pedido+' — tudo pendente';
+  document.getElementById('fatDiaTitulo').textContent=parcial?('Faturar parcial — '+pedido+' (só o que já foi finalizado)'):('Faturar '+pedido);
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
@@ -3747,7 +3803,7 @@ function confirmarFaturarDia(){
     salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar';
     if(r&&r.status==='ok'){
       fecharOv('ovFaturarDia');
-      toast(ctx.modo==='tudo'?('✅ '+(r.quantidade||0)+' finalização(ões) faturada(s) de uma vez — NF '+nf):('✅ Dia '+ctx.dataBR+' faturado — NF '+nf));
+      toast(ctx.modo==='tudo'?('✅ '+(r.quantidade||0)+' finalização(ões) faturada(s) — evento nº'+(r.evento||'?')+' — NF '+nf):('✅ Dia '+ctx.dataBR+' faturado — NF '+nf));
       carregarFinalizacoesPedido(ctx.pedido);
     }else{
       alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela, confira se faturamentos_parciais existe no Supabase.');
