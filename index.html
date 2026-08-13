@@ -49,27 +49,34 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .start-sub{font-size:12px;color:var(--td);letter-spacing:.04em;font-family:var(--mo)}
 .start-cards{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
 .start-card{
-  position:relative;display:flex;align-items:center;gap:16px;padding:19px;border-radius:12px;
+  position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;
+  padding:24px 19px;border-radius:14px;
   border:1px solid var(--bd);background-color:var(--s1);cursor:pointer;transition:border-color .15s,transform .1s;
-  text-align:left;width:100%;
+  width:100%;
   background-image:
     linear-gradient(var(--bd2) 2px,transparent 2px),
     linear-gradient(90deg,var(--bd2) 2px,transparent 2px);
   background-repeat:no-repeat;background-size:13px 13px;background-position:0 0,0 0;
 }
 .start-card:active{transform:scale(.98)}
-.start-card-ico{width:46px;height:46px;border-radius:9px;display:flex;align-items:center;
-  justify-content:center;font-size:22px;flex-shrink:0}
-.start-card.bip .start-card-ico{background:var(--acd);}
-.start-card.fat .start-card-ico{background:var(--gnd);}
-.start-card.adm .start-card-ico{background:var(--pud);}
+.start-card-ico{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.start-card.bip .start-card-ico{background:var(--acd);color:var(--brand2)}
+.start-card.fat .start-card-ico{background:var(--gnd);color:var(--gn)}
 .start-card:hover.bip{border-color:var(--ac)}
 .start-card:hover.fat{border-color:var(--gn)}
-.start-card:hover.adm{border-color:var(--pu)}
-.start-card-txt{flex:1}
-.start-card-t{font-family:var(--f-d);font-size:19px;letter-spacing:.03em;color:#fff;line-height:1}
-.start-card-s{font-size:11px;color:var(--tm);margin-top:4px;font-family:var(--f-b)}
-.start-card-arrow{font-size:20px;color:var(--td)}
+.start-card-t{font-family:var(--f-d);font-size:20px;letter-spacing:.03em;color:#fff;line-height:1}
+.start-card-s{font-size:11px;color:var(--tm);font-family:var(--f-b)}
+.start-admin-btn{display:flex;align-items:center;gap:11px;padding:13px 18px;border-radius:12px;
+  border:1.5px solid rgba(224,57,47,.4);background:var(--rdd);cursor:pointer;
+  width:100%;max-width:340px;transition:border-color .15s,background .15s}
+.start-admin-btn:hover{border-color:var(--rd);background:rgba(224,57,47,.16)}
+.start-admin-btn:active{transform:scale(.98)}
+.start-admin-ico{color:var(--rd);flex-shrink:0;display:flex}
+.start-admin-txt{font-family:var(--f-d);font-size:16px;letter-spacing:.03em;color:var(--rd);flex:1;text-align:left}
+.start-admin-badge{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.06em;
+  color:var(--rd);background:rgba(224,57,47,.15);padding:4px 9px;border-radius:20px;font-family:var(--mo);white-space:nowrap}
+.start-admin-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--rd);flex-shrink:0}
 .start-foot{font-size:10px;color:var(--td);letter-spacing:.06em;position:absolute;bottom:18px;font-family:var(--mo)}
 
 /* ═══════════════════════════════════════
@@ -596,21 +603,21 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
   <div class="start-cards">
     <button class="start-card bip" onclick="irPara('bip')">
-      <div class="start-card-ico">🔍</div>
-      <div class="start-card-txt"><div class="start-card-t">Operador</div><div class="start-card-s">Bipar produtos e fechar caixas</div></div>
-      <div class="start-card-arrow">›</div>
+      <div class="start-card-ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8M10.5 8v8M13.5 8v5M17 8v8"/></svg></div>
+      <div class="start-card-t">Operador</div>
+      <div class="start-card-s">Bipar produtos e fechar caixas</div>
     </button>
     <button class="start-card fat" onclick="irParaProtegido('fat')">
-      <div class="start-card-ico">💰</div>
-      <div class="start-card-txt"><div class="start-card-t">Faturamento</div><div class="start-card-s">Consultar pedidos e emitir NF</div></div>
-      <div class="start-card-arrow">›</div>
-    </button>
-    <button class="start-card adm" onclick="irParaProtegido('adm')">
-      <div class="start-card-ico">🔐</div>
-      <div class="start-card-txt"><div class="start-card-t">Admin</div><div class="start-card-s">Operadores, baias e histórico</div></div>
-      <div class="start-card-arrow">›</div>
+      <div class="start-card-ico"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8.5L19 7v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M14.5 2.5V7H19"/><path d="M8.5 12.5h7M8.5 16h4.5"/></svg></div>
+      <div class="start-card-t">Faturamento</div>
+      <div class="start-card-s">Consultar pedidos e emitir NF</div>
     </button>
   </div>
+  <button class="start-admin-btn" onclick="irParaProtegido('adm')">
+    <span class="start-admin-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span>
+    <span class="start-admin-txt">Admin</span>
+    <span class="start-admin-badge"><span class="dot"></span>RESTRITO</span>
+  </button>
   <div class="start-foot" id="startConn">⏳ Conectando...</div>
 </div>
 
@@ -719,7 +726,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <nav class="adm-tabs">
         <button class="adm-tab active" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic">📦</span>Pedidos</button>
         <button class="adm-tab" data-t="historico" onclick="fatTab('historico')"><span class="ic">📋</span>Histórico</button>
-        <button class="adm-tab" data-t="embalagens" onclick="fatTab('embalagens')"><span class="ic">🗂️</span>Embalagens (antigo)</button>
+        <!-- Aba "Embalagens (antigo)" removida do menu — painel e funções continuam no código
+             (fpane-embalagens, carregarFat, renderFat etc.), só não tem mais botão de acesso.
+             NFs emitidas pelo sistema antigo por sessão só existem ali; se precisar consultar
+             uma no futuro, é só devolver este botão. -->
+        <button class="adm-tab" data-t="relatorio" onclick="fatTab('relatorio')"><span class="ic">📊</span>Relatório</button>
       </nav>
       <div class="adm-content">
         <section class="fat-panel active" id="fpane-pedidos">
@@ -729,6 +740,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
             <input autocomplete="off" class="adm-search" id="pedFiltroData" type="date" onchange="renderPedidosEsperados()" style="max-width:170px">
             <button class="adm-btn-ghost" onclick="document.getElementById('pedFiltroTexto').value='';document.getElementById('pedFiltroData').value='';renderPedidosEsperados();" title="Limpar filtros">✕</button>
           </div>
+          <div id="bannerPendenciasFat" style="display:none;margin-bottom:12px"></div>
           <div id="pedEsperSec"></div>
         </section>
 
@@ -746,8 +758,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <h2 class="adm-panel-title">Embalagens <span class="adm-panel-count" style="text-transform:none;letter-spacing:0">(sistema antigo, por sessão)</span></h2>
           <div class="fat-toolbar" style="margin-top:0">
             <div class="fat-sub">Itens consolidados · NF por sessão</div>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn-reload" onclick="exportarFatExcel()" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)">⬇ Excel (tudo)</button>
+              <button class="btn-reload" onclick="imprimirRelatorioEmbalagensAntigo()" style="background:var(--acd);border-color:var(--ac);color:var(--brand2)">🖨 PDF (tudo)</button>
               <button class="btn-reload" onclick="carregarFat()">↻ Atualizar</button>
             </div>
           </div>
@@ -758,6 +771,21 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
             <button class="fat-filter fat-ok" onclick="setFiltroStatus('faturado',this)">✅ Faturado</button>
           </div>
           <div id="fatLista"><div class="fat-spin-wrap"><div class="fat-spinner"></div><div style="margin-top:8px">Aguardando...</div></div></div>
+        </section>
+
+        <section class="fat-panel" id="fpane-relatorio">
+          <h2 class="adm-panel-title">Relatório</h2>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+            <button class="fat-filter" id="relBtn30" onclick="setPeriodoRelatorio('30d',this)">30 dias</button>
+            <button class="fat-filter" id="relBtn3m" onclick="setPeriodoRelatorio('3m',this)">3 meses</button>
+            <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
+            <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()" style="max-width:150px">
+            <span style="color:var(--td);font-size:12px">até</span>
+            <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()" style="max-width:150px">
+            <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
+            <button class="btn-reload" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
+          </div>
+          <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
         </section>
       </div>
       <button class="fab-add" id="fabNovoPedido" onclick="abrirCadastrarPedido()" title="Novo Pedido">+</button>
@@ -824,12 +852,26 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       <section class="adm-panel" id="pane-hist">
         <h2 class="adm-panel-title">Histórico</h2>
-        <select class="adm-search" id="histOpSel" onchange="filtrarHist()" style="width:100%;margin-bottom:8px"><option value="">Todos os operadores</option></select>
-        <div class="adm-searchrow">
-          <select class="adm-search" id="histPedSel" onchange="filtrarHist()"><option value="">Todos os pedidos</option></select>
-          <input autocomplete="off" class="adm-search" id="histDataSel" type="date" onchange="filtrarHist()" style="max-width:170px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <select class="adm-search" id="histOpSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os operadores</option></select>
+          <select class="adm-search" id="histPedSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os pedidos</option></select>
           <button class="adm-btn-ghost" onclick="carregarHist()" title="Recarregar">↻</button>
         </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">De</label>
+            <input autocomplete="off" class="adm-search" id="histDataInicio" type="date" onchange="filtrarHist()" style="max-width:150px">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Até</label>
+            <input autocomplete="off" class="adm-search" id="histDataFim" type="date" onchange="filtrarHist()" style="max-width:150px">
+          </div>
+          <button class="adm-btn-ghost" onclick="document.getElementById('histDataInicio').value='';document.getElementById('histDataFim').value='';filtrarHist();" title="Limpar período">✕</button>
+        </div>
+        <button class="adm-btn-add" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px" onclick="abrirFiltroPecasHist()">
+          <span>🏷️ Filtrar por peças <span id="histPecasCountLabel" style="color:var(--td);font-weight:400"></span></span>
+          <span>▾</span>
+        </button>
         <div class="adm-list" id="histLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
       </section>
       </div>
@@ -967,6 +1009,28 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL MOTIVO DE REABERTURA — obrigatório sempre que reabre um pedido fechado/finalizado -->
+<div class="ov hidden" id="ovMotivoReabrir">
+  <div class="md" style="max-width:440px">
+    <div class="md-hdr"><span class="md-title">🔓 Reabrir Pedido</span><button class="md-x" onclick="fecharOv('ovMotivoReabrir')">✕</button></div>
+    <div class="md-body">
+      <div class="md-row"><label class="lbl req">Motivo da reabertura</label><textarea autocomplete="off" class="inp" id="motivoReabrirTxt" rows="3" placeholder="Ex: cliente pediu mais unidades, erro ao finalizar antes da hora..." style="resize:vertical;min-height:88px;line-height:1.4"></textarea><div id="motivoReabrirErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o motivo.</div></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoReabrir')">Cancelar</button><button class="btn-ok green" onclick="confirmarReabrirComMotivo()">✔ Reabrir</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PENDÊNCIAS DE FATURAMENTO — quais pedidos têm produção embalada e não faturada -->
+<div class="ov hidden" id="ovPendenciasFaturamento">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">🔴 Pendências de Faturamento</span><button class="md-x" onclick="fecharOv('ovPendenciasFaturamento')">✕</button></div>
+    <div class="md-body">
+      <div id="pendenciasFatSec"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovPendenciasFaturamento')">Fechar</button><button class="btn-ok green" onclick="imprimirPendenciasFaturamento()">🖨 Baixar PDF</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETALHE DO PEDIDO — itens, saldo, histórico de dias e ações, aberto ao tocar num pedido -->
 <div class="ov hidden" id="ovDetalhePedido">
   <div class="md">
@@ -984,6 +1048,18 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div id="escProdLista" style="max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-row"><label class="lbl">Quantidade para cada um selecionado</label><input autocomplete="off" class="inp" type="number" id="escProdQtdPadrao" value="1" min="1"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEscolherProdutos')">Cancelar</button><button class="btn-ok green" id="btnAdicionarSelecionados" onclick="adicionarProdutosSelecionados()">Adicionar selecionados</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FILTRAR POR PEÇAS — usado no Histórico do Admin, multi-seleção sem quantidade (é filtro) -->
+<div class="ov hidden" id="ovFiltrarPecasHist">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">Filtrar por Peças</span><button class="md-x" onclick="fecharOv('ovFiltrarPecasHist')">✕</button></div>
+    <div class="md-body">
+      <input class="adm-search" id="filtroPecasBusca" placeholder="🔍 Buscar por nome..." oninput="renderFiltroPecasHist()" style="margin-bottom:10px" autocomplete="off">
+      <div id="filtroPecasLista" style="max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="limparFiltroPecasHist()">Limpar seleção</button><button class="btn-ok green" onclick="aplicarFiltroPecasHist()">Aplicar</button></div>
     </div>
   </div>
 </div>
@@ -1143,6 +1219,12 @@ const Backend={
   // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
   // faz sentido clicar Faturar finalização por finalização.
   async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var datas=[]; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
+  // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
+  async buscarRelatorioFaturamento(dataInicio,dataFim){ try{ var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null); if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0}; var registros=await Promise.all(fats.map(async function(f){ var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=total_caixas,total_unidades',null); var cx=0,un=0; (embs||[]).forEach(function(e){cx+=Number(e.total_caixas)||0;un+=Number(e.total_unidades)||0;}); return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),caixas:cx,unidades:un}; })); var totalUnidades=registros.reduce(function(s,r){return s+r.unidades;},0); var totalCaixas=registros.reduce(function(s,r){return s+r.caixas;},0); return {status:'ok',registros:registros,totalNFs:registros.length,totalUnidades:totalUnidades,totalCaixas:totalCaixas}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
+  // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
+  async buscarPendenciasFaturamento(){ try{ var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,total_caixas,total_unidades',null); var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null); var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; }); var porPedido={}; (embs||[]).forEach(function(e){ var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return; if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0}; porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0; }); return {status:'ok',pendencias:Object.values(porPedido)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1157,7 +1239,7 @@ const Backend={
   // Pedido como entidade de verdade (tabelas pedidos + itens_pedido — precisam existir no Supabase,
   // ver aviso no chat). Cadastro manual por enquanto; import XML entra depois plugando na mesma tabela.
   async criarPedidoEsperado(pedido,itens){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var existe=await sbFetch('GET','/pedidos?pedido=eq.'+encodeURIComponent(p)+'&select=id',null); if(existe&&existe.length)return {status:'erro',msg:'Esse pedido já está cadastrado.'}; var pr=await sbFetch('POST','/pedidos',{pedido:p,fechado:false,criado_em:new Date().toISOString()},{'Prefer':'return=representation'}); var pedidoId=pr&&pr[0]&&pr[0].id; if(!pedidoId)return {status:'erro',msg:'Não recebi o id do pedido criado — confira se a tabela pedidos existe.'}; if(itens&&itens.length){ await sbFetch('POST','/itens_pedido',itens.map(function(it){return {pedido_id:pedidoId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade_esperada:Number(it.qtd)||0};})); } return {status:'ok',pedidoId:pedidoId}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async listarPedidosEsperados(){ try{ var peds=await sbFetch('GET','/pedidos?select=*&order=id.desc',null); var res=await Promise.all((peds||[]).map(async function(p){ var itens=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+p.id+'&select=id,codigo_produto,nome_produto,quantidade_esperada',null); return {id:p.id,pedido:p.pedido,fechado:p.fechado===true,finalizado:p.finalizado===true,motivoNaoConcluido:p.motivo_nao_concluido||'',criadoEm:p.criado_em,itens:(itens||[]).map(function(it){return {id:it.id,codigo:it.codigo_produto,nome:it.nome_produto,qtdEsperada:it.quantidade_esperada};})}; })); return {status:'ok',pedidos:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarPedidosEsperados(){ try{ var peds=await sbFetch('GET','/pedidos?select=*&order=id.desc',null); var res=await Promise.all((peds||[]).map(async function(p){ var itens=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+p.id+'&select=id,codigo_produto,nome_produto,quantidade_esperada',null); return {id:p.id,pedido:p.pedido,fechado:p.fechado===true,finalizado:p.finalizado===true,motivoNaoConcluido:p.motivo_nao_concluido||'',motivoReabertura:p.motivo_reabertura||'',criadoEm:p.criado_em,itens:(itens||[]).map(function(it){return {id:it.id,codigo:it.codigo_produto,nome:it.nome_produto,qtdEsperada:it.quantidade_esperada};})}; })); return {status:'ok',pedidos:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Grava a sessão no servidor assim que operador/baia/pedido/lote são confirmados — não mais
   // só no fim. finalizada:false até confirmarFin() marcar como true. É essa gravação antecipada
   // que permite Faturamento enxergar progresso em andamento, não só sessões já terminadas.
@@ -1173,7 +1255,7 @@ const Backend={
   // junto), marca finalizado:true — o front para de mostrar saldo/progresso desse pedido,
   // tratando como encerrado (embalou o que embalou, não vai embalar mais nada).
   async finalizarPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:true,finalizado:true}; if(motivo)patch.motivo_nao_concluido=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async reabrirPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:false,finalizado:false}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async reabrirPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:false,finalizado:false}; if(motivo)patch.motivo_reabertura=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirPedidoEsperado(pedidoId){ try{ await sbFetch('DELETE','/itens_pedido?pedido_id=eq.'+pedidoId,null); await sbFetch('DELETE','/pedidos?id=eq.'+pedidoId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
 (function(){
@@ -2225,6 +2307,70 @@ function exportarFatExcel(){
 
 // Núcleo: monta as abas "Pedidos" (resumo) e "Itens" (detalhe por peça, com código de barras)
 // e baixa o .xlsx numa janela nova (fora do iframe do Apps Script, pra não ser bloqueado).
+// Gera a versão de impressão (→ Salvar como PDF) do resumo agrupado por pedido da aba
+// Embalagens (antigo) — respeita a busca/filtro atual da tela. Mesmo visual do Relatório novo,
+// pra manter consistência entre os dois lugares que geram PDF no sistema.
+function imprimirRelatorioEmbalagensAntigo(){
+  var lista=fatFiltrado.length?fatFiltrado:todosPed;
+  if(!lista||!lista.length){toast('Nada para gerar — carregue os pedidos primeiro');return;}
+  var grupos={}, ordem=[];
+  lista.forEach(function(p){
+    var key=String(p.pedido);
+    if(!grupos[key]){ grupos[key]=[]; ordem.push(key); }
+    grupos[key].push(p);
+  });
+  var totalCx=0,totalUn=0,totalPedFaturados=0;
+  var linhas=ordem.map(function(pedKey){
+    var sessoes=grupos[pedKey];
+    var cx=0,un=0,nfs=[];
+    sessoes.forEach(function(p){
+      cx+=Number(p.totalCaixas)||0;
+      var tu=0; (p.caixas||[]).forEach(function(c){(c.itens||[]).forEach(function(it){tu+=Number(it.qty)||0;});});
+      if(!tu)tu=Number(p.totalUnid)||0;
+      un+=tu;
+      if(p.faturado&&p.nf&&nfs.indexOf(p.nf)===-1) nfs.push(p.nf);
+    });
+    totalCx+=cx; totalUn+=un;
+    var todasFat=sessoes.every(function(p){return p.faturado===true;});
+    if(todasFat) totalPedFaturados++;
+    return '<tr><td>'+escAttr(pedKey)+'</td><td style="text-align:right">'+sessoes.length+'</td><td style="text-align:right">'+cx+'</td><td style="text-align:right">'+un+'</td><td>'+(nfs.length?escAttr(nfs.join(', ')):'—')+'</td><td>'+(todasFat?'Faturado':(nfs.length?'Parcial':'Embalado'))+'</td></tr>';
+  }).join('');
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Embalagens</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:23px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Relatório de Embalagens</h1><div class="sub">Agrupado por pedido · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+ordem.length+'</div><div class="l">Pedidos</div></div>'+
+      '<div class="kpi"><div class="v">'+totalPedFaturados+'</div><div class="l">Faturados</div></div>'+
+      '<div class="kpi"><div class="v">'+totalCx+'</div><div class="l">Caixas</div></div>'+
+      '<div class="kpi"><div class="v">'+totalUn+'</div><div class="l">Unidades</div></div>'+
+    '</div>'+
+    '<table><thead><tr><th>Pedido</th><th style="text-align:right">Sessões</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>NF(s)</th><th>Status</th></tr></thead><tbody>'+linhas+'</tbody></table>'+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
+}
 function gerarExcelPedidos(lista, nome){
   if(!lista||!lista.length){toast('Nada para exportar');return;}
   var cabPed=['Pedido','Data','Hora','Operador','Baia','Caixas','Unidades','Peso (kg)','NF','Cliente','Data Fat.','Status'];
@@ -2271,71 +2417,100 @@ function gerarExcelPedidos(lista, nome){
   w.document.write(h);w.document.close();
 }
 
+var fatAntigoGrupoOpen={}; // pedido groups expandidos na aba Embalagens (antigo)
+function togGrupoFatAntigo(pedKey){ fatAntigoGrupoOpen[pedKey]=!fatAntigoGrupoOpen[pedKey]; renderFat(fatFiltrado.length?fatFiltrado:todosPed); }
 function renderFat(lista){
   var el=document.getElementById('fatLista');
   if(!lista||!lista.length){
     el.innerHTML='<div class="fat-empty"><div style="font-size:28px;margin-bottom:8px">📭</div><div style="font-weight:600">Nenhum pedido encontrado</div><div style="font-size:11px;margin-top:4px;color:var(--td)">Finalize uma embalagem para aparecer aqui</div></div>';
     return;
   }
-  el.innerHTML=lista.map(function(p,i){
-    var itensMap={},totalUnid=0;
-    (p.caixas||[]).forEach(function(cx){
-      (cx.itens||[]).forEach(function(it){
-        var k=String(it.nome||'').trim();if(!k)return;
-        if(!itensMap[k])itensMap[k]=0;
-        var q=Number(it.qty)||0;itensMap[k]+=q;totalUnid+=q;
-      });
+  var grupos={}, ordem=[];
+  lista.forEach(function(p){
+    var key=String(p.pedido);
+    if(!grupos[key]){ grupos[key]=[]; ordem.push(key); }
+    grupos[key].push(p);
+  });
+  el.innerHTML=ordem.map(function(pedKey){
+    var sessoes=grupos[pedKey];
+    var totCx=0,totUn=0,nFaturados=0;
+    sessoes.forEach(function(p){
+      totCx+=Number(p.totalCaixas)||0;
+      var tu=0; (p.caixas||[]).forEach(function(cx){(cx.itens||[]).forEach(function(it){tu+=Number(it.qty)||0;});});
+      if(!tu) tu=Number(p.totalUnid)||0;
+      totUn+=tu;
+      if(p.faturado===true) nFaturados++;
     });
-    if(!totalUnid)totalUnid=Number(p.totalUnid)||0;
-    var itens=Object.entries(itensMap);
-    var temNF=p.faturado===true; // era p.nf&&... (proxy errado) — agora é o campo faturado de verdade
-    var idx=todosPed.indexOf(p);
-
-    return '<div class="ped-card">'+
-      '<div class="ped-hdr" onclick="togPed(\'pb-'+idx+'\')">'+
-        '<div><div class="ped-num">'+String(p.pedido)+'</div><div class="ped-sub">'+p.data+(p.hora?' '+p.hora:'')+' · '+(p.operador||'—')+' · '+(p.baia||'—')+'</div></div>'+
-        '<div style="display:flex;align-items:center;gap:10px">'+
-          '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+
-            '<span class="ped-badge '+(temNF?'fat':'emb')+'">'+(temNF?'Faturado':'📦 Embalado')+'</span>'+
-            '<span style="font-size:10px;color:var(--td)">'+(Number(p.totalCaixas)||0)+' cx · '+totalUnid+' un.</span>'+
-          '</div>'+
-          '<button class="ped-kebab" onclick="event.stopPropagation();abrirPedAcoes('+idx+')" title="Ações do pedido">⋮</button>'+
+    var aberto=!!fatAntigoGrupoOpen[pedKey];
+    var pedKeyEsc=pedKey.replace(/'/g,"\\'");
+    var badgeGrupo=(nFaturados===sessoes.length)?'<span class="ped-badge fat">Faturado</span>':(nFaturados>0?'<span class="ped-badge" style="background:var(--ywd);color:var(--yw);border:1px solid rgba(242,183,5,.35)">Parcial</span>':'<span class="ped-badge emb">📦 Embalado</span>');
+    return '<div class="ped-card" style="margin-bottom:8px">'+
+      '<div class="ped-hdr" onclick="togGrupoFatAntigo(\''+pedKeyEsc+'\')" style="cursor:pointer">'+
+        '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
+          '<div style="width:40px;height:40px;border-radius:10px;background:var(--pud);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📦</div>'+
+          '<div style="min-width:0"><div class="ped-num" style="font-size:18px">'+escAttr(pedKey)+'</div><div class="ped-sub">'+sessoes.length+' sessão(ões) · '+totCx+' cx · '+totUn+' un</div></div>'+
         '</div>'+
+        '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'+badgeGrupo+'<span style="font-size:20px;color:var(--td);display:inline-block;transition:transform .15s;transform:rotate('+(aberto?'90':'0')+'deg)">›</span></div>'+
       '</div>'+
-      '<div class="ped-body" id="pb-'+idx+'">'+
-        '<div class="ped-body-inner">'+
-          '<div class="ped-kpis">'+
-            '<div class="ped-kpi bl"><div class="ped-kpiv">'+(Number(p.totalCaixas)||0)+'</div><div class="ped-kpil">Caixas</div></div>'+
-            '<div class="ped-kpi gn"><div class="ped-kpiv">'+totalUnid+'</div><div class="ped-kpil">Unidades</div></div>'+
-            '<div class="ped-kpi yw"><div class="ped-kpiv">'+(p.peso||'—')+' kg</div><div class="ped-kpil">Peso</div></div>'+
-            '<div class="ped-kpi pu"><div class="ped-kpiv">'+itens.length+'</div><div class="ped-kpil">Produtos</div></div>'+
-          '</div>'+
-          '<div class="ped-sec-ttl">Itens consolidados</div>'+
-          (itens.length?itens.map(function(e){return '<div class="it-cons"><span class="it-cons-n">'+e[0]+'</span><span class="it-cons-q">'+e[1]+' un.</span></div>';}).join(''):'<div style="font-size:11px;color:var(--td);padding:6px 0">Sem detalhes de itens</div>')+
-          (p.caixas&&p.caixas.length?
-            '<div class="ped-sec-ttl">Detalhamento por caixa</div>'+
-            p.caixas.map(function(cx){
-              return '<div class="cx-detalhe"><div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' / '+(Number(p.totalCaixas)||p.caixas.length)+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
-                (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+it.nome+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem detalhes</div>')+
-              '</div>';
-            }).join(''):''
-          )+
-          (temNF?
-            '<div class="fat-info"><div class="fat-form-title">✅ Faturado</div>'+
-              '<div class="fat-info-row"><span class="fat-info-key">NF</span><span class="fat-info-val">'+String(p.nf)+'</span></div>'+
-              (p.cliente?'<div class="fat-info-row"><span class="fat-info-key">Cliente</span><span class="fat-info-val">'+String(p.cliente)+'</span></div>':'')+
-              (p.dataFaturamento?'<div class="fat-info-row"><span class="fat-info-key">Data Fat.</span><span class="fat-info-val">'+String(p.dataFaturamento)+'</span></div>':'')+
-              (p.cliLote?'<div class="fat-info-row"><span class="fat-info-key">Lote</span><span class="fat-info-val">'+String(p.cliLote)+'</span></div>':'')+
-            '</div>'
-            :
-            '<button class="btn-faturar" onclick="abrirFaturarPedido('+idx+')">💰 Faturar Pedido</button>'
-          )+
-          (p.caixas&&p.caixas.length&&p.cliLote?
-            '<button class="btn-faturar" style="margin-top:8px;background:var(--gn)" onclick="imprimirEtqClienteFat('+idx+')">🖨 Reimprimir etiqueta do cliente</button>'
-            :''
-          )+
-        '</div>'+
-      '</div>'+
+      (aberto?('<div class="hist-body open" style="padding:0 14px 14px">'+
+        sessoes.map(function(p){
+          var itensMap={},totalUnid=0;
+          (p.caixas||[]).forEach(function(cx){
+            (cx.itens||[]).forEach(function(it){
+              var k=String(it.nome||'').trim();if(!k)return;
+              if(!itensMap[k])itensMap[k]=0;
+              var q=Number(it.qty)||0;itensMap[k]+=q;totalUnid+=q;
+            });
+          });
+          if(!totalUnid)totalUnid=Number(p.totalUnid)||0;
+          var itens=Object.entries(itensMap);
+          var temNF=p.faturado===true;
+          var idx=todosPed.indexOf(p);
+          return '<div class="cx-detalhe" style="padding:0;overflow:hidden">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;cursor:pointer" onclick="togPed(\'pb-'+idx+'\')">'+
+              '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+p.data+(p.hora?' '+p.hora:'')+'</div><div style="font-size:10px;color:var(--td);margin-top:2px">'+(p.operador||'—')+' · '+(p.baia||'—')+' · '+(Number(p.totalCaixas)||0)+' cx · '+totalUnid+' un.</div></div>'+
+              '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
+                '<span class="ped-badge '+(temNF?'fat':'emb')+'" style="font-size:9px">'+(temNF?'Faturado':'📦 Embalado')+'</span>'+
+                '<button class="ped-kebab" style="width:34px;height:34px;font-size:18px" onclick="event.stopPropagation();abrirPedAcoes('+idx+')" title="Ações">⋮</button>'+
+              '</div>'+
+            '</div>'+
+            '<div class="ped-body" id="pb-'+idx+'" style="border-top:1px dashed var(--bd)">'+
+              '<div class="ped-body-inner">'+
+                '<div class="ped-kpis">'+
+                  '<div class="ped-kpi bl"><div class="ped-kpiv">'+(Number(p.totalCaixas)||0)+'</div><div class="ped-kpil">Caixas</div></div>'+
+                  '<div class="ped-kpi gn"><div class="ped-kpiv">'+totalUnid+'</div><div class="ped-kpil">Unidades</div></div>'+
+                  '<div class="ped-kpi yw"><div class="ped-kpiv">'+(p.peso||'—')+' kg</div><div class="ped-kpil">Peso</div></div>'+
+                  '<div class="ped-kpi pu"><div class="ped-kpiv">'+itens.length+'</div><div class="ped-kpil">Produtos</div></div>'+
+                '</div>'+
+                '<div class="ped-sec-ttl">Itens consolidados</div>'+
+                (itens.length?itens.map(function(e){return '<div class="it-cons"><span class="it-cons-n">'+e[0]+'</span><span class="it-cons-q">'+e[1]+' un.</span></div>';}).join(''):'<div style="font-size:11px;color:var(--td);padding:6px 0">Sem detalhes de itens</div>')+
+                (p.caixas&&p.caixas.length?
+                  '<div class="ped-sec-ttl">Detalhamento por caixa</div>'+
+                  p.caixas.map(function(cx){
+                    return '<div class="cx-detalhe"><div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' / '+(Number(p.totalCaixas)||p.caixas.length)+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
+                      (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+it.nome+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem detalhes</div>')+
+                    '</div>';
+                  }).join(''):''
+                )+
+                (temNF?
+                  '<div class="fat-info"><div class="fat-form-title">✅ Faturado</div>'+
+                    '<div class="fat-info-row"><span class="fat-info-key">NF</span><span class="fat-info-val">'+String(p.nf)+'</span></div>'+
+                    (p.cliente?'<div class="fat-info-row"><span class="fat-info-key">Cliente</span><span class="fat-info-val">'+String(p.cliente)+'</span></div>':'')+
+                    (p.dataFaturamento?'<div class="fat-info-row"><span class="fat-info-key">Data Fat.</span><span class="fat-info-val">'+String(p.dataFaturamento)+'</span></div>':'')+
+                    (p.cliLote?'<div class="fat-info-row"><span class="fat-info-key">Lote</span><span class="fat-info-val">'+String(p.cliLote)+'</span></div>':'')+
+                  '</div>'
+                  :
+                  '<button class="btn-faturar" onclick="abrirFaturarPedido('+idx+')">💰 Faturar Pedido</button>'
+                )+
+                (p.caixas&&p.caixas.length&&p.cliLote?
+                  '<button class="btn-faturar" style="margin-top:8px;background:var(--gn)" onclick="imprimirEtqClienteFat('+idx+')">🖨 Reimprimir etiqueta do cliente</button>'
+                  :''
+                )+
+              '</div>'+
+            '</div>'+
+          '</div>';
+        }).join('')+
+      '</div>'):'')+
     '</div>';
   }).join('');
 }
@@ -2650,6 +2825,105 @@ function carregarPedidosEsperados(){
       .withFailureHandler(function(){})
       .listarPedidosEsperados();
   }catch(e){}
+  carregarPendenciasFaturamento();
+}
+// Pendências de faturamento: quais pedidos têm produção embalada e ainda não faturada.
+// Alimenta o selo vermelho nos cards e o banner clicável com o relatório em PDF.
+var pedidosPendentesFat={}; // {pedido: {dias,caixas,unidades}}
+function carregarPendenciasFaturamento(){
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){
+          pedidosPendentesFat={};
+          (d.pendencias||[]).forEach(function(p){ pedidosPendentesFat[p.pedido]=p; });
+          renderPedidosEsperados();
+          renderBannerPendenciasFat();
+        }
+      })
+      .withFailureHandler(function(){})
+      .buscarPendenciasFaturamento();
+  }catch(e){}
+}
+function renderBannerPendenciasFat(){
+  var el=document.getElementById('bannerPendenciasFat'); if(!el)return;
+  var n=Object.keys(pedidosPendentesFat).length;
+  if(!n){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML='<button onclick="abrirPendenciasFaturamento()" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(224,57,47,.4);background:var(--rdd);color:#ffb3ab;cursor:pointer;font-family:var(--f-b);font-size:13px">'+
+    '<span style="font-size:18px">🔴</span>'+
+    '<span style="flex:1"><b>'+n+' pedido'+(n===1?'':'s')+'</b> com produção pendente de faturar — toque para ver o relatório</span>'+
+    '<span style="font-size:16px">›</span>'+
+  '</button>';
+}
+function abrirPendenciasFaturamento(){
+  var lista=Object.values(pedidosPendentesFat);
+  var el=document.getElementById('pendenciasFatSec');
+  if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhuma pendência no momento.</div>'; }
+  else{
+    var totCx=lista.reduce(function(s,p){return s+p.caixas;},0), totUn=lista.reduce(function(s,p){return s+p.unidades;},0);
+    el.innerHTML=
+      '<div class="ped-kpis" style="margin-bottom:14px">'+
+        '<div class="ped-kpi bl"><div class="ped-kpiv">'+lista.length+'</div><div class="ped-kpil">Pedidos</div></div>'+
+        '<div class="ped-kpi gn"><div class="ped-kpiv">'+totCx+'</div><div class="ped-kpil">Caixas</div></div>'+
+        '<div class="ped-kpi yw"><div class="ped-kpiv">'+totUn+'</div><div class="ped-kpil">Unidades</div></div>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr><th style="text-align:left;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Pedido</th>'+
+      '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Dias</th>'+
+      '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Caixas</th>'+
+      '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--bd)">Un.</th></tr></thead><tbody>'+
+      lista.map(function(p){
+        return '<tr><td style="padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(p.pedido)+'</td>'+
+          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd)">'+p.dias+'</td>'+
+          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.caixas+'</td>'+
+          '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+p.unidades+'</td></tr>';
+      }).join('')+
+      '</tbody></table>';
+  }
+  document.getElementById('ovPendenciasFaturamento').classList.remove('hidden');
+}
+function imprimirPendenciasFaturamento(){
+  var lista=Object.values(pedidosPendentesFat);
+  if(!lista.length){toast('Nenhuma pendência pra gerar');return;}
+  var totCx=lista.reduce(function(s,p){return s+p.caixas;},0), totUn=lista.reduce(function(s,p){return s+p.unidades;},0);
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var linhas=lista.map(function(p){
+    return '<tr><td>'+escAttr(p.pedido)+'</td><td style="text-align:right">'+p.dias+'</td><td style="text-align:right">'+p.caixas+'</td><td style="text-align:right">'+p.unidades+'</td></tr>';
+  }).join('');
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pendências de Faturamento</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #e0392f;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#c1392b}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#fbf3f2;border:1px solid #f0d9d6;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:25px;font-weight:800;color:#c1392b}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#c1392b;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f9f9f9}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Pendências de Faturamento</h1><div class="sub">gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+lista.length+'</div><div class="l">Pedidos</div></div>'+
+      '<div class="kpi"><div class="v">'+totCx+'</div><div class="l">Caixas</div></div>'+
+      '<div class="kpi"><div class="v">'+totUn+'</div><div class="l">Unidades</div></div>'+
+    '</div>'+
+    '<table><thead><tr><th>Pedido</th><th style="text-align:right">Dias pendentes</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
 }
 var fatPollingInterval=null;
 function iniciarPollingFaturamento(){
@@ -2717,12 +2991,14 @@ function renderPedidosEsperados(){
       var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
       var sub=p.finalizado?(p.itens.length+' produto(s) · '+totEmb+' un. embaladas ao todo'):(p.itens.length+' produto(s) · '+totEmb+' / '+totEsp+' un. embaladas');
       var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(139,92,246,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
+      var pend=pedidosPendentesFat[p.pedido];
+      var alertaPend=pend?('<span title="'+pend.dias+' dia(s) pendente(s) de faturar — '+pend.caixas+' cx · '+pend.unidades+' un" style="background:var(--rdd);color:#ff6b5e;border:1px solid rgba(224,57,47,.45);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap">🔴 Faturar</span>'):'';
       return '<div class="ped-card" style="margin-bottom:6px;cursor:pointer" onclick="abrirDetalhePedido('+p.id+')">'+
         '<div class="ped-hdr">'+
           '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+sub+'</div>'+
           (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:5px;margin-top:5px;overflow:hidden;max-width:200px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>')+
           '</div>'+
-          badge+
+          '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+alertaPend+badge+'</div>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -2752,6 +3028,7 @@ function fatTab(t){
   if(fab) fab.style.display=(t==='pedidos')?'flex':'none';
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
+  if(t==='relatorio'&&!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
 }
 // Aba Histórico: lista todos os pedidos (qualquer estado) — clicar abre o mesmo modal de
 // detalhe da aba Pedidos, que já mostra a tabela de itens e as finalizações.
@@ -2793,6 +3070,7 @@ function renderDetalhePedido(){
   var cabecalho='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:12px;color:var(--td)">'+totEmb+' / '+totEsp+' un. embaladas</span>'+badge+'</div>'+
     (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:6px;overflow:hidden;margin-bottom:14px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>');
   var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(224,57,47,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
+  var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(242,183,5,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
   var itensHtml=p.itens.length?(
     '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
     '<thead><tr>'+
@@ -2812,9 +3090,9 @@ function renderDetalhePedido(){
   ):'<div style="font-size:11px;color:var(--td)">Sem itens</div>';
   var acoes;
   if(p.finalizado){
-    acoes='<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">↩ Reabrir</button>';
+    acoes='<button class="adm-btn-add" style="flex:1" onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>';
   }else if(p.fechado){
-    acoes='<button class="adm-btn-add" style="flex:1" onclick="reabrirPedEsper('+p.id+')">↩ Reabrir</button>'+
+    acoes='<button class="adm-btn-add" style="flex:1" onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>'+
           '<button class="adm-btn-add" style="flex:1;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }else{
     acoes='<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
@@ -2831,6 +3109,7 @@ function renderDetalhePedido(){
   body.innerHTML=
     cabecalho+
     motivoBox+
+    motivoReabBox+
     '<div class="ped-sec-ttl" style="margin-top:0">Itens do pedido</div>'+
     itensHtml+
     botaoFaturarTudo+
@@ -2865,6 +3144,120 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
       '</div>';
     }).join('');
 }
+// ═══════════════════════════════════════
+// RELATÓRIO DE FATURAMENTO — período com atalhos + impressão profissional (print → salvar PDF)
+// ═══════════════════════════════════════
+var relatorioAtual=null;
+function fmtDataISO(d){ return d.toISOString().split('T')[0]; }
+function setPeriodoRelatorio(tipo,btn){
+  document.querySelectorAll('#fpane-relatorio .fat-filter').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  var fim=new Date(), inicio=new Date();
+  if(tipo==='30d') inicio.setDate(inicio.getDate()-30);
+  if(tipo==='3m') inicio.setMonth(inicio.getMonth()-3);
+  if(tipo==='6m') inicio.setMonth(inicio.getMonth()-6);
+  document.getElementById('relDataInicio').value=fmtDataISO(inicio);
+  document.getElementById('relDataFim').value=fmtDataISO(fim);
+  carregarRelatorioFaturamento();
+}
+// Editar as datas na mão tira o destaque dos atalhos (30/3m/6m), já que não corresponde mais mais a nenhum deles.
+function periodoRelPersonalizado(){
+  document.querySelectorAll('#fpane-relatorio .fat-filter').forEach(function(b){b.classList.remove('active');});
+  carregarRelatorioFaturamento();
+}
+function carregarRelatorioFaturamento(){
+  var ini=document.getElementById('relDataInicio').value, fim=document.getElementById('relDataFim').value;
+  var el=document.getElementById('relFatSec');
+  if(!ini||!fim){ el.innerHTML='<div class="fat-empty">Selecione o período.</div>'; return; }
+  el.innerHTML='<div class="fat-spin-wrap"><div class="fat-spinner"></div></div>';
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){ relatorioAtual=d; renderRelatorioFaturamento(d); }
+        else{ el.innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar')+'</div>'; }
+      })
+      .withFailureHandler(function(e){ el.innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
+      .buscarRelatorioFaturamento(ini,fim);
+  }catch(e){ el.innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
+}
+function renderRelatorioFaturamento(d){
+  var el=document.getElementById('relFatSec');
+  el.innerHTML=
+    '<div class="ped-kpis" style="margin-bottom:16px">'+
+      '<div class="ped-kpi bl"><div class="ped-kpiv">'+d.totalNFs+'</div><div class="ped-kpil">NFs</div></div>'+
+      '<div class="ped-kpi gn"><div class="ped-kpiv">'+d.totalCaixas+'</div><div class="ped-kpil">Caixas</div></div>'+
+      '<div class="ped-kpi yw"><div class="ped-kpiv">'+d.totalUnidades+'</div><div class="ped-kpil">Unidades</div></div>'+
+    '</div>'+
+    (d.registros.length?(
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr>'+
+        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
+        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">NF</th>'+
+        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Cliente</th>'+
+        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Data Fat.</th>'+
+        '<th style="text-align:right;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Caixas</th>'+
+        '<th style="text-align:right;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Un.</th>'+
+      '</tr></thead><tbody>'+
+      d.registros.map(function(r){
+        return '<tr><td style="padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(r.pedido)+'</td>'+
+          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd)">'+escAttr(r.nf||'—')+'</td>'+
+          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd)">'+escAttr(r.cliente||'—')+'</td>'+
+          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.dataFaturamento+'</td>'+
+          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.caixas+'</td>'+
+          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.unidades+'</td></tr>';
+      }).join('')+
+      '</tbody></table>'
+    ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
+}
+// Gera a versão de impressão — cabeçalho com logo (reaproveita a mesma imagem já embutida
+// na tela inicial, sem duplicar o base64 gigante), KPIs e tabela. "Baixar PDF" = imprimir e
+// escolher "Salvar como PDF" no diálogo do navegador — mesmo mecanismo do resto do sistema.
+function imprimirRelatorioFaturamento(){
+  if(!relatorioAtual){toast('Carregue o relatório primeiro');return;}
+  var d=relatorioAtual;
+  var ini=document.getElementById('relDataInicio').value, fim=document.getElementById('relDataFim').value;
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var linhas=d.registros.map(function(r){
+    return '<tr><td>'+escAttr(r.pedido)+'</td><td>'+escAttr(r.nf||'—')+'</td><td>'+escAttr(r.cliente||'—')+'</td><td>'+r.dataEmbalagem+'</td><td>'+r.dataFaturamento+'</td><td style="text-align:right">'+r.caixas+'</td><td style="text-align:right">'+r.unidades+'</td></tr>';
+  }).join('');
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Faturamento</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:25px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '.empty{text-align:center;padding:44px;color:#999;font-size:13px}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Relatório de Faturamento</h1><div class="sub">'+_dataBR(ini)+' até '+_dataBR(fim)+' &nbsp;·&nbsp; gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+d.totalNFs+'</div><div class="l">Notas Fiscais</div></div>'+
+      '<div class="kpi"><div class="v">'+d.totalCaixas+'</div><div class="l">Caixas</div></div>'+
+      '<div class="kpi"><div class="v">'+d.totalUnidades+'</div><div class="l">Unidades</div></div>'+
+    '</div>'+
+    (d.registros.length?
+      '<table><thead><tr><th>Pedido</th><th>NF</th><th>Cliente</th><th>Data Embalagem</th><th>Data Faturamento</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'
+      :'<div class="empty">Nenhum faturamento nesse período.</div>')+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
+}
+
 var fatDiaCtx=null; // {pedido, data, dataBR} do dia sendo faturado
 function abrirFaturarDia(pedido,data,dataBR){
   fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR,modo:'dia'};
@@ -2933,16 +3326,20 @@ function finalizarPedEsper(id){
   var totEsp=p?p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0):0;
   var totEmb=p?(p.totalEmbalado||0):0;
   var saldo=Math.max(0,totEsp-totEmb);
+  var pergunta=saldo>0
+    ?('Finalizar este pedido mesmo sem completar? Ainda restam '+saldo+' un. Em seguida você vai informar o motivo.')
+    :'Finalizar este pedido? Ele para de aparecer pro operador — trata como encerrado. Dá pra reabrir depois se precisar.';
+  if(!confirm(pergunta))return;
   if(saldo>0){
     finalizarPedIdCtx=id;
     document.getElementById('motivoFinalizarInfo').textContent='Ainda restam '+saldo+' un. não embaladas nesse pedido.';
     document.getElementById('motivoFinalizarTxt').value='';
     document.getElementById('motivoFinalizarErr').style.display='none';
+    document.getElementById('ovDetalhePedido').classList.add('hidden'); // fecha o de trás — os dois têm o mesmo z-index e esse ficava escondendo o campo de motivo
     document.getElementById('ovMotivoFinalizar').classList.remove('hidden');
     setTimeout(function(){document.getElementById('motivoFinalizarTxt').focus();},150);
     return;
   }
-  if(!confirm('Finalizar este pedido? Ele para de aparecer pro operador — trata como encerrado. Dá pra reabrir depois se precisar.'))return;
   executarFinalizarPedido(id,'');
 }
 var finalizarPedIdCtx=null;
@@ -2958,10 +3355,30 @@ function executarFinalizarPedido(id,motivo){
     google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✅ Pedido finalizado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não finalizou — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).finalizarPedidoEsperado(id,motivo);
   }catch(e){toast('⚠ Sem conexão');}
 }
-function reabrirPedEsper(id){
+function reabrirPedEsper(id,motivo){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id);
+    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{toast('⚠ Não reabriu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).reabrirPedidoEsperado(id,motivo);
   }catch(e){toast('⚠ Sem conexão');}
+}
+// Reabrir exige senha master (mesma trava das exclusões) + motivo — reabertura desfaz uma
+// decisão de "está pronto/encerrado", então merece a mesma seriedade.
+var reabrirPedIdCtx=null;
+function pedirReabrirPedido(id){
+  exigirSenhaMaster(function(){
+    reabrirPedIdCtx=id;
+    document.getElementById('motivoReabrirTxt').value='';
+    document.getElementById('motivoReabrirErr').style.display='none';
+    document.getElementById('ovDetalhePedido').classList.add('hidden');
+    document.getElementById('ovMotivoReabrir').classList.remove('hidden');
+    setTimeout(function(){document.getElementById('motivoReabrirTxt').focus();},150);
+  });
+}
+function confirmarReabrirComMotivo(){
+  var motivo=document.getElementById('motivoReabrirTxt').value.trim();
+  if(!motivo){document.getElementById('motivoReabrirErr').style.display='block';return;}
+  document.getElementById('motivoReabrirErr').style.display='none';
+  fecharOv('ovMotivoReabrir');
+  reabrirPedEsper(reabrirPedIdCtx,motivo);
 }
 function excluirPedEsper(id){
   exigirSenhaMaster(function(){
@@ -3493,14 +3910,54 @@ function popularHistFiltros(){
 function filtrarHist(){
   var op=(document.getElementById('histOpSel')||{}).value||'';
   var ped=(document.getElementById('histPedSel')||{}).value||'';
-  var dataSel=(document.getElementById('histDataSel')||{}).value||'';
+  var dataIni=(document.getElementById('histDataInicio')||{}).value||'';
+  var dataFim=(document.getElementById('histDataFim')||{}).value||'';
+  var pecasCods=Object.keys(histPecasFiltro).filter(function(k){return histPecasFiltro[k];});
   var lista=todasEmb.filter(function(e){
     if(op&&String(e.operador||'')!==op) return false;
     if(ped&&String(e.pedido||'')!==ped) return false;
-    if(dataSel&&_dataISO(e.data)!==dataSel) return false;
+    if(dataIni||dataFim){
+      var dIso=_dataISO(e.data);
+      if(dataIni&&dIso<dataIni) return false;
+      if(dataFim&&dIso>dataFim) return false;
+    }
+    if(pecasCods.length){
+      var temPeca=(e.caixas||[]).some(function(cx){
+        return (cx.itens||[]).some(function(it){ return pecasCods.indexOf(it.codigo)!==-1; });
+      });
+      if(!temPeca) return false;
+    }
     return true;
   });
   renderHist(lista);
+}
+// ── Filtro por peças (multi-seleção) — reaproveita produtosAdmin, mas é filtro, não cadastro ──
+var histPecasFiltro={}; // {codigo: true}
+function abrirFiltroPecasHist(){
+  document.getElementById('filtroPecasBusca').value='';
+  renderFiltroPecasHist();
+  document.getElementById('ovFiltrarPecasHist').classList.remove('hidden');
+}
+function renderFiltroPecasHist(){
+  var q=(document.getElementById('filtroPecasBusca').value||'').trim().toLowerCase();
+  var lista=(produtosAdmin||[]).filter(function(p){ return !q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1; });
+  var el=document.getElementById('filtroPecasLista');
+  if(!lista.length){ el.innerHTML='<div style="font-size:12px;color:var(--td);padding:14px;text-align:center">Nenhuma peça encontrada.</div>'; return; }
+  el.innerHTML=lista.slice(0,200).map(function(p){
+    var checked=!!histPecasFiltro[p.codigo];
+    var codEsc=p.codigo.replace(/'/g,"\\'");
+    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleFiltroPecaHist(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
+      '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escAttr(p.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span></span>'+
+    '</label>';
+  }).join('')+(lista.length>200?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 200 de '+lista.length+' — use a busca</div>':'');
+}
+function toggleFiltroPecaHist(cod){ histPecasFiltro[cod]=!histPecasFiltro[cod]; renderFiltroPecasHist(); }
+function limparFiltroPecasHist(){ histPecasFiltro={}; renderFiltroPecasHist(); atualizarLabelPecasHist(); filtrarHist(); }
+function aplicarFiltroPecasHist(){ fecharOv('ovFiltrarPecasHist'); atualizarLabelPecasHist(); filtrarHist(); }
+function atualizarLabelPecasHist(){
+  var n=Object.keys(histPecasFiltro).filter(function(k){return histPecasFiltro[k];}).length;
+  var el=document.getElementById('histPecasCountLabel'); if(el) el.textContent=n?('('+n+' selecionada'+(n===1?'':'s')+')'):'';
 }
 
 // ═══════════════════════════════════════
