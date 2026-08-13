@@ -12,15 +12,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#0a130d;--s1:#101c15;--s2:#17251b;--s3:#1f3325;
-  --bd:#2a3f2f;--bd2:#3c5a44;
-  --ac:#00833E;--acd:#0c2b1c;--acg:rgba(0,131,62,.24);--brand2:#0fae55;
-  --gn:#16A34A;--gnd:#0d2e1c;--gng:rgba(22,163,74,.18);
-  --rd:#e0392f;--rdd:#3a1410;
-  --yw:#f2b705;--ywd:#3a2c05;
-  --pu:#8b5cf6;--pud:#241c3d;
+  /* Paleta oficial Juntas Universal — fundo neutro #121212 conforme seção de acessibilidade */
+  --bg:#121212;--s1:#1a1a1a;--s2:#1f1f1f;--s3:#262626;
+  --bd:#2b2b2b;--bd2:#3a3a3a;
+  --ac:#00833E;--acd:#0e2a1a;--acg:rgba(0,131,62,.24);--brand2:#16A34A;
+  --achov:#00642F;--acdeep:#003A1C;--aclight:#DFF2E6;
+  --gn:#16A34A;--gnd:#10281a;--gng:rgba(22,163,74,.18);
+  --rd:#DC2626;--rdd:#2e1211;
+  --yw:#FBBF24;--ywd:#332708;
+  --pu:#2563EB;--pud:#12203f; /* "Finalizado" agora usa o azul-informação da paleta (não existe roxo nela) */
   --stamp:#c1502f;--stampd:rgba(193,80,47,.14);
-  --tx:#eaf3ec;--td:#7d9284;--tm:#a9bfae;
+  --tx:#F5F5F5;--td:#6B6B6B;--tm:#B9B9B9;
   --f-d:'Bebas Neue',Impact,'Arial Narrow',sans-serif;
   --f-b:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
   --mo:'IBM Plex Mono','Courier New',monospace;
@@ -36,7 +38,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
   position:fixed;inset:0;
   background:
     repeating-linear-gradient(135deg,transparent,transparent 38px,rgba(0,131,62,.05) 38px,rgba(0,131,62,.05) 39px),
-    radial-gradient(circle at 50% -10%,#102a1a,var(--bg) 60%);
+    radial-gradient(circle at 50% -10%,#1c1c1c,var(--bg) 60%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:34px;z-index:500;padding:24px;
 }
@@ -68,14 +70,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .start-card-t{font-family:var(--f-d);font-size:20px;letter-spacing:.03em;color:#fff;line-height:1}
 .start-card-s{font-size:11px;color:var(--tm);font-family:var(--f-b)}
 .start-admin-btn{display:flex;align-items:center;gap:9px;padding:10px 17px;border-radius:11px;
-  border:1.5px solid rgba(224,57,47,.4);background:var(--rdd);cursor:pointer;
+  border:1.5px solid rgba(220,38,38,.4);background:var(--rdd);cursor:pointer;
   width:auto;transition:border-color .15s,background .15s}
-.start-admin-btn:hover{border-color:var(--rd);background:rgba(224,57,47,.16)}
+.start-admin-btn:hover{border-color:var(--rd);background:rgba(220,38,38,.16)}
 .start-admin-btn:active{transform:scale(.98)}
 .start-admin-ico{color:var(--rd);flex-shrink:0;display:flex}
 .start-admin-txt{font-family:var(--f-d);font-size:14px;letter-spacing:.03em;color:var(--rd);white-space:nowrap}
 .start-admin-badge{display:flex;align-items:center;gap:5px;font-size:8.5px;font-weight:700;letter-spacing:.06em;
-  color:var(--rd);background:rgba(224,57,47,.15);padding:3px 8px;border-radius:20px;font-family:var(--mo);white-space:nowrap}
+  color:var(--rd);background:rgba(220,38,38,.15);padding:3px 8px;border-radius:20px;font-family:var(--mo);white-space:nowrap}
 .start-admin-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--rd);flex-shrink:0}
 .start-foot{font-size:10px;color:var(--td);letter-spacing:.06em;position:absolute;bottom:18px;font-family:var(--mo)}
 
@@ -96,7 +98,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .logo-box{width:28px;height:28px;background:var(--ac);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px}
 .conn{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;font-family:var(--mo)}
 .conn.ok{color:var(--gn);background:var(--gnd);border:1px solid rgba(22,163,74,.3)}
-.conn.err{color:var(--yw);background:var(--ywd);border:1px solid rgba(242,183,5,.3)}
+.conn.err{color:var(--yw);background:var(--ywd);border:1px solid rgba(251,191,36,.3)}
 .cd{width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite}
 .conn.ok .cd{background:var(--gn)}.conn.err .cd{background:var(--yw)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -128,14 +130,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
   padding:14px 14px;border-radius:8px;font-size:15px;outline:none;width:100%;min-height:48px;
   -webkit-appearance:none;appearance:none}
 .sel:focus,.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acg)}
-.sel.invalid,.inp.invalid{border-color:var(--rd) !important;box-shadow:0 0 0 3px rgba(224,57,47,.15) !important}
+.sel.invalid,.inp.invalid{border-color:var(--rd) !important;box-shadow:0 0 0 3px rgba(220,38,38,.15) !important}
 
 .scan-zone{background-color:var(--s1);border:1.5px solid var(--bd);
   border-radius:var(--r);padding:14px;margin-bottom:12px;transition:border-color .2s,box-shadow .2s;position:relative}
 .scan-zone::before{content:'';position:absolute;top:0;left:14px;right:14px;height:2px;
   background:repeating-linear-gradient(90deg,var(--ac) 0 5px,transparent 5px 9px);opacity:.5}
 .scan-zone.success{border-color:var(--gn);background-color:var(--gnd);box-shadow:0 0 0 4px var(--gng),0 0 40px 12px var(--gng)}
-.scan-zone.error{border-color:var(--rd);background-color:var(--rdd);box-shadow:0 0 0 4px rgba(224,57,47,.2),0 0 40px 12px rgba(224,57,47,.22)}
+.scan-zone.error{border-color:var(--rd);background-color:var(--rdd);box-shadow:0 0 0 4px rgba(220,38,38,.2),0 0 40px 12px rgba(220,38,38,.22)}
 .scan-zone.blocked{border-color:var(--rd);background-color:#1a0e0c}
 .scan-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-bottom:10px}
 .scan-lbl{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--td)}
@@ -161,10 +163,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .fb{margin-top:8px;padding:9px 12px;border-radius:7px;font-size:12px;font-weight:500;display:none;align-items:center;gap:7px}
 .fb.show{display:flex}
 .fb.ok{background:var(--gnd);color:var(--gn);border:1px solid rgba(22,163,74,.3)}
-.fb.err{background:var(--rdd);color:var(--rd);border:1px solid rgba(224,57,47,.3)}
-.fb.warn{background:var(--ywd);color:var(--yw);border:1px solid rgba(242,183,5,.3)}
+.fb.err{background:var(--rdd);color:var(--rd);border:1px solid rgba(220,38,38,.3)}
+.fb.warn{background:var(--ywd);color:var(--yw);border:1px solid rgba(251,191,36,.3)}
 
-.req-warn{background:var(--ywd);border:1px solid rgba(242,183,5,.4);border-radius:8px;
+.req-warn{background:var(--ywd);border:1px solid rgba(251,191,36,.4);border-radius:8px;
   padding:9px 13px;margin-bottom:10px;font-size:11px;color:var(--yw);
   display:none;align-items:center;gap:7px}
 .req-warn.show{display:flex}
@@ -187,7 +189,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .cx-item-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .cx-item-etq{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(22,163,74,.25);display:flex;justify-content:flex-end;gap:6px}
 .cx-etq-ok{font-size:10px;color:var(--gn);font-weight:600;font-family:var(--f-b)}
-.cx-etq-pend{background:var(--ywd);border:1px solid rgba(242,183,5,.4);color:var(--yw);
+.cx-etq-pend{background:var(--ywd);border:1px solid rgba(251,191,36,.4);color:var(--yw);
   font-size:10px;font-weight:700;padding:6px 11px;border-radius:6px;cursor:pointer;font-family:var(--f-b)}
 .cx-etq-pend:active{transform:scale(.96)}
 .cx-n{font-family:var(--mo);font-weight:600;color:var(--gn);white-space:nowrap}
@@ -210,7 +212,7 @@ tr.nw td{animation:fl 1s ease-out}
 @keyframes fl{from{background:var(--acd)}to{background:transparent}}
 .codcel{font-family:var(--mo);color:var(--td);font-size:9px;word-break:break-all;max-width:90px;display:inline-block}
 .pill{background:var(--acd);color:var(--brand2);padding:2px 9px;border-radius:11px;font-weight:600;font-family:var(--mo)}
-.btn-rm{background:rgba(224,57,47,.12);border:1px solid rgba(224,57,47,.4);color:var(--rd);cursor:pointer;padding:8px 13px;border-radius:6px;font-size:15px;font-weight:600;line-height:1;min-height:38px}
+.btn-rm{background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);color:var(--rd);cursor:pointer;padding:8px 13px;border-radius:6px;font-size:15px;font-weight:600;line-height:1;min-height:38px}
 .btn-rm:hover{color:#fff;background:var(--rd);border-color:var(--rd)}
 .btn-rm:active{transform:scale(.92)}
 .empty{padding:36px;text-align:center;color:var(--td)}
@@ -229,7 +231,7 @@ tr.nw td{animation:fl 1s ease-out}
 .s-ok{display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:7px;
   font-size:11px;font-weight:500;color:var(--gn);background:var(--gnd);border:1px solid rgba(22,163,74,.25)}
 .s-err{display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:7px;
-  font-size:11px;font-weight:500;color:var(--yw);background:var(--ywd);border:1px solid rgba(242,183,5,.25)}
+  font-size:11px;font-weight:500;color:var(--yw);background:var(--ywd);border:1px solid rgba(251,191,36,.25)}
 
 .btn-cx{width:100%;padding:17px;min-height:56px;border-radius:9px;border:none;cursor:pointer;font-family:var(--f-d);font-size:19px;
   letter-spacing:.05em;text-transform:uppercase;
@@ -455,7 +457,7 @@ tr.nw td{animation:fl 1s ease-out}
 .peso-inp{flex:1;background-color:var(--s2);border:2px solid var(--yw);color:var(--tx);
   padding:13px;border-radius:9px;font-size:22px;font-family:var(--mo);font-weight:600;
   text-align:center;outline:none}
-.peso-inp:focus{box-shadow:0 0 0 3px rgba(242,183,5,.2)}
+.peso-inp:focus{box-shadow:0 0 0 3px rgba(251,191,36,.2)}
 .peso-unit{font-size:15px;font-weight:600;color:var(--yw);font-family:var(--f-b)}
 .peso-err{color:var(--rd);font-size:11px;margin-top:-6px;display:none}
 .peso-err.show{display:block}
@@ -476,7 +478,7 @@ tr.nw td{animation:fl 1s ease-out}
 .t-spin{width:13px;height:13px;border:2px solid var(--bd);border-top-color:var(--ac);
   border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 .offl{position:fixed;top:60px;right:10px;z-index:200;background:var(--ywd);
-  border:1px solid rgba(242,183,5,.4);border-radius:7px;padding:5px 11px;
+  border:1px solid rgba(251,191,36,.4);border-radius:7px;padding:5px 11px;
   font-size:10px;color:var(--yw);font-weight:600;display:none;font-family:var(--mo)}
 .offl.show{display:block}
 
@@ -512,7 +514,7 @@ tr.nw td{animation:fl 1s ease-out}
   border:none;border-left:3px solid transparent;border-radius:0 9px 9px 0;cursor:pointer;background:transparent;color:var(--td);text-align:left;
   font-size:13px;font-weight:600;font-family:var(--f-b);transition:background .15s,color .15s,border-color .15s}
 .adm-tab .ic{font-size:19px;line-height:1;flex-shrink:0}
-.adm-tab.active{background:rgba(139,92,246,.14);color:#fff;border-left-color:var(--pu)}
+.adm-tab.active{background:rgba(37,99,235,.14);color:#fff;border-left-color:var(--pu)}
 .adm-tab:active{transform:scale(.98)}
 .adm-content{flex:1;overflow-y:auto;padding:20px 26px}
 .adm-panel-title{font-family:var(--f-d);font-size:26px;letter-spacing:.02em;color:var(--tx);
@@ -522,6 +524,16 @@ tr.nw td{animation:fl 1s ease-out}
 .adm-panel.active{display:block}
 .fat-panel{display:none;animation:admFade .2s ease-out}
 .fat-panel.active{display:block}
+.rel-toolbar{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;margin-bottom:18px;
+  padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:12px}
+.rel-group{display:flex;flex-direction:column;gap:7px}
+.rel-group-lbl{font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.rel-pills{display:flex;gap:6px}
+.rel-dates{display:flex;align-items:center;gap:8px}
+.rel-dates input{max-width:145px}
+.rel-dates-sep{font-size:11px;color:var(--td)}
+.rel-acoes{display:flex;gap:8px;margin-left:auto}
+.rel-pdf{background:var(--gnd)!important;border-color:var(--gn)!important;color:var(--gn)!important}
 .fab-add{position:fixed;bottom:26px;right:26px;width:58px;height:58px;border-radius:50%;
   background:var(--ac);color:#fff;border:none;font-size:30px;font-weight:400;line-height:1;cursor:pointer;
   box-shadow:0 6px 18px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;
@@ -740,7 +752,13 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
             <input autocomplete="off" class="adm-search" id="pedFiltroData" type="date" onchange="renderPedidosEsperados()" style="max-width:170px">
             <button class="adm-btn-ghost" onclick="document.getElementById('pedFiltroTexto').value='';document.getElementById('pedFiltroData').value='';renderPedidosEsperados();" title="Limpar filtros">✕</button>
           </div>
-          <div id="bannerPendenciasFat" style="display:none;margin-bottom:12px"></div>
+          <div class="fat-filters" style="margin:10px 0 4px">
+            <button class="fat-filter active" onclick="setPedFiltroStatus('todos',this)">Todos</button>
+            <button class="fat-filter" onclick="setPedFiltroStatus('aberto',this)">📦 Em Aberto</button>
+            <button class="fat-filter fat-ok" onclick="setPedFiltroStatus('faturado',this)">✅ Faturados</button>
+          </div>
+          <div id="bannerPendenciasFat" style="display:none;margin-bottom:8px"></div>
+          <div id="bannerProntoFinalizar" style="display:none;margin-bottom:12px"></div>
           <div id="pedEsperSec"></div>
         </section>
 
@@ -775,15 +793,27 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
         <section class="fat-panel" id="fpane-relatorio">
           <h2 class="adm-panel-title">Relatório</h2>
-          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-            <button class="fat-filter" id="relBtn30" onclick="setPeriodoRelatorio('30d',this)">30 dias</button>
-            <button class="fat-filter" id="relBtn3m" onclick="setPeriodoRelatorio('3m',this)">3 meses</button>
-            <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
-            <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()" style="max-width:150px">
-            <span style="color:var(--td);font-size:12px">até</span>
-            <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()" style="max-width:150px">
-            <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
-            <button class="btn-reload" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
+          <div class="rel-toolbar">
+            <div class="rel-group">
+              <span class="rel-group-lbl">Período</span>
+              <div class="rel-pills">
+                <button class="fat-filter" id="relBtn30" onclick="setPeriodoRelatorio('30d',this)">30 dias</button>
+                <button class="fat-filter" id="relBtn3m" onclick="setPeriodoRelatorio('3m',this)">3 meses</button>
+                <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
+              </div>
+            </div>
+            <div class="rel-group">
+              <span class="rel-group-lbl">Personalizado</span>
+              <div class="rel-dates">
+                <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()">
+                <span class="rel-dates-sep">até</span>
+                <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()">
+              </div>
+            </div>
+            <div class="rel-acoes">
+              <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
+              <button class="btn-reload rel-pdf" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
+            </div>
           </div>
           <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
         </section>
@@ -855,6 +885,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
           <select class="adm-search" id="histOpSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os operadores</option></select>
           <select class="adm-search" id="histPedSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os pedidos</option></select>
+          <input autocomplete="off" class="adm-search" id="histNfBusca" placeholder="🔍 Nº da NF..." oninput="filtrarHist()" style="flex:1;min-width:120px;max-width:200px">
           <button class="adm-btn-ghost" onclick="carregarHist()" title="Recarregar">↻</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -1197,7 +1228,7 @@ const Backend={
   async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2)),cliente_lote:s.lote||null},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null); var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarEmbalagens(){ try{ var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null); var fatMap={}; try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,nf,cliente',null); (fats||[]).forEach(function(f){ fatMap[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){} var res=await Promise.all((emb||[]).map(async function(e){ var cxr=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(e.sessao)+'&select=id,numero,peso,total_unidades&order=numero.asc',null); var caixas=await Promise.all((cxr||[]).map(async function(cx){ var it=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+cx.id+'&select=codigo_produto,nome_produto,quantidade',null); return {id:cx.id,num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:(it||[]).map(function(x){return {codigo:x.codigo_produto,nome:x.nome_produto,qty:x.quantidade};})}; })); var fat=fatMap[e.pedido+'|'+e.data_embalagem]; return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixas}; })); return {status:'ok',embalagens:res}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarPedidosFaturamento(){ try{ var base=await Backend.listarEmbalagens(); if(base.status!=='ok')return base; var nfs=await sbFetch('GET','/notas_fiscais?select=*',null); var m={}; (nfs||[]).forEach(function(n){ m[n.sessao]={nf:n.nf||'',faturado:n.faturado===true,cliente:n.cliente||'',dataFaturamento:_dataBR(n.data_faturamento)}; }); var peds=base.embalagens.map(function(e){ var info=m[e.sessao]||{}; return Object.assign({},e,{nf:info.nf||'',faturado:info.faturado===true,cliente:info.cliente||'',dataFaturamento:info.dataFaturamento||''}); }); return {status:'ok',pedidos:peds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarNF(sessao,nf,faturado,cliente,dataFat){ try{ await sbFetch('POST','/notas_fiscais?on_conflict=sessao',{sessao:sessao,nf:nf||null,faturado:!!faturado,cliente:cliente||null,data_faturamento:dataFat?dataFat:null,atualizado_em:new Date().toISOString()},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarConfiguracoes(config){ try{ var t=config.tipo==='operador'?'/operadores':'/baias'; await sbFetch('DELETE',t+'?id=gt.0',null); if(config.valores&&config.valores.length){ await sbFetch('POST',t,config.valores.map(function(v){return {nome:v,ativo:true};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1221,7 +1252,38 @@ const Backend={
   async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var datas=[]; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
   // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
-  async buscarRelatorioFaturamento(dataInicio,dataFim){ try{ var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null); if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0}; var registros=await Promise.all(fats.map(async function(f){ var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=total_caixas,total_unidades',null); var cx=0,un=0; (embs||[]).forEach(function(e){cx+=Number(e.total_caixas)||0;un+=Number(e.total_unidades)||0;}); return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),caixas:cx,unidades:un}; })); var totalUnidades=registros.reduce(function(s,r){return s+r.unidades;},0); var totalCaixas=registros.reduce(function(s,r){return s+r.caixas;},0); return {status:'ok',registros:registros,totalNFs:registros.length,totalUnidades:totalUnidades,totalCaixas:totalCaixas}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async buscarRelatorioFaturamento(dataInicio,dataFim){ try{
+    var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null);
+    if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0,pecas:[]};
+    var embsPorFat=await Promise.all(fats.map(function(f){ return sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=sessao,total_caixas,total_unidades',null); }));
+    var todasSessoes=[];
+    var registros=fats.map(function(f,i){
+      var embs=embsPorFat[i]||[]; var cx=0,un=0;
+      embs.forEach(function(e){ cx+=Number(e.total_caixas)||0; un+=Number(e.total_unidades)||0; if(e.sessao&&todasSessoes.indexOf(e.sessao)===-1) todasSessoes.push(e.sessao); });
+      return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),caixas:cx,unidades:un};
+    });
+    var totalUnidades=registros.reduce(function(s,r){return s+r.unidades;},0);
+    var totalCaixas=registros.reduce(function(s,r){return s+r.caixas;},0);
+    // Peças envolvidas: caixas de TODAS as sessões numa consulta só, itens de TODAS as caixas
+    // numa consulta só — em vez de uma ida ao banco por embalagem, que ficaria lento num
+    // período de 6 meses com muitas finalizações.
+    var pecas=[];
+    if(todasSessoes.length){
+      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+todasSessoes.join(',')+')&select=id',null);
+      var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
+      if(caixaIds.length){
+        var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=nome_produto,codigo_produto,quantidade',null);
+        var mapaPecas={};
+        (itensTodos||[]).forEach(function(it){
+          var k=it.codigo_produto||it.nome_produto; if(!k)return;
+          if(!mapaPecas[k]) mapaPecas[k]={codigo:it.codigo_produto||'',nome:it.nome_produto||k,unidades:0};
+          mapaPecas[k].unidades+=Number(it.quantidade)||0;
+        });
+        pecas=Object.values(mapaPecas).sort(function(a,b){return b.unidades-a.unidades;});
+      }
+    }
+    return {status:'ok',registros:registros,totalNFs:registros.length,totalUnidades:totalUnidades,totalCaixas:totalCaixas,pecas:pecas};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
   async buscarPendenciasFaturamento(){ try{ var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,total_caixas,total_unidades',null); var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null); var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; }); var porPedido={}; (embs||[]).forEach(function(e){ var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return; if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0}; porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0; }); return {status:'ok',pendencias:Object.values(porPedido)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1331,9 +1393,21 @@ function irPara(id){
   document.getElementById('startScreen').style.display='none';
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('scr-'+id).classList.add('active');
-  if(id==='bip'){validarCampos();setTimeout(function(){var op=document.getElementById('selOp').value,ba=document.getElementById('selBaia').value;if((!op||!ba||!sess.ped)&&ops.length&&baias.length){abrirOperBaia();}else{focusScan();}},120);}
+  if(id==='bip'){
+    validarCampos();
+    setTimeout(function(){ tentarAbrirWizardBip(0); },120);
+  }
   if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('pedidos');}
   if(id==='adm'){carregarConfigs();admTab('op');}
+}
+// Espera ops/baias carregarem do servidor antes de abrir o popup — sem isso, numa conexão
+// mais lenta a checagem única falhava e o operador ficava sem popup e sem aviso nenhum.
+function tentarAbrirWizardBip(tentativas){
+  var op=document.getElementById('selOp').value, ba=document.getElementById('selBaia').value;
+  if(op&&ba&&sess.ped){ focusScan(); return; }
+  if(ops.length&&baias.length){ abrirOperBaia(); return; }
+  if(tentativas>=15){ toast('⚠ Não consegui carregar operadores/baias — confira a conexão e toque em Operador de novo'); focusScan(); return; }
+  setTimeout(function(){ tentarAbrirWizardBip(tentativas+1); },200);
 }
 function irParaProtegido(id){
   if(id==='fat'&&fatOk){irPara('fat');return;}
@@ -2443,7 +2517,7 @@ function renderFat(lista){
     });
     var aberto=!!fatAntigoGrupoOpen[pedKey];
     var pedKeyEsc=pedKey.replace(/'/g,"\\'");
-    var badgeGrupo=(nFaturados===sessoes.length)?'<span class="ped-badge fat">Faturado</span>':(nFaturados>0?'<span class="ped-badge" style="background:var(--ywd);color:var(--yw);border:1px solid rgba(242,183,5,.35)">Parcial</span>':'<span class="ped-badge emb">📦 Embalado</span>');
+    var badgeGrupo=(nFaturados===sessoes.length)?'<span class="ped-badge fat">Faturado</span>':(nFaturados>0?'<span class="ped-badge" style="background:var(--ywd);color:var(--yw);border:1px solid rgba(251,191,36,.35)">Parcial</span>':'<span class="ped-badge emb">📦 Embalado</span>');
     return '<div class="ped-card" style="margin-bottom:8px">'+
       '<div class="ped-hdr" onclick="togGrupoFatAntigo(\''+pedKeyEsc+'\')" style="cursor:pointer">'+
         '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
@@ -2821,7 +2895,7 @@ var pedidosEsperados=[];
 function carregarPedidosEsperados(){
   try{
     google.script.run
-      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); } })
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); renderBannerProntoFinalizar(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); } })
       .withFailureHandler(function(){})
       .listarPedidosEsperados();
   }catch(e){}
@@ -2839,6 +2913,7 @@ function carregarPendenciasFaturamento(){
           (d.pendencias||[]).forEach(function(p){ pedidosPendentesFat[p.pedido]=p; });
           renderPedidosEsperados();
           renderBannerPendenciasFat();
+          renderBannerProntoFinalizar();
         }
       })
       .withFailureHandler(function(){})
@@ -2850,11 +2925,30 @@ function renderBannerPendenciasFat(){
   var n=Object.keys(pedidosPendentesFat).length;
   if(!n){ el.innerHTML=''; el.style.display='none'; return; }
   el.style.display='block';
-  el.innerHTML='<button onclick="abrirPendenciasFaturamento()" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(224,57,47,.4);background:var(--rdd);color:#ffb3ab;cursor:pointer;font-family:var(--f-b);font-size:13px">'+
+  el.innerHTML='<button onclick="abrirPendenciasFaturamento()" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(220,38,38,.4);background:var(--rdd);color:#ffb3ab;cursor:pointer;font-family:var(--f-b);font-size:13px">'+
     '<span style="font-size:18px">🔴</span>'+
     '<span style="flex:1"><b>'+n+' pedido'+(n===1?'':'s')+'</b> com produção pendente de faturar — toque para ver o relatório</span>'+
     '<span style="font-size:16px">›</span>'+
   '</button>';
+}
+// Pedidos com produção completa (bateu 100%) e sem nada pendente de faturar — já podem ser
+// finalizados. É um aviso, não uma trava: o time do faturamento decide quando concluir.
+function listaPedidosProntosFinalizar(){
+  return pedidosEsperados.filter(function(p){
+    var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+    var totEmb=p.totalEmbalado||0;
+    return !p.finalizado && !pedidosPendentesFat[p.pedido] && totEsp>0 && totEmb>=totEsp;
+  });
+}
+function renderBannerProntoFinalizar(){
+  var el=document.getElementById('bannerProntoFinalizar'); if(!el)return;
+  var lista=listaPedidosProntosFinalizar();
+  if(!lista.length){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML='<div style="width:100%;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(0,131,62,.4);background:var(--gnd);color:var(--gn);font-family:var(--f-b);font-size:13px">'+
+    '<span style="font-size:18px">✅</span>'+
+    '<span style="flex:1"><b>'+lista.length+' pedido'+(lista.length===1?'':'s')+'</b> com produção completa e tudo faturado — pode'+(lista.length===1?'':'m')+' ser finalizado'+(lista.length===1?'':'s')+' quando quiser'+(lista.length===1?'':'em')+'.</span>'+
+  '</div>';
 }
 function abrirPendenciasFaturamento(){
   var lista=Object.values(pedidosPendentesFat);
@@ -2894,7 +2988,7 @@ function imprimirPendenciasFaturamento(){
   }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pendências de Faturamento</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
-    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #e0392f;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #DC2626;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
     '.hdr img{height:42px;display:block}'+
     '.hdr-t{text-align:right}'+
     '.hdr-t h1{font-size:19px;color:#c1392b}'+
@@ -2979,9 +3073,18 @@ function carregarFinalizacoesPedido(pedidoNome){
     if(detPedAtual!==null) renderDetalhePedido();
   }
 }
+var pedFiltroStatus='todos';
+function setPedFiltroStatus(v,btn){
+  pedFiltroStatus=v;
+  document.querySelectorAll('#fpane-pedidos .fat-filter').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  renderPedidosEsperados();
+}
 function renderPedidosEsperados(){
   var el=document.getElementById('pedEsperSec'); if(!el)return;
   var lista=filtrarListaPedidos(pedidosEsperados,'pedFiltroTexto','pedFiltroData');
+  if(pedFiltroStatus==='aberto') lista=lista.filter(function(p){return !p.fechado;});
+  if(pedFiltroStatus==='faturado') lista=lista.filter(function(p){return (p.totalEmbalado||0)>0 && !pedidosPendentesFat[p.pedido];});
   if(!pedidosEsperados.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido cadastrado ainda — toque no + pra criar o primeiro.</div>'; return; }
   if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido encontrado com esse filtro.</div>'; return; }
   el.innerHTML=
@@ -2990,15 +3093,18 @@ function renderPedidosEsperados(){
       var totEmb=p.totalEmbalado||0;
       var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
       var sub=p.finalizado?(p.itens.length+' produto(s) · '+totEmb+' un. embaladas ao todo'):(p.itens.length+' produto(s) · '+totEmb+' / '+totEsp+' un. embaladas');
-      var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(139,92,246,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
+      var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
       var pend=pedidosPendentesFat[p.pedido];
-      var alertaPend=pend?('<span title="'+pend.dias+' dia(s) pendente(s) de faturar — '+pend.caixas+' cx · '+pend.unidades+' un" style="background:var(--rdd);color:#ff6b5e;border:1px solid rgba(224,57,47,.45);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap">🔴 Faturar</span>'):'';
+      var alertaPend=pend?('<span title="'+pend.dias+' dia(s) pendente(s) de faturar — '+pend.caixas+' cx · '+pend.unidades+' un" style="background:var(--rdd);color:#ff6b5e;border:1px solid rgba(220,38,38,.45);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap">🔴 Faturar</span>'):'';
+      // Bateu 100% embalado, não tem nada pendente de faturar, e ainda não foi finalizado —
+      // avisa que já dá pra concluir esse pedido (não obriga, só sinaliza).
+      var prontoFinalizar=(!p.finalizado&&!pend&&totEsp>0&&totEmb>=totEsp)?('<span title="Produção completa e tudo faturado — já pode finalizar" style="background:var(--gnd);color:var(--gn);border:1px solid rgba(0,131,62,.4);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap">✅ Pronto p/ finalizar</span>'):'';
       return '<div class="ped-card" style="margin-bottom:6px;cursor:pointer" onclick="abrirDetalhePedido('+p.id+')">'+
         '<div class="ped-hdr">'+
           '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+sub+'</div>'+
           (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:5px;margin-top:5px;overflow:hidden;max-width:200px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>')+
           '</div>'+
-          '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+alertaPend+badge+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+alertaPend+prontoFinalizar+badge+'</div>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -3038,7 +3144,7 @@ function renderHistoricoFatSec(){
   var lista=filtrarListaPedidos(pedidosEsperados,'histFatFiltroTexto','histFatFiltroData');
   if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido encontrado com esse filtro.</div>'; return; }
   el.innerHTML=lista.map(function(p){
-    var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(139,92,246,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
+    var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
     var totEsp=p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
     var totEmb=p.totalEmbalado||0;
     return '<div class="ped-card" style="margin-bottom:6px;cursor:pointer" onclick="abrirDetalhePedido('+p.id+')">'+
@@ -3066,11 +3172,15 @@ function renderDetalhePedido(){
   var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
   var totEmb=p.totalEmbalado||0;
   var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
-  var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(139,92,246,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
+  var exportBtns='<div style="display:flex;gap:8px;margin-bottom:12px">'+
+    '<button class="adm-btn-add" style="flex:1;background:var(--gnd);color:var(--gn);border:1px solid rgba(0,131,62,.4)" onclick="exportarPedidoDetalheExcel()">⬇ Excel</button>'+
+    '<button class="adm-btn-add" style="flex:1;background:var(--acd);color:var(--brand2);border:1px solid rgba(0,131,62,.35)" onclick="imprimirPedidoPDF()">🖨 PDF</button>'+
+  '</div>';
+  var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
   var cabecalho='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:12px;color:var(--td)">'+totEmb+' / '+totEsp+' un. embaladas</span>'+badge+'</div>'+
     (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:6px;overflow:hidden;margin-bottom:14px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>');
-  var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(224,57,47,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
-  var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(242,183,5,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
+  var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
+  var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
   var itensHtml=p.itens.length?(
     '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
     '<thead><tr>'+
@@ -3089,14 +3199,15 @@ function renderDetalhePedido(){
     '</tbody></table>'
   ):'<div style="font-size:11px;color:var(--td)">Sem itens</div>';
   var acoes;
+  var btnSec='style="flex:1;background:transparent;border:1.5px solid var(--bd2);color:var(--tm)"';
   if(p.finalizado){
-    acoes='<button class="adm-btn-add" style="flex:1" onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>';
+    acoes='<button class="adm-btn-add" '+btnSec+' onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>';
   }else if(p.fechado){
-    acoes='<button class="adm-btn-add" style="flex:1" onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>'+
-          '<button class="adm-btn-add" style="flex:1;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
+    acoes='<button class="adm-btn-add" '+btnSec+' onclick="pedirReabrirPedido('+p.id+')">↩ Reabrir</button>'+
+          '<button class="adm-btn-add" style="flex:2;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }else{
-    acoes='<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
-          '<button class="adm-btn-add" style="flex:1;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
+    acoes='<button class="adm-btn-add" '+btnSec+' onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
+          '<button class="adm-btn-add" style="flex:2;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }
   // Pedido bateu 100% e ainda tem finalização sem NF — oferece faturar tudo de uma vez,
   // em vez de exigir clicar Faturar em cada finalização separadamente.
@@ -3107,6 +3218,7 @@ function renderDetalhePedido(){
     ?('<button class="adm-btn-add" style="width:100%;background:var(--gn);padding:13px;margin-top:12px" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">💰 Faturar pedido inteiro de uma vez</button>')
     :'';
   body.innerHTML=
+    exportBtns+
     cabecalho+
     motivoBox+
     motivoReabBox+
@@ -3206,7 +3318,18 @@ function renderRelatorioFaturamento(d){
           '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.caixas+'</td>'+
           '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.unidades+'</td></tr>';
       }).join('')+
-      '</tbody></table>'
+      '</tbody></table>'+
+      (d.pecas&&d.pecas.length?(
+        '<div class="ped-sec-ttl">Peças faturadas nesse período</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr><th style="text-align:left;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
+        '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Unidades</th></tr></thead><tbody>'+
+        d.pecas.map(function(p){
+          return '<tr><td style="padding:7px 6px;border-bottom:1px solid var(--bd)">'+escAttr(p.nome)+(p.codigo?' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span>':'')+'</td>'+
+            '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2)">'+p.unidades+'</td></tr>';
+        }).join('')+
+        '</tbody></table>'
+      ):'')
     ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
 }
 // Gera a versão de impressão — cabeçalho com logo (reaproveita a mesma imagem já embutida
@@ -3220,6 +3343,9 @@ function imprimirRelatorioFaturamento(){
   var logoSrc=logoEl?logoEl.src:'';
   var linhas=d.registros.map(function(r){
     return '<tr><td>'+escAttr(r.pedido)+'</td><td>'+escAttr(r.nf||'—')+'</td><td>'+escAttr(r.cliente||'—')+'</td><td>'+r.dataEmbalagem+'</td><td>'+r.dataFaturamento+'</td><td style="text-align:right">'+r.caixas+'</td><td style="text-align:right">'+r.unidades+'</td></tr>';
+  }).join('');
+  var linhasPecas=(d.pecas||[]).map(function(p){
+    return '<tr><td>'+escAttr(p.nome)+(p.codigo?' ('+escAttr(p.codigo)+')':'')+'</td><td style="text-align:right">'+p.unidades+'</td></tr>';
   }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Faturamento</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
@@ -3236,6 +3362,7 @@ function imprimirRelatorioFaturamento(){
     'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
     'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
     'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
     '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
     '.empty{text-align:center;padding:44px;color:#999;font-size:13px}'+
     '@page{size:A4;margin:14mm}'+
@@ -3247,9 +3374,13 @@ function imprimirRelatorioFaturamento(){
       '<div class="kpi"><div class="v">'+d.totalCaixas+'</div><div class="l">Caixas</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalUnidades+'</div><div class="l">Unidades</div></div>'+
     '</div>'+
-    (d.registros.length?
-      '<table><thead><tr><th>Pedido</th><th>NF</th><th>Cliente</th><th>Data Embalagem</th><th>Data Faturamento</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'
-      :'<div class="empty">Nenhum faturamento nesse período.</div>')+
+    (d.registros.length?(
+      '<table><thead><tr><th>Pedido</th><th>NF</th><th>Cliente</th><th>Data Embalagem</th><th>Data Faturamento</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'+
+      (linhasPecas?(
+        '<div class="sec-ttl">Peças faturadas nesse período</div>'+
+        '<table><thead><tr><th>Peça</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhasPecas+'</tbody></table>'
+      ):'')
+    ):'<div class="empty">Nenhum faturamento nesse período.</div>')+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
     '</body></html>';
@@ -3379,6 +3510,92 @@ function confirmarReabrirComMotivo(){
   document.getElementById('motivoReabrirErr').style.display='none';
   fecharOv('ovMotivoReabrir');
   reabrirPedEsper(reabrirPedIdCtx,motivo);
+}
+// Exporta o pedido aberto no modal de detalhe: itens numa aba, finalizações noutra.
+function exportarPedidoDetalheExcel(){
+  var p=pedidosEsperados.find(function(x){return x.id===detPedAtual;});
+  if(!p){toast('Pedido não encontrado');return;}
+  var finLista=pedEsperFinalizacoes[p.pedido];
+  if(!Array.isArray(finLista)){toast('Aguarde o histórico carregar antes de exportar');return;}
+  var itensLinhas=[['Produto','Código','Original','Embalado','Saldo']];
+  p.itens.forEach(function(it){
+    var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+    itensLinhas.push([it.nome,it.codigo,esp,emb,sld]);
+  });
+  var finLinhas=[['#','Data','Hora','Operador','Lote','Caixas','Unidades','Peso (kg)','NF','Cliente','Data Faturamento']];
+  finLista.forEach(function(f){
+    finLinhas.push([f.numero,f.dataBR,f.hora?String(f.hora).substring(0,5):'',f.operador||'',f.lote||'',f.caixas||0,f.unidades||0,f.peso||0,f.nf||'',f.cliente||'',f.dataFaturamento||'']);
+  });
+  var nomeArq='pedido_'+String(p.pedido).replace(/[^a-zA-Z0-9]/g,'_')+'.xlsx';
+  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para baixar');return;}
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando...</title>'+
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>'+
+    '<style>body{font-family:Segoe UI,sans-serif;background:#0a0e0c;color:#e8f0ea;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:14px;text-align:center;padding:20px}'+
+    '.sp{width:34px;height:34px;border:4px solid #28352d;border-top-color:#00833E;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head>'+
+    '<body><div class="sp"></div><div id="msg">Gerando...</div>'+
+    '<script>var D='+payload+';try{var wb=XLSX.utils.book_new();'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:14},{wch:10},{wch:10},{wch:10}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
+    'var s2=XLSX.utils.aoa_to_sheet(D.fin);s2["!cols"]=[{wch:5},{wch:12},{wch:8},{wch:16},{wch:14},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20},{wch:14}];XLSX.utils.book_append_sheet(wb,s2,"Finalizações");'+
+    'XLSX.writeFile(wb,D.nomeArq);document.getElementById("msg").textContent="Pronto!";}catch(e){document.getElementById("msg").textContent="Falha: "+e.message;}<\/script></body></html>';
+  w.document.write(h);w.document.close();
+}
+// Versão PDF do mesmo pedido — mesmo visual dos outros relatórios do sistema.
+function imprimirPedidoPDF(){
+  var p=pedidosEsperados.find(function(x){return x.id===detPedAtual;});
+  if(!p){toast('Pedido não encontrado');return;}
+  var finLista=pedEsperFinalizacoes[p.pedido];
+  if(!Array.isArray(finLista)){toast('Aguarde o histórico carregar antes de exportar');return;}
+  var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+  var totEmb=p.totalEmbalado||0;
+  var linhasItens=p.itens.map(function(it){
+    var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+    return '<tr><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+esp+'</td><td style="text-align:right">'+emb+'</td><td style="text-align:right">'+sld+'</td></tr>';
+  }).join('');
+  var linhasFin=finLista.map(function(f){
+    return '<tr><td>'+f.numero+'</td><td>'+f.dataBR+(f.hora?' '+String(f.hora).substring(0,5):'')+'</td><td>'+escAttr(f.operador||'—')+'</td><td>'+escAttr(f.lote||'—')+'</td><td style="text-align:right">'+f.caixas+'</td><td style="text-align:right">'+f.unidades+'</td><td>'+(f.faturado?('NF '+escAttr(f.nf)):'—')+'</td></tr>';
+  }).join('');
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pedido '+escAttr(p.pedido)+'</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:23px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Pedido '+escAttr(p.pedido)+'</h1><div class="sub">gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+totEmb+'/'+totEsp+'</div><div class="l">Un. Embaladas</div></div>'+
+      '<div class="kpi"><div class="v">'+p.itens.length+'</div><div class="l">Produtos</div></div>'+
+      '<div class="kpi"><div class="v">'+finLista.length+'</div><div class="l">Finalizações</div></div>'+
+    '</div>'+
+    '<div class="sec-ttl">Itens do pedido</div>'+
+    '<table><thead><tr><th>Produto</th><th style="text-align:right">Original</th><th style="text-align:right">Embalado</th><th style="text-align:right">Saldo</th></tr></thead><tbody>'+linhasItens+'</tbody></table>'+
+    (finLista.length?(
+      '<div class="sec-ttl">Histórico — Finalizações</div>'+
+      '<table><thead><tr><th>#</th><th>Data</th><th>Operador</th><th>Lote</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>Faturamento</th></tr></thead><tbody>'+linhasFin+'</tbody></table>'
+    ):'')+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
 }
 function excluirPedEsper(id){
   exigirSenhaMaster(function(){
@@ -3833,7 +4050,7 @@ function renderHist(lista){
           var abertoEdit=!!histOpenSet[ri];
           return '<div class="cx-detalhe">'+
             '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-              '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+'</div>'+
+              '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+(e.nf?' <span class="ped-badge fat" style="font-size:9px;margin-left:6px">NF '+escAttr(e.nf)+'</span>':'')+'</div>'+
               '<div style="font-size:10px;color:var(--td);margin-top:2px">'+e.operador+' · '+e.baia+' · '+e.totalCaixas+' cx · '+e.totalUnid+' un · '+e.peso+' kg</div></div>'+
               '<div style="display:flex;gap:5px;flex-wrap:wrap">'+
                 '<button class="btn-rp rel" onclick="rRel('+ri+')">🖨 Rel.</button>'+
@@ -3915,10 +4132,12 @@ function filtrarHist(){
   var ped=(document.getElementById('histPedSel')||{}).value||'';
   var dataIni=(document.getElementById('histDataInicio')||{}).value||'';
   var dataFim=(document.getElementById('histDataFim')||{}).value||'';
+  var nfBusca=((document.getElementById('histNfBusca')||{}).value||'').trim().toLowerCase();
   var pecasCods=Object.keys(histPecasFiltro).filter(function(k){return histPecasFiltro[k];});
   var lista=todasEmb.filter(function(e){
     if(op&&String(e.operador||'')!==op) return false;
     if(ped&&String(e.pedido||'')!==ped) return false;
+    if(nfBusca&&String(e.nf||'').toLowerCase().indexOf(nfBusca)===-1) return false;
     if(dataIni||dataFim){
       var dIso=_dataISO(e.data);
       if(dataIni&&dIso<dataIni) return false;
