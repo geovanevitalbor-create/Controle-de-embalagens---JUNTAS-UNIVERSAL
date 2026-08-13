@@ -1288,7 +1288,30 @@ const Backend={
   // cronológica — sem agrupar por dia. Faturamento é buscado à parte, em try/catch próprio:
   // se essa tabela falhar (RLS, o que for), a lista de finalizações aparece mesmo assim,
   // só sem o selo de NF — antes uma coisa travava a outra.
-  async listarFinalizacoesPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao,data_embalagem,hora_embalagem,operador,total_caixas,total_unidades,peso_total,cliente_lote,finalizada&order=data_embalagem.asc,hora_embalagem.asc',null); var finalizacoes=(embs||[]).map(function(e,i){ return {numero:i+1,sessao:e.sessao,data:e.data_embalagem,dataBR:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',lote:e.cliente_lote||'',caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0,peso:Number((parseFloat(e.peso_total)||0).toFixed(2)),finalizada:e.finalizada!==false,faturado:false,nf:'',cliente:'',dataFaturamento:''}; }); try{ var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null); var fatPorData={}; (fats||[]).forEach(function(f){ fatPorData[f.data_embalagem]=f; }); finalizacoes.forEach(function(fz){ var f=fatPorData[fz.data]; if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); } }); }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); } return {status:'ok',finalizacoes:finalizacoes}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarFinalizacoesPedido(pedido){ try{
+    var p=encodeURIComponent(String(pedido||'').trim());
+    var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao,data_embalagem,hora_embalagem,operador,total_caixas,total_unidades,peso_total,cliente_lote,finalizada&order=data_embalagem.asc,hora_embalagem.asc',null);
+    var finalizacoes=(embs||[]).map(function(e,i){ return {numero:i+1,sessao:e.sessao,data:e.data_embalagem,dataBR:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',lote:e.cliente_lote||'',caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0,peso:Number((parseFloat(e.peso_total)||0).toFixed(2)),finalizada:e.finalizada!==false,faturado:false,nf:'',cliente:'',dataFaturamento:'',detalheCaixas:[]}; });
+    // Detalhe por caixa (quais peças, quanto de cada) — em lote: 2 consultas no total pra
+    // TODAS as finalizações do pedido, não uma consulta por finalização.
+    var sessoesTodas=finalizacoes.map(function(f){return f.sessao;}).filter(function(s){return s;});
+    if(sessoesTodas.length){
+      try{
+        var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoesTodas.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao,numero,peso,total_unidades&order=numero.asc',null);
+        var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
+        var itensPorCaixa={};
+        if(caixaIds.length){
+          var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+          (itensTodos||[]).forEach(function(it){ if(!itensPorCaixa[it.caixa_id]) itensPorCaixa[it.caixa_id]=[]; itensPorCaixa[it.caixa_id].push({codigo:it.codigo_produto,nome:it.nome_produto,qty:it.quantidade}); });
+        }
+        var caixasPorSessao={};
+        (caixasTodas||[]).forEach(function(cx){ if(!caixasPorSessao[cx.sessao]) caixasPorSessao[cx.sessao]=[]; caixasPorSessao[cx.sessao].push({num:cx.numero,peso:Number(cx.peso)||0,totalUnid:cx.total_unidades,itens:itensPorCaixa[cx.id]||[]}); });
+        finalizacoes.forEach(function(fz){ fz.detalheCaixas=caixasPorSessao[fz.sessao]||[]; });
+      }catch(e3){ console.error('detalhe de caixas falhou, seguindo sem:',e3); }
+    }
+    try{ var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null); var fatPorData={}; (fats||[]).forEach(function(f){ fatPorData[f.data_embalagem]=f; }); finalizacoes.forEach(function(fz){ var f=fatPorData[fz.data]; if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); } }); }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); }
+    return {status:'ok',finalizacoes:finalizacoes};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura um dia de embalagem de um pedido. Recusa duplicar (mesmo pedido+data já faturado).
   async faturarParcial(pedido,dataEmbalagem,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
@@ -3400,6 +3423,8 @@ function renderDetalhePedido(){
 }
 // Lista plana das finalizações desse pedido, numeradas em ordem cronológica — sem agrupar
 // por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
+var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas de uma finalização
+function togFinCaixas(sessao){ finCaixasOpenSet[sessao]=!finCaixasOpenSet[sessao]; if(detPedAtual!==null) renderDetalhePedido(); }
 function renderFinalizacoesPedidoHtml(pedidoNome){
   var lista=pedEsperFinalizacoes[pedidoNome];
   if(lista===undefined) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Carregando histórico...</div>';
@@ -3411,15 +3436,26 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
   var pedEsc=String(pedidoNome).replace(/'/g,"\\'");
   return '<div class="ped-sec-ttl">Histórico — finalizações</div>'+
     lista.map(function(fz){
+      var aberto=!!finCaixasOpenSet[fz.sessao];
+      var temCaixas=fz.detalheCaixas&&fz.detalheCaixas.length;
       return '<div class="cx-detalhe">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
           '<div><div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">Finalização '+fz.numero+(fz.finalizada?'':' <span style="color:var(--yw);font-size:10px;font-family:var(--f-b);letter-spacing:0">· em andamento</span>')+'</div>'+
           '<div style="font-size:10px;color:var(--td);margin-top:2px">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div>'+
-          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg</div></div>'+
+          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg'+(temCaixas?(' · <span style="color:var(--brand2);cursor:pointer;text-decoration:underline" onclick="togFinCaixas(\''+fz.sessao+'\')">'+(aberto?'ocultar itens':'ver itens das caixas')+'</span>'):'')+'</div></div>'+
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
             :'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')"'+(fz.finalizada?'':' title="Atenção: essa sessão ainda está em andamento"')+'>💰 Faturar</button>')+
         '</div>'+
+        (aberto&&temCaixas?(
+          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px">'+
+          fz.detalheCaixas.map(function(cx){
+            return '<div style="font-size:11px"><b style="color:var(--tm)">📦 Caixa '+cx.num+'</b> <span style="color:var(--td)">· '+(cx.totalUnid||0)+' un · '+cx.peso+' kg</span>'+
+              (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="color:var(--td);padding-left:14px;margin-top:2px">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="color:var(--td);padding-left:14px;margin-top:2px">Sem itens</div>')+
+            '</div>';
+          }).join('')+
+          '</div>'
+        ):'')+
       '</div>';
     }).join('');
 }
@@ -3693,8 +3729,16 @@ function exportarPedidoDetalheExcel(){
   finLista.forEach(function(f){
     finLinhas.push([f.numero,f.dataBR,f.hora?String(f.hora).substring(0,5):'',f.operador||'',f.lote||'',f.caixas||0,f.unidades||0,f.peso||0,f.nf||'',f.cliente||'',f.dataFaturamento||'']);
   });
+  var caixasLinhas=[['Finalização','Caixa','Produto','Código','Quantidade']];
+  finLista.forEach(function(f){
+    if(!f.detalheCaixas||!f.detalheCaixas.length){ caixasLinhas.push([f.numero,'—','(sem caixas registradas)','','']); return; }
+    f.detalheCaixas.forEach(function(cx){
+      if(!cx.itens||!cx.itens.length){ caixasLinhas.push([f.numero,cx.num,'(sem itens registrados)','','']); return; }
+      cx.itens.forEach(function(it){ caixasLinhas.push([f.numero,cx.num,it.nome,it.codigo,it.qty]); });
+    });
+  });
   var nomeArq='pedido_'+String(p.pedido).replace(/[^a-zA-Z0-9]/g,'_')+'.xlsx';
-  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
+  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,caixas:caixasLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando...</title>'+
@@ -3705,6 +3749,7 @@ function exportarPedidoDetalheExcel(){
     '<script>var D='+payload+';try{var wb=XLSX.utils.book_new();'+
     'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:14},{wch:10},{wch:10},{wch:10}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
     'var s2=XLSX.utils.aoa_to_sheet(D.fin);s2["!cols"]=[{wch:5},{wch:12},{wch:8},{wch:16},{wch:14},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20},{wch:14}];XLSX.utils.book_append_sheet(wb,s2,"Finalizações");'+
+    'var s3=XLSX.utils.aoa_to_sheet(D.caixas);s3["!cols"]=[{wch:12},{wch:8},{wch:32},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,s3,"Caixas");'+
     'XLSX.writeFile(wb,D.nomeArq);document.getElementById("msg").textContent="Pronto!";}catch(e){document.getElementById("msg").textContent="Falha: "+e.message;}<\/script></body></html>';
   w.document.write(h);w.document.close();
 }
@@ -3723,6 +3768,22 @@ function imprimirPedidoPDF(){
   var linhasFin=finLista.map(function(f){
     return '<tr><td>'+f.numero+'</td><td>'+f.dataBR+(f.hora?' '+String(f.hora).substring(0,5):'')+'</td><td>'+escAttr(f.operador||'—')+'</td><td>'+escAttr(f.lote||'—')+'</td><td style="text-align:right">'+f.caixas+'</td><td style="text-align:right">'+f.unidades+'</td><td>'+(f.faturado?('NF '+escAttr(f.nf)):'—')+'</td></tr>';
   }).join('');
+  var linhasCaixas='';
+  finLista.forEach(function(f){
+    if(!f.detalheCaixas||!f.detalheCaixas.length){
+      linhasCaixas+='<tr><td>'+f.numero+'</td><td>—</td><td colspan="2" style="color:#999">Sem caixas registradas</td></tr>';
+      return;
+    }
+    f.detalheCaixas.forEach(function(cx){
+      if(!cx.itens||!cx.itens.length){
+        linhasCaixas+='<tr><td>'+f.numero+'</td><td>'+cx.num+'</td><td colspan="2" style="color:#999">Sem itens registrados</td></tr>';
+        return;
+      }
+      cx.itens.forEach(function(it,idx){
+        linhasCaixas+='<tr><td>'+(idx===0?f.numero:'')+'</td><td>'+(idx===0?cx.num:'')+'</td><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+it.qty+'</td></tr>';
+      });
+    });
+  });
   var logoEl=document.querySelector('.start-logo-img');
   var logoSrc=logoEl?logoEl.src:'';
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pedido '+escAttr(p.pedido)+'</title><style>'+
@@ -3755,7 +3816,9 @@ function imprimirPedidoPDF(){
     '<table><thead><tr><th>Produto</th><th style="text-align:right">Original</th><th style="text-align:right">Embalado</th><th style="text-align:right">Saldo</th></tr></thead><tbody>'+linhasItens+'</tbody></table>'+
     (finLista.length?(
       '<div class="sec-ttl">Histórico — Finalizações</div>'+
-      '<table><thead><tr><th>#</th><th>Data</th><th>Operador</th><th>Lote</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>Faturamento</th></tr></thead><tbody>'+linhasFin+'</tbody></table>'
+      '<table><thead><tr><th>#</th><th>Data</th><th>Operador</th><th>Lote</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>Faturamento</th></tr></thead><tbody>'+linhasFin+'</tbody></table>'+
+      '<div class="sec-ttl">Detalhamento por Caixa</div>'+
+      '<table><thead><tr><th>Finalização</th><th>Caixa</th><th>Produto</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasCaixas+'</tbody></table>'
     ):'')+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
     '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
