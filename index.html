@@ -1097,8 +1097,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">Escolher Produtos</span><button class="md-x" onclick="fecharOv('ovEscolherProdutos')">✕</button></div>
     <div class="md-body">
       <input class="adm-search" id="escProdBusca" placeholder="🔍 Buscar por nome..." oninput="renderEscolherProdutos()" style="margin-bottom:10px" autocomplete="off">
-      <div id="escProdLista" style="max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
-      <div class="md-row"><label class="lbl">Quantidade para cada um selecionado</label><input autocomplete="off" class="inp" type="number" id="escProdQtdPadrao" value="1" min="1"></div>
+      <div id="escProdLista" style="max-height:48vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEscolherProdutos')">Cancelar</button><button class="btn-ok green" id="btnAdicionarSelecionados" onclick="adicionarProdutosSelecionados()">Adicionar selecionados</button></div>
     </div>
   </div>
@@ -2865,11 +2864,10 @@ function cadPedAdicionar(codigo,nome,qtd){
 }
 
 // ── Escolher Produtos: lista com busca por nome + seleção múltipla ──
-var escProdSelecionados={}; // {codigo: true}
+var escProdQtds={}; // {codigo: quantidade} — presença na lista = selecionado
 function abrirEscolherProdutos(){
-  escProdSelecionados={};
+  escProdQtds={};
   document.getElementById('escProdBusca').value='';
-  document.getElementById('escProdQtdPadrao').value='1';
   renderEscolherProdutos();
   document.getElementById('ovEscolherProdutos').classList.remove('hidden');
   setTimeout(function(){document.getElementById('escProdBusca').focus();},150);
@@ -2878,27 +2876,37 @@ function renderEscolherProdutos(){
   var q=(document.getElementById('escProdBusca').value||'').trim().toLowerCase();
   var lista=(produtosAdmin||[]).filter(function(p){ return !q || String(p.nome).toLowerCase().indexOf(q)!==-1 || String(p.codigo).toLowerCase().indexOf(q)!==-1; });
   var el=document.getElementById('escProdLista');
-  var nSel=Object.keys(escProdSelecionados).filter(function(k){return escProdSelecionados[k];}).length;
+  var nSel=Object.keys(escProdQtds).length;
   var btn=document.getElementById('btnAdicionarSelecionados');
   if(btn) btn.textContent = nSel? ('Adicionar '+nSel+' selecionado'+(nSel===1?'':'s')) : 'Adicionar selecionados';
   if(!lista.length){el.innerHTML='<div style="font-size:12px;color:var(--td);padding:14px;text-align:center">Nenhum produto encontrado.</div>';return;}
   el.innerHTML=lista.slice(0,200).map(function(p){
-    var checked=!!escProdSelecionados[p.codigo];
+    var checked=Object.prototype.hasOwnProperty.call(escProdQtds,p.codigo);
+    var qtd=checked?escProdQtds[p.codigo]:1;
     var codEsc=p.codigo.replace(/'/g,"\\'");
-    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
-      '<input autocomplete="off" type="checkbox" '+(checked?'checked':'')+' onchange="toggleEscProd(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
-      '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+p.codigo+')</span></span>'+
-    '</label>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px">'+
+      '<input autocomplete="off" type="checkbox" '+(checked?'checked':'')+' onchange="toggleEscProd(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac);cursor:pointer">'+
+      '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="toggleEscProd(\''+codEsc+'\')">'+escAttr(p.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span></span>'+
+      '<input autocomplete="off" type="number" min="1" value="'+qtd+'" '+(checked?'':'disabled')+' onchange="escProdSetQtd(\''+codEsc+'\',this.value)" onclick="event.stopPropagation()" style="width:76px;padding:7px 8px;flex-shrink:0;background:var(--s1);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--mo);text-align:center'+(checked?'':';opacity:.4')+'">'+
+    '</div>';
   }).join('')+(lista.length>200?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 200 de '+lista.length+' — use a busca</div>':'');
 }
-function toggleEscProd(cod){ escProdSelecionados[cod]=!escProdSelecionados[cod]; renderEscolherProdutos(); }
+// Marcar liga a quantidade (default 1, editável); desmarcar tira da seleção de vez.
+function toggleEscProd(cod){
+  if(Object.prototype.hasOwnProperty.call(escProdQtds,cod)){ delete escProdQtds[cod]; }
+  else{ escProdQtds[cod]=1; }
+  renderEscolherProdutos();
+}
+function escProdSetQtd(cod,v){
+  if(!Object.prototype.hasOwnProperty.call(escProdQtds,cod))return;
+  escProdQtds[cod]=Math.max(1,parseInt(v,10)||1);
+}
 function adicionarProdutosSelecionados(){
-  var qtd=parseInt(document.getElementById('escProdQtdPadrao').value,10)||1;
-  var cods=Object.keys(escProdSelecionados).filter(function(k){return escProdSelecionados[k];});
+  var cods=Object.keys(escProdQtds);
   if(!cods.length){toast('Selecione ao menos 1 produto');return;}
   cods.forEach(function(cod){
     if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod))return;
-    cadPedAdicionar(cod,produtosCache[cod],qtd);
+    cadPedAdicionar(cod,produtosCache[cod],escProdQtds[cod]);
   });
   renderCadPedItens();
   fecharOv('ovEscolherProdutos');
