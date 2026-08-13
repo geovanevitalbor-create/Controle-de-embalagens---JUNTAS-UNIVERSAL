@@ -3602,6 +3602,62 @@ function renderDetalhePedido(){
 // por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
 var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas de uma finalização
 function togFinCaixas(sessao){ finCaixasOpenSet[sessao]=!finCaixasOpenSet[sessao]; if(detPedAtual!==null) renderDetalhePedido(); }
+// PDF de uma finalização específica — usa o mesmo detalheCaixas já carregado pra tela, sem
+// precisar de nova consulta ao servidor.
+function imprimirFinalizacaoPDF(pedido,sessao){
+  var lista=pedEsperFinalizacoes[pedido];
+  if(!Array.isArray(lista)){ toast('Aguarde o histórico carregar antes de exportar'); return; }
+  var fz=lista.find(function(f){return f.sessao===sessao;});
+  if(!fz){ toast('Finalização não encontrada'); return; }
+  var linhasCaixas='';
+  (fz.detalheCaixas||[]).forEach(function(cx){
+    if(!cx.itens||!cx.itens.length){ linhasCaixas+='<tr><td>'+cx.num+'</td><td colspan="2" style="color:#999">Sem itens registrados</td></tr>'; return; }
+    cx.itens.forEach(function(it,idx){
+      linhasCaixas+='<tr><td>'+(idx===0?cx.num:'')+'</td><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+it.qty+'</td></tr>';
+    });
+  });
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Finalização '+fz.numero+' — '+escAttr(pedido)+'</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:21px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.nf-box{background:#eef8f1;border:1px solid #bfe3cb;border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:12px}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Pedido '+escAttr(pedido)+' — Finalização '+fz.numero+'</h1><div class="sub">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div></div></div>'+
+    (fz.faturado?('<div class="nf-box"><b>NF '+escAttr(fz.nf)+'</b>'+(fz.cliente?(' — '+escAttr(fz.cliente)):'')+(fz.dataFaturamento?(' — faturado em '+fz.dataFaturamento):'')+'</div>'):'')+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+fz.caixas+'</div><div class="l">Caixas</div></div>'+
+      '<div class="kpi"><div class="v">'+fz.unidades+'</div><div class="l">Unidades</div></div>'+
+      '<div class="kpi"><div class="v">'+fz.peso+' kg</div><div class="l">Peso</div></div>'+
+      '<div class="kpi"><div class="v">'+(fz.finalizada?'✔':'⏳')+'</div><div class="l">'+(fz.finalizada?'Finalizada':'Em andamento')+'</div></div>'+
+    '</div>'+
+    (linhasCaixas?(
+      '<div class="sec-ttl">Detalhamento por caixa</div>'+
+      '<table><thead><tr><th>Caixa</th><th>Produto</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasCaixas+'</tbody></table>'
+    ):'<div style="text-align:center;padding:30px;color:#999">Sem caixas registradas nessa finalização.</div>')+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
+}
 function renderFinalizacoesPedidoHtml(pedidoNome){
   var lista=pedEsperFinalizacoes[pedidoNome];
   if(lista===undefined) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Carregando histórico...</div>';
@@ -3625,7 +3681,10 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
               ?'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--td);white-space:nowrap">Aguardando faturamento</span>'
               :'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--yw);white-space:nowrap" title="Só pode faturar depois que essa sessão for finalizada na bipagem">⏳ Aguardando finalizar</span>'))+
         '</div>'+
-        (temCaixas?('<div style="font-size:10px;color:var(--brand2);margin-top:8px;display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</div>'):'')+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">'+
+          (temCaixas?('<span style="font-size:10px;color:var(--brand2);display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</span>'):'<span></span>')+
+          '<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none;flex-shrink:0" onclick="event.stopPropagation();imprimirFinalizacaoPDF(\''+String(pedidoNome).replace(/'/g,"\\'")+'\',\''+fz.sessao+'\')">🖨 PDF</button>'+
+        '</div>'+
         (aberto&&temCaixas?(
           '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px" onclick="event.stopPropagation()">'+
           fz.detalheCaixas.map(function(cx){
