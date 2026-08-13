@@ -212,7 +212,7 @@ tr.nw td{animation:fl 1s ease-out}
 @keyframes fl{from{background:var(--acd)}to{background:transparent}}
 .codcel{font-family:var(--mo);color:var(--td);font-size:9px;word-break:break-all;max-width:90px;display:inline-block}
 .pill{background:var(--acd);color:var(--brand2);padding:2px 9px;border-radius:11px;font-weight:600;font-family:var(--mo)}
-.btn-rm{background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);color:var(--rd);cursor:pointer;padding:8px 13px;border-radius:6px;font-size:15px;font-weight:600;line-height:1;min-height:38px}
+.btn-rm{background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);color:var(--rd);cursor:pointer;padding:8px 13px;border-radius:6px;font-size:15px;font-weight:600;line-height:1;min-height:44px;min-width:44px}
 .btn-rm:hover{color:#fff;background:var(--rd);border-color:var(--rd)}
 .btn-rm:active{transform:scale(.92)}
 .empty{padding:36px;text-align:center;color:var(--td)}
@@ -294,7 +294,7 @@ tr.nw td{animation:fl 1s ease-out}
   font-family:var(--f-d);font-size:13px;letter-spacing:.1em;padding:3px 10px 2px;border-radius:3px;
   transform:rotate(-4deg);text-transform:uppercase;
 }
-.ped-kebab{background:var(--s3);border:1px solid var(--bd);color:var(--tm);width:42px;height:42px;
+.ped-kebab{background:var(--s3);border:1px solid var(--bd);color:var(--tm);width:44px;height:44px;
   border-radius:9px;font-size:22px;font-weight:600;line-height:1;cursor:pointer;flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
 .ped-kebab:hover{border-color:var(--ac);color:var(--brand2)}
@@ -413,7 +413,7 @@ tr.nw td{animation:fl 1s ease-out}
 .md-hdr{padding:15px 19px;border-bottom:1px solid var(--bd);
   display:flex;align-items:center;justify-content:space-between;background-color:var(--s2)}
 .md-title{font-family:var(--f-d);font-size:19px;letter-spacing:.02em}
-.md-x{background:none;border:none;color:var(--td);font-size:19px;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.md-x{background:none;border:none;color:var(--td);font-size:19px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:6px}
 .md-body{padding:19px}
 .md-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
 .cx-prev{background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:12px}
@@ -1043,7 +1043,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-body">
       <div style="font-size:12px;color:var(--yw);margin-bottom:12px" id="motivoFinalizarInfo"></div>
       <div class="md-row"><label class="lbl req">Motivo de não ter concluído</label><textarea autocomplete="off" class="inp" id="motivoFinalizarTxt" rows="3" placeholder="Ex: cliente cancelou o restante, falta de peça em estoque..." style="resize:vertical;min-height:88px;line-height:1.4"></textarea><div id="motivoFinalizarErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o motivo.</div></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoFinalizar')">Cancelar</button><button class="btn-ok green" onclick="confirmarFinalizarComMotivo()">✅ Finalizar mesmo assim</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoFinalizar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFinalizarMotivo" onclick="confirmarFinalizarComMotivo()">✅ Finalizar mesmo assim</button></div>
     </div>
   </div>
 </div>
@@ -1054,7 +1054,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-hdr"><span class="md-title">🔓 Reabrir Pedido</span><button class="md-x" onclick="fecharOv('ovMotivoReabrir')">✕</button></div>
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Motivo da reabertura</label><textarea autocomplete="off" class="inp" id="motivoReabrirTxt" rows="3" placeholder="Ex: cliente pediu mais unidades, erro ao finalizar antes da hora..." style="resize:vertical;min-height:88px;line-height:1.4"></textarea><div id="motivoReabrirErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o motivo.</div></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoReabrir')">Cancelar</button><button class="btn-ok green" onclick="confirmarReabrirComMotivo()">✔ Reabrir</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoReabrir')">Cancelar</button><button class="btn-ok green" id="btnConfirmReabrirMotivo" onclick="confirmarReabrirComMotivo()">✔ Reabrir</button></div>
     </div>
   </div>
 </div>
@@ -1067,7 +1067,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <input class="adm-search" id="addItemBusca" placeholder="🔍 Buscar produto..." oninput="renderAddItemLista()" style="margin-bottom:10px" autocomplete="off">
       <div id="addItemLista" style="max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-row"><label class="lbl req">Quantidade</label><input autocomplete="off" class="inp" type="number" id="addItemQtd" min="1" value="1"></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovAdicionarItemPedido')">Cancelar</button><button class="btn-ok green" onclick="confirmarAdicionarItemPedido()">+ Adicionar</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovAdicionarItemPedido')">Cancelar</button><button class="btn-ok green" id="btnConfirmAddItem" onclick="confirmarAdicionarItemPedido()">+ Adicionar</button></div>
     </div>
   </div>
 </div>
@@ -3370,16 +3370,23 @@ function renderAddItemLista(){
   }).join('')+(lista.length>100?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 100 de '+lista.length+' — use a busca</div>':'');
 }
 function selecionarAddItemProd(codigo,nome){ addItemProdSel={codigo:codigo,nome:nome}; renderAddItemLista(); }
+var salvandoAddItem=false;
 function confirmarAdicionarItemPedido(){
+  if(salvandoAddItem)return;
   if(!addItemProdSel){toast('Escolha um produto primeiro');return;}
   var qtd=parseInt(document.getElementById('addItemQtd').value,10);
   if(!qtd||qtd<=0){toast('Quantidade inválida');return;}
+  salvandoAddItem=true;
+  var btn=document.getElementById('btnConfirmAddItem');
+  btn.disabled=true; btn.textContent='Adicionando...';
+  function restaurar(){ salvandoAddItem=false; btn.disabled=false; btn.textContent='+ Adicionar'; }
   try{
     google.script.run.withSuccessHandler(function(r){
+      restaurar();
       if(r&&r.status==='ok'){fecharOv('ovAdicionarItemPedido');toast('✔ Produto adicionado');carregarPedidosEsperados();}
       else{toast('⚠ Não adicionou — tente de novo');}
-    }).withFailureHandler(function(){toast('⚠ Sem conexão');}).adicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd);
-  }catch(e){toast('⚠ Sem conexão');}
+    }).withFailureHandler(function(){ restaurar(); toast('⚠ Sem conexão'); }).adicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd);
+  }catch(e){ restaurar(); toast('⚠ Sem conexão'); }
 }
 function abrirDetalhePedido(id){
   var p=pedidosEsperados.find(function(x){return x.id===id;});
@@ -3734,22 +3741,33 @@ function finalizarPedEsper(id){
   executarFinalizarPedido(id,'');
 }
 var finalizarPedIdCtx=null;
+var salvandoFinalizarMotivo=false;
 function confirmarFinalizarComMotivo(){
+  if(salvandoFinalizarMotivo)return;
   var motivo=document.getElementById('motivoFinalizarTxt').value.trim();
   if(!motivo){document.getElementById('motivoFinalizarErr').style.display='block';return;}
   document.getElementById('motivoFinalizarErr').style.display='none';
+  salvandoFinalizarMotivo=true;
+  var btn=document.getElementById('btnConfirmFinalizarMotivo');
+  btn.disabled=true; btn.textContent='Salvando...';
   fecharOv('ovMotivoFinalizar');
-  executarFinalizarPedido(finalizarPedIdCtx,motivo);
+  executarFinalizarPedido(finalizarPedIdCtx,motivo,function(){ salvandoFinalizarMotivo=false; btn.disabled=false; btn.textContent='✅ Finalizar mesmo assim'; });
 }
-function executarFinalizarPedido(id,motivo){
+function executarFinalizarPedido(id,motivo,aoFinalizarCb){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✅ Pedido finalizado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não finalizou.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}}).withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));}).finalizarPedidoEsperado(id,motivo);
-  }catch(e){toast('⚠ Sem conexão');}
+    google.script.run.withSuccessHandler(function(r){
+      if(aoFinalizarCb)aoFinalizarCb();
+      if(r&&r.status==='ok'){toast('✅ Pedido finalizado');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não finalizou.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}
+    }).withFailureHandler(function(e){ if(aoFinalizarCb)aoFinalizarCb(); alert('Sem conexão: '+(e&&e.message?e.message:'')); }).finalizarPedidoEsperado(id,motivo);
+  }catch(e){ if(aoFinalizarCb)aoFinalizarCb(); toast('⚠ Sem conexão'); }
 }
-function reabrirPedEsper(id,motivo){
+function reabrirPedEsper(id,motivo,aoTerminarCb){
   try{
-    google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não reabriu.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}}).withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));}).reabrirPedidoEsperado(id,motivo);
-  }catch(e){toast('⚠ Sem conexão');}
+    google.script.run.withSuccessHandler(function(r){
+      if(aoTerminarCb)aoTerminarCb();
+      if(r&&r.status==='ok'){toast('✔ Pedido reaberto');carregarPedidosEsperados();if(detPedAtual!==null)renderDetalhePedido();}else{alert('Não reabriu.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em coluna ou tabela que não existe, confira se rodou todo o SQL de configuração no Supabase.');}
+    }).withFailureHandler(function(e){ if(aoTerminarCb)aoTerminarCb(); alert('Sem conexão: '+(e&&e.message?e.message:'')); }).reabrirPedidoEsperado(id,motivo);
+  }catch(e){ if(aoTerminarCb)aoTerminarCb(); toast('⚠ Sem conexão'); }
 }
 // Reabrir exige senha master (mesma trava das exclusões) + motivo — reabertura desfaz uma
 // decisão de "está pronto/encerrado", então merece a mesma seriedade.
@@ -3764,12 +3782,17 @@ function pedirReabrirPedido(id){
     setTimeout(function(){document.getElementById('motivoReabrirTxt').focus();},150);
   });
 }
+var salvandoReabrirMotivo=false;
 function confirmarReabrirComMotivo(){
+  if(salvandoReabrirMotivo)return;
   var motivo=document.getElementById('motivoReabrirTxt').value.trim();
   if(!motivo){document.getElementById('motivoReabrirErr').style.display='block';return;}
   document.getElementById('motivoReabrirErr').style.display='none';
+  salvandoReabrirMotivo=true;
+  var btn=document.getElementById('btnConfirmReabrirMotivo');
+  btn.disabled=true; btn.textContent='Salvando...';
   fecharOv('ovMotivoReabrir');
-  reabrirPedEsper(reabrirPedIdCtx,motivo);
+  reabrirPedEsper(reabrirPedIdCtx,motivo,function(){ salvandoReabrirMotivo=false; btn.disabled=false; btn.textContent='✔ Reabrir'; });
 }
 // Exporta o pedido aberto no modal de detalhe: itens numa aba, finalizações noutra.
 function exportarPedidoDetalheExcel(){
