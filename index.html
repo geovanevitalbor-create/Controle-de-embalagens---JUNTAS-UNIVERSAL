@@ -1006,7 +1006,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
-<!-- MODAL SELEÇÃO DE OPERADOR E BAIA -->
+<!-- MODAL SELEÇÃO DE OPERADOR, BAIA, PEDIDO E LOTE — 4 passos sequenciais -->
 <div class="ov hidden" id="ovOperBaia">
   <div class="md" style="max-width:520px">
     <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
@@ -1015,6 +1015,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="step-dot" id="stepDot1"></div>
         <div class="step-dot" id="stepDot2"></div>
         <div class="step-dot" id="stepDot3"></div>
+        <div class="step-dot" id="stepDot4"></div>
       </div>
 
       <div id="popStepOperador">
@@ -1028,22 +1029,17 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <button class="btn-gh" style="margin-top:16px" onclick="voltarStepPop(1)">← Voltar</button>
       </div>
 
+      <div id="popStepPedido" style="display:none">
+        <div class="lbl req" style="margin-bottom:9px">Pedido — toque em qual vai embalar</div>
+        <div id="pedCardsPop" style="display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto"></div>
+        <button class="btn-gh" style="margin-top:16px" onclick="voltarStepPop(2)">← Voltar</button>
+      </div>
+
       <div id="popStepLote" style="display:none">
         <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
-        <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">Continuar → escolher pedido</button>
-        <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(2)">← Voltar</button>
+        <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">✔ Confirmar e iniciar</button>
+        <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(3)">← Voltar</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL ESCOLHER PEDIDO — cards com os pedidos abertos, segundo passo pra iniciar a bipagem -->
-<div class="ov hidden" id="ovEscolherPedidoBip">
-  <div class="md">
-    <div class="md-hdr"><span class="md-title">📦 Qual pedido?</span><button class="md-x" onclick="fecharEscolherPedidoBip()">✕</button></div>
-    <div class="md-body">
-      <div style="font-size:12px;color:var(--td);margin-bottom:14px">Toque no pedido que vai embalar agora.</div>
-      <div id="escPedBipLista" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto"></div>
     </div>
   </div>
 </div>
@@ -1132,6 +1128,10 @@ const Backend={
   async listarFinalizacoesPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao,data_embalagem,hora_embalagem,operador,total_caixas,total_unidades,peso_total,cliente_lote,finalizada&order=data_embalagem.asc,hora_embalagem.asc',null); var finalizacoes=(embs||[]).map(function(e,i){ return {numero:i+1,sessao:e.sessao,data:e.data_embalagem,dataBR:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',lote:e.cliente_lote||'',caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0,peso:Number((parseFloat(e.peso_total)||0).toFixed(2)),finalizada:e.finalizada!==false,faturado:false,nf:'',cliente:'',dataFaturamento:''}; }); try{ var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null); var fatPorData={}; (fats||[]).forEach(function(f){ fatPorData[f.data_embalagem]=f; }); finalizacoes.forEach(function(fz){ var f=fatPorData[fz.data]; if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); } }); }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); } return {status:'ok',finalizacoes:finalizacoes}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura um dia de embalagem de um pedido. Recusa duplicar (mesmo pedido+data já faturado).
   async faturarParcial(pedido,dataEmbalagem,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
+  // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
+  // faz sentido clicar Faturar finalização por finalização.
+  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var datas=[]; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1627,6 +1627,19 @@ function confirmarQtdManual(){
   if(!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
     err.textContent='Código não cadastrado — cadastre em Admin › Peças antes de adicionar.';err.style.display='block';return;
   }
+  // Mesma regra do pedido que já vale na bipagem normal — manual não é mais válvula de
+  // escape do saldo, só um jeito mais rápido de contar quando já se sabe a quantidade certa.
+  if(sess.pedidoProgresso){
+    var info=sess.pedidoProgresso[cod];
+    if(!info){
+      err.textContent='Esse produto não está na lista esperada do pedido '+sess.ped+'.';err.style.display='block';return;
+    }
+    var jaNestaSessao=(sess.itens[cod]?sess.itens[cod].qty:0);
+    var restante=info.esperado-info.embaladoServidor-jaNestaSessao;
+    if(qtd>restante){
+      err.textContent='Só faltam '+Math.max(0,restante)+' un. desse produto pro pedido — reduza a quantidade.';err.style.display='block';return;
+    }
+  }
   err.style.display='none';
   var nome=produtosCache[cod];
   fecharOv('ovQtdManual');
@@ -1642,7 +1655,9 @@ function adicionarQtdManual(codigo,nome,qtd){
   cxAtual[codigo].nome=nome;cxAtual[codigo].qty+=qtd;
   var tot=Object.values(cxAtual).reduce(function(s,i){return s+i.qty;},0);
   document.getElementById('cxCount').textContent=tot;
-  showFb('✔ '+nome+'  +'+qtd+' (manual · admin)  (caixa: '+tot+')','ok');
+  var restanteMsgManual=restanteDoPedidoMsg(codigo);
+  showFb('✔ '+nome+'  +'+qtd+' (manual · admin)  (caixa: '+tot+')'+restanteMsgManual,'ok');
+  atualizarLastScanPanel(codigo,nome);
   animZone('success');renderTabela(codigo);renderStats();
   document.getElementById('btnCx').disabled=false;
   document.getElementById('btnFin').disabled=false;
@@ -2769,11 +2784,20 @@ function renderDetalhePedido(){
     acoes='<button class="adm-btn-add" style="flex:1;background:var(--yw);color:#241a02" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
           '<button class="adm-btn-add" style="flex:1;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }
+  // Pedido bateu 100% e ainda tem finalização sem NF — oferece faturar tudo de uma vez,
+  // em vez de exigir clicar Faturar em cada finalização separadamente.
+  var listaFin=pedEsperFinalizacoes[p.pedido];
+  var temPendenteFat=Array.isArray(listaFin)&&listaFin.some(function(fz){return !fz.faturado;});
+  var saldoZerado=totEsp>0&&totEmb>=totEsp;
+  var botaoFaturarTudo=(saldoZerado&&temPendenteFat)
+    ?('<button class="adm-btn-add" style="width:100%;background:var(--gn);padding:13px;margin-top:12px" onclick="abrirFaturarTudo(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">💰 Faturar pedido inteiro de uma vez</button>')
+    :'';
   body.innerHTML=
     cabecalho+
     motivoBox+
     '<div class="ped-sec-ttl" style="margin-top:0">Itens do pedido</div>'+
     itensHtml+
+    botaoFaturarTudo+
     renderFinalizacoesPedidoHtml(p.pedido)+
     '<div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">'+
       acoes+
@@ -2807,8 +2831,20 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
 }
 var fatDiaCtx=null; // {pedido, data, dataBR} do dia sendo faturado
 function abrirFaturarDia(pedido,data,dataBR){
-  fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR};
+  fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR,modo:'dia'};
   document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — dia '+dataBR;
+  document.getElementById('fatDiaCliente').value='';
+  document.getElementById('fatDiaNF').value='';
+  document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
+  ['fatDiaClienteErr','fatDiaNFErr'].forEach(function(id){document.getElementById(id).style.display='none';});
+  document.getElementById('ovFaturarDia').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('fatDiaCliente').focus();},150);
+}
+// Pedido já bateu 100% — fatura de uma vez tudo que ainda não tem NF, em vez de finalização
+// por finalização. Reaproveita o mesmo modal, só muda o modo e qual função do Backend chama.
+function abrirFaturarTudo(pedido){
+  fatDiaCtx={pedido:pedido,modo:'tudo'};
+  document.getElementById('fatDiaTitulo').textContent='Faturar pedido '+pedido+' — tudo pendente';
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
@@ -2830,21 +2866,24 @@ function confirmarFaturarDia(){
   var btn=document.getElementById('btnConfirmFatDia');
   btn.disabled=true; btn.textContent='Salvando...';
   var ctx=fatDiaCtx;
+  function aoTerminar(r){
+    salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar';
+    if(r&&r.status==='ok'){
+      fecharOv('ovFaturarDia');
+      toast(ctx.modo==='tudo'?('✅ '+(r.quantidade||0)+' finalização(ões) faturada(s) de uma vez — NF '+nf):('✅ Dia '+ctx.dataBR+' faturado — NF '+nf));
+      carregarFinalizacoesPedido(ctx.pedido);
+    }else{
+      alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela, confira se faturamentos_parciais existe no Supabase.');
+    }
+  }
+  function aoFalhar(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); }
   try{
-    google.script.run
-      .withSuccessHandler(function(r){
-        salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar';
-        if(r&&r.status==='ok'){
-          fecharOv('ovFaturarDia');
-          toast('✅ Dia '+ctx.dataBR+' faturado — NF '+nf);
-          carregarFinalizacoesPedido(ctx.pedido);
-        }else{
-          alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela, confira se faturamentos_parciais existe no Supabase.');
-        }
-      })
-      .withFailureHandler(function(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); })
-      .faturarParcial(ctx.pedido,ctx.data,nf,cliente,dataFat);
-  }catch(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+e.message); }
+    if(ctx.modo==='tudo'){
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,nf,cliente,dataFat);
+    }else{
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,nf,cliente,dataFat);
+    }
+  }catch(e){ aoFalhar(e); }
 }
 
 function fecharPedEsper(id){
@@ -2978,24 +3017,28 @@ function popularSels(){
 }
 
 // Popup obrigatório de seleção de operador, baia, pedido e lote (aparece ao limpar sessão / iniciar)
-var popOpSel='', popBaiaSel=''; // seleção atual nos cards do popup
+var popOpSel='', popBaiaSel='', popPedSel=''; // seleção atual nos cards do popup
 function abrirOperBaia(){
   popOpSel=document.getElementById('selOp').value||sess.op||'';
   popBaiaSel=document.getElementById('selBaia').value||sess.baia||'';
+  popPedSel=sess.ped||'';
   renderPickCards();
   document.getElementById('inpLotePop').value=sess.lote||'';
   document.getElementById('lotePopErr').style.display='none';
   mostrarStepPop(1);
   document.getElementById('ovOperBaia').classList.remove('hidden');
 }
-// Mostra só o passo N, esconde os outros dois — é isso que torna o fluxo passo a passo de
-// verdade (uma decisão por tela) em vez de operador+baia+lote todos juntos competindo por espaço.
+// Mostra só o passo N, esconde os outros três — é isso que torna o fluxo passo a passo de
+// verdade (uma decisão por tela). Ordem: operador → baia → pedido → lote (lote por último,
+// porque só faz sentido ler o lote da peça depois de saber pra qual pedido ela vai).
 function mostrarStepPop(n){
   document.getElementById('popStepOperador').style.display=(n===1)?'block':'none';
   document.getElementById('popStepBaia').style.display=(n===2)?'block':'none';
-  document.getElementById('popStepLote').style.display=(n===3)?'block':'none';
-  [1,2,3].forEach(function(i){ document.getElementById('stepDot'+i).classList.toggle('active',i<=n); });
-  if(n===3){ setTimeout(function(){document.getElementById('inpLotePop').focus();},250); }
+  document.getElementById('popStepPedido').style.display=(n===3)?'block':'none';
+  document.getElementById('popStepLote').style.display=(n===4)?'block':'none';
+  [1,2,3,4].forEach(function(i){ document.getElementById('stepDot'+i).classList.toggle('active',i<=n); });
+  if(n===3) carregarPedidosParaPop();
+  if(n===4){ setTimeout(function(){document.getElementById('inpLotePop').focus();},250); }
 }
 function voltarStepPop(n){ mostrarStepPop(n); }
 function renderPickCards(){
@@ -3011,54 +3054,40 @@ function renderPickCards(){
 function pickOp(o){ popOpSel=o; renderPickCards(); mostrarStepPop(2); }
 function pickBaia(b){ popBaiaSel=b; renderPickCards(); mostrarStepPop(3); }
 function fecharOperBaia(){ document.getElementById('ovOperBaia').classList.add('hidden'); focusScan(); }
-function confirmarOperBaia(){
-  if(!popOpSel){ mostrarStepPop(1); return; }
-  if(!popBaiaSel){ mostrarStepPop(2); return; }
-  var lote=document.getElementById('inpLotePop').value.trim();
-  if(!lote){document.getElementById('lotePopErr').style.display='block';return;} else {document.getElementById('lotePopErr').style.display='none';}
-  document.getElementById('selOp').value=popOpSel;
-  document.getElementById('selBaia').value=popBaiaSel;
-  sess.op=popOpSel; sess.baia=popBaiaSel; sess.lote=lote; salvarSess();
-  document.getElementById('ovOperBaia').classList.add('hidden');
-  abrirEscolherPedidoBip();
-}
 
-// ── Escolha de pedido em cards (segundo passo) ──
-function abrirEscolherPedidoBip(){
-  document.getElementById('escPedBipLista').innerHTML='<div style="text-align:center;padding:20px"><div class="fat-spinner" style="margin:0 auto"></div></div>';
-  document.getElementById('ovEscolherPedidoBip').classList.remove('hidden');
+// ── Passo 3: escolher pedido (cards) ──
+function carregarPedidosParaPop(){
+  document.getElementById('pedCardsPop').innerHTML='<div style="text-align:center;padding:20px"><div class="fat-spinner" style="margin:0 auto"></div></div>';
   try{
     google.script.run
       .withSuccessHandler(function(d){
-        if(d&&d.status==='ok'){ renderEscolherPedidoBip((d.pedidos||[]).filter(function(p){return !p.fechado;})); }
-        else{ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar pedidos')+'</div>'; }
+        if(d&&d.status==='ok'){ renderPedCardsPop((d.pedidos||[]).filter(function(p){return !p.fechado;})); }
+        else{ document.getElementById('pedCardsPop').innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar pedidos')+'</div>'; }
       })
-      .withFailureHandler(function(e){ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
+      .withFailureHandler(function(e){ document.getElementById('pedCardsPop').innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
       .listarPedidosEsperados();
-  }catch(e){ document.getElementById('escPedBipLista').innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
+  }catch(e){ document.getElementById('pedCardsPop').innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
 }
-function fecharEscolherPedidoBip(){
-  document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
-  abrirOperBaia(); // sem pedido escolhido, volta pro passo anterior — não deixa numa tela sem saída
-}
-function renderEscolherPedidoBip(lista){
-  var el=document.getElementById('escPedBipLista');
-  if(!lista.length){ el.innerHTML='<div class="fat-empty">📭 Nenhum pedido em aberto. Cadastre um em Faturamento › Novo Pedido.</div>'; return; }
+function renderPedCardsPop(lista){
+  var el=document.getElementById('pedCardsPop');
+  if(!lista.length){ el.innerHTML='<div class="fat-empty">📭 Nenhum pedido em aberto. Cadastre um em Faturamento.</div>'; return; }
   el.innerHTML=lista.map(function(p){
     var tot=p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
-    return '<button class="start-card bip" style="padding:15px" onclick="selecionarPedidoBip(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">'+
-      '<div class="start-card-ico" style="width:38px;height:38px;font-size:17px">📦</div>'+
-      '<div class="start-card-txt"><div class="start-card-t" style="font-size:16px">'+escAttr(p.pedido)+'</div><div class="start-card-s">'+p.itens.length+' produto(s) · '+tot+' un. esperadas</div></div>'+
-      '<div class="start-card-arrow">›</div>'+
+    var sel=(p.pedido===popPedSel);
+    return '<button class="pick-card'+(sel?' sel':'')+'" style="text-align:left;padding:13px 15px;display:flex;flex-direction:column;gap:2px" onclick="pickPedido(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">'+
+      '<span style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em">'+escAttr(p.pedido)+'</span>'+
+      '<span style="font-size:10px;color:var(--td);font-weight:400">'+p.itens.length+' produto(s) · '+tot+' un. esperadas</span>'+
     '</button>';
   }).join('');
 }
-// Grava o pedido escolhido, busca o progresso (esperado/já embalado/saldo) pra habilitar
-// bloqueio e o "faltam X" na hora de bipar, grava a sessão no servidor, e libera a bipagem.
-function selecionarPedidoBip(pedido){
-  sess.ped=pedido; salvarSess();
-  var listaEl=document.getElementById('escPedBipLista');
-  listaEl.innerHTML='<div style="text-align:center;padding:20px"><div class="fat-spinner" style="margin:0 auto"></div><div style="margin-top:8px;font-size:12px;color:var(--td)">Carregando progresso do pedido...</div></div>';
+// Escolher o pedido já dispara a busca do progresso em segundo plano — fica pronta enquanto
+// o operador ainda está digitando o lote no passo seguinte, sem atraso perceptível.
+function pickPedido(pedido){
+  popPedSel=pedido;
+  buscarProgressoParaSessAtual(pedido);
+  mostrarStepPop(4);
+}
+function buscarProgressoParaSessAtual(pedido){
   try{
     google.script.run
       .withSuccessHandler(function(d){
@@ -3069,35 +3098,34 @@ function selecionarPedidoBip(pedido){
         }else{
           sess.pedidoProgresso=null;
           console.error('buscarProgressoPedido retornou erro:',d&&d.msg);
-          toast('⚠ Não consegui carregar o progresso — bipagem sem checar saldo por enquanto');
         }
         salvarSess();
-        iniciarSessaoNoServidorSeNecessario();
-        document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
-        document.getElementById('selOp').value=sess.op;
-        document.getElementById('selBaia').value=sess.baia;
-        validarCampos();
         atualizarAvisoProgresso();
-        focusScan();
       })
       .withFailureHandler(function(e){
         sess.pedidoProgresso=null; salvarSess();
         console.error('buscarProgressoPedido falhou (rede/conexão):',e);
-        iniciarSessaoNoServidorSeNecessario();
-        document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
-        document.getElementById('selOp').value=sess.op;
-        document.getElementById('selBaia').value=sess.baia;
-        validarCampos();
         atualizarAvisoProgresso();
-        focusScan();
-        toast('⚠ Sem conexão pra checar o progresso do pedido — sincroniza quando voltar');
       })
       .buscarProgressoPedido(pedido);
-  }catch(e){
-    sess.pedidoProgresso=null; salvarSess();
-    document.getElementById('ovEscolherPedidoBip').classList.add('hidden');
-    validarCampos(); atualizarAvisoProgresso(); focusScan();
-  }
+  }catch(e){ sess.pedidoProgresso=null; salvarSess(); }
+}
+
+// ── Passo 4 (final): lote, confirma tudo e inicia a sessão no servidor ──
+function confirmarOperBaia(){
+  if(!popOpSel){ mostrarStepPop(1); return; }
+  if(!popBaiaSel){ mostrarStepPop(2); return; }
+  if(!popPedSel){ mostrarStepPop(3); return; }
+  var lote=document.getElementById('inpLotePop').value.trim();
+  if(!lote){document.getElementById('lotePopErr').style.display='block';return;} else {document.getElementById('lotePopErr').style.display='none';}
+  document.getElementById('selOp').value=popOpSel;
+  document.getElementById('selBaia').value=popBaiaSel;
+  sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.lote=lote; salvarSess();
+  document.getElementById('ovOperBaia').classList.add('hidden');
+  iniciarSessaoNoServidorSeNecessario();
+  validarCampos();
+  atualizarAvisoProgresso();
+  focusScan();
 }
 // Mostra/esconde o aviso persistente de "progresso não carregou" — só faz sentido exibir
 // quando já existe um pedido selecionado (senão nem tem o que checar ainda).
