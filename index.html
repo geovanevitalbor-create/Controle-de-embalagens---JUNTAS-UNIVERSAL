@@ -1255,8 +1255,8 @@ const Backend={
   async listarEmbalagens(){ try{
     var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null);
     if(!emb||!emb.length) return {status:'ok',embalagens:[]};
-    var fatMap={};
-    try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,nf,cliente',null); (fats||[]).forEach(function(f){ fatMap[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
+    var fatMapSessao={}, fatMapDia={};
+    try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,sessao,nf,cliente',null); (fats||[]).forEach(function(f){ if(f.sessao) fatMapSessao[f.sessao]=f; else fatMapDia[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
     var sessoes=emb.map(function(e){return e.sessao;}).filter(function(s,i,arr){return s&&arr.indexOf(s)===i;});
     var caixasPorSessao={};
     if(sessoes.length){
@@ -1273,7 +1273,7 @@ const Backend={
       });
     }
     var res=emb.map(function(e){
-      var fat=fatMap[e.pedido+'|'+e.data_embalagem];
+      var fat=(e.sessao&&fatMapSessao[e.sessao])?fatMapSessao[e.sessao]:fatMapDia[e.pedido+'|'+e.data_embalagem];
       return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixasPorSessao[e.sessao]||[]};
     });
     return {status:'ok',embalagens:res};
@@ -1313,21 +1313,50 @@ const Backend={
         finalizacoes.forEach(function(fz){ fz.detalheCaixas=caixasPorSessao[fz.sessao]||[]; });
       }catch(e3){ console.error('detalhe de caixas falhou, seguindo sem:',e3); }
     }
-    try{ var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null); var fatPorData={}; (fats||[]).forEach(function(f){ fatPorData[f.data_embalagem]=f; }); finalizacoes.forEach(function(fz){ var f=fatPorData[fz.data]; if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); } }); }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); }
+    try{
+      var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*',null);
+      var fatPorSessao={}, fatPorDia={};
+      (fats||[]).forEach(function(f){ if(f.sessao) fatPorSessao[f.sessao]=f; else fatPorDia[f.data_embalagem]=f; });
+      finalizacoes.forEach(function(fz){
+        var f=(fz.sessao&&fatPorSessao[fz.sessao])?fatPorSessao[fz.sessao]:fatPorDia[fz.data];
+        if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); }
+      });
+    }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); }
     return {status:'ok',finalizacoes:finalizacoes};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura um dia de embalagem de um pedido. Recusa duplicar (mesmo pedido+data já faturado).
-  async faturarParcial(pedido,dataEmbalagem,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Faturamento agora é por SESSÃO específica, não mais por dia inteiro — antes, faturar uma
+  // finalização pronta arrastava junto qualquer outra sessão do mesmo dia, mesmo em andamento.
+  async faturarParcial(pedido,dataEmbalagem,sessao,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; if(sessao){ var jaSess=await sbFetch('GET','/faturamentos_parciais?sessao=eq.'+encodeURIComponent(sessao)+'&select=id',null); if(jaSess&&jaSess.length)return {status:'erro',msg:'Essa sessão já está faturada.'}; } else { var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; } await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,sessao:sessao||null,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
   // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
   // faz sentido clicar Faturar finalização por finalização.
-  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'}; var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem,finalizada',null); var datas=[]; var diasComPendencia={}; (embs||[]).forEach(function(e){ if(datas.indexOf(e.data_embalagem)===-1) datas.push(e.data_embalagem); if(e.finalizada===false) diasComPendencia[e.data_embalagem]=true; }); var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=data_embalagem',null); var fatSet={}; (jaFat||[]).forEach(function(f){ fatSet[f.data_embalagem]=true; }); var pendentes=datas.filter(function(d){ return !fatSet[d]&&!diasComPendencia[d]; }); if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido — pode ser que a única produção pendente ainda esteja em andamento.'}; await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(d){return {pedido:p,data_embalagem:d,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};})); return {status:'ok',quantidade:pendentes.length}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async faturarTudoPendente(pedido,nf,cliente,dataFat){ try{
+    var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'};
+    var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem,finalizada',null);
+    var jaFat=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&select=sessao,data_embalagem',null);
+    var fatSessaoSet={}, fatDiaSet={}; // dia é fallback só pra registros antigos (de antes dessa migração) sem sessao
+    (jaFat||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.data_embalagem]=true; });
+    var pendentes=(embs||[]).filter(function(e){
+      if(!e.sessao) return false;
+      if(e.finalizada===false) return false;
+      if(fatSessaoSet[e.sessao]) return false;
+      if(fatDiaSet[e.data_embalagem]) return false;
+      return true;
+    });
+    if(!pendentes.length)return {status:'erro',msg:'Não há nada pendente de faturar nesse pedido — pode ser que a única produção pendente ainda esteja em andamento.'};
+    await sbFetch('POST','/faturamentos_parciais',pendentes.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
+    return {status:'ok',quantidade:pendentes.length};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
   // linha, com caixas/unidades daquele pedido+dia buscadas em embalagens.
   async buscarRelatorioFaturamento(dataInicio,dataFim){ try{
     var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null);
     if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0,pecas:[]};
-    var embsPorFat=await Promise.all(fats.map(function(f){ return sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=sessao,total_caixas,total_unidades',null); }));
+    var embsPorFat=await Promise.all(fats.map(function(f){
+      if(f.sessao) return sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(f.sessao)+'&select=sessao,total_caixas,total_unidades',null);
+      return sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=sessao,total_caixas,total_unidades',null);
+    }));
     var todasSessoes=[];
     var registros=fats.map(function(f,i){
       var embs=embsPorFat[i]||[]; var cx=0,un=0;
@@ -1360,13 +1389,14 @@ const Backend={
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
   async buscarPendenciasFaturamento(){ try{
     var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades,finalizada',null);
-    var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem',null);
-    var fatSet={}; (fats||[]).forEach(function(f){ fatSet[f.pedido+'|'+f.data_embalagem]=true; });
-    var diasEmAndamento={};
-    (embs||[]).forEach(function(e){ if(e.finalizada===false) diasEmAndamento[e.pedido+'|'+e.data_embalagem]=true; });
+    var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,sessao',null);
+    var fatSessaoSet={}, fatDiaSet={};
+    (fats||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.pedido+'|'+f.data_embalagem]=true; });
     var porPedido={}; var sessoesPendentes=[];
     (embs||[]).forEach(function(e){
-      var key=e.pedido+'|'+e.data_embalagem; if(fatSet[key]) return; if(diasEmAndamento[key]) return;
+      if(e.finalizada===false) return;
+      if(e.sessao&&fatSessaoSet[e.sessao]) return;
+      if(fatDiaSet[e.pedido+'|'+e.data_embalagem]) return;
       if(!porPedido[e.pedido]) porPedido[e.pedido]={pedido:e.pedido,dias:0,caixas:0,unidades:0};
       porPedido[e.pedido].dias++; porPedido[e.pedido].caixas+=Number(e.total_caixas)||0; porPedido[e.pedido].unidades+=Number(e.total_unidades)||0;
       if(e.sessao&&sessoesPendentes.indexOf(e.sessao)===-1) sessoesPendentes.push(e.sessao);
@@ -1543,6 +1573,11 @@ function exigirSenhaMaster(acao){
 // SENHA MODAL
 // ═══════════════════════════════════════
 function abrirSenha(dest,titulo){
+  // Cancela timer de scan pendente (90ms) e limpa o buffer — senão, se tinha uma leitura
+  // parcial em andamento quando esse modal abriu, o timer dispara sozinho mais tarde e tenta
+  // processar como bipe o que sobrou, mesmo com a senha sendo digitada em outro campo.
+  clearTimeout(scanAutoTimer); scanBuf='';
+  var si=document.getElementById('scanInput'); if(si) si.value='';
   senhaDestino=dest;
   document.getElementById('senhaTitle').textContent=titulo;
   document.getElementById('senhaTtl').textContent=titulo;
@@ -1713,6 +1748,7 @@ document.getElementById('scanInput').addEventListener('mousedown',function(e){e.
 
 function processar(){
   if(emCooldown)return;
+  if(document.querySelector('.ov:not(.hidden)')){ scanBuf=''; var si0=document.getElementById('scanInput'); if(si0)si0.value=''; return; }
   if(!validarCampos()){showFb('⚠ Selecione operador e baia antes de bipar','warn');return;}
   const raw=scanBuf.trim();
   scanBuf='';
@@ -1897,6 +1933,8 @@ function pedirSenhaQtdManual(){
   abrirSenha('qtdmanual','Adicionar Quantidade Manual');
 }
 function abrirQtdManual(){
+  clearTimeout(scanAutoTimer); scanBuf='';
+  var si=document.getElementById('scanInput'); if(si) si.value='';
   document.getElementById('qtdManualCod').value='';
   document.getElementById('qtdManualQtd').value='';
   document.getElementById('qtdManualErr').style.display='none';
@@ -3519,7 +3557,7 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
             :(fz.finalizada
-              ?'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\')">💰 Faturar</button>'
+              ?'<button class="adm-btn-add" style="background:var(--gn);padding:9px 16px;flex-shrink:0" onclick="event.stopPropagation();abrirFaturarDia(\''+pedEsc+'\',\''+fz.data+'\',\''+fz.dataBR+'\',\''+(fz.sessao||'').replace(/'/g,"\\\\'")+'\')">💰 Faturar</button>'
               :'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--yw);white-space:nowrap" title="Só pode faturar depois que essa sessão for finalizada na bipagem">⏳ Aguardando finalizar</span>'))+
         '</div>'+
         (temCaixas?('<div style="font-size:10px;color:var(--brand2);margin-top:8px;display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</div>'):'')+
@@ -3669,9 +3707,9 @@ function imprimirRelatorioFaturamento(){
 }
 
 var fatDiaCtx=null; // {pedido, data, dataBR} do dia sendo faturado
-function abrirFaturarDia(pedido,data,dataBR){
-  fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR,modo:'dia'};
-  document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — dia '+dataBR;
+function abrirFaturarDia(pedido,data,dataBR,sessao){
+  fatDiaCtx={pedido:pedido,data:data,dataBR:dataBR,sessao:sessao||null,modo:'dia'};
+  document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — '+dataBR;
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
@@ -3720,7 +3758,7 @@ function confirmarFaturarDia(){
     if(ctx.modo==='tudo'){
       google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,nf,cliente,dataFat);
     }else{
-      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,nf,cliente,dataFat);
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,ctx.sessao,nf,cliente,dataFat);
     }
   }catch(e){ aoFalhar(e); }
 }
