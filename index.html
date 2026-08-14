@@ -1263,6 +1263,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Cliente</label><input autocomplete="off" class="inp" type="text" id="fatDiaCliente" placeholder="Nome do cliente"><div id="fatDiaClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
       <div class="md-row"><label class="lbl req">Número da NF</label><input autocomplete="off" class="inp" type="text" id="fatDiaNF" placeholder="Ex: NF-0001234"><div id="fatDiaNFErr" style="color:var(--rd);font-size:11px;display:none">Informe a NF.</div></div>
+      <div style="display:flex;gap:10px">
+        <div class="md-row" style="flex:1"><label class="lbl req">Valor com imposto (R$)</label><input autocomplete="off" class="inp" type="number" step="0.01" min="0" id="fatDiaValorCom" placeholder="0,00"><div id="fatDiaValorComErr" style="color:var(--rd);font-size:11px;display:none">Informe o valor.</div></div>
+        <div class="md-row" style="flex:1"><label class="lbl req">Valor sem imposto (R$)</label><input autocomplete="off" class="inp" type="number" step="0.01" min="0" id="fatDiaValorSem" placeholder="0,00"><div id="fatDiaValorSemErr" style="color:var(--rd);font-size:11px;display:none">Informe o valor.</div></div>
+      </div>
       <div class="md-row"><label class="lbl">Data de faturamento</label><input autocomplete="off" class="inp" type="date" id="fatDiaData"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturarDia')">Cancelar</button><button class="btn-ok green" id="btnConfirmFatDia" onclick="confirmarFaturarDia()">Confirmar</button></div>
     </div>
@@ -1468,11 +1472,11 @@ const Backend={
   // Fatura um dia de embalagem de um pedido. Recusa duplicar (mesmo pedido+data já faturado).
   // Faturamento agora é por SESSÃO específica, não mais por dia inteiro — antes, faturar uma
   // finalização pronta arrastava junto qualquer outra sessão do mesmo dia, mesmo em andamento.
-  async faturarParcial(pedido,dataEmbalagem,sessao,nf,cliente,dataFat){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; if(sessao){ var jaSess=await sbFetch('GET','/faturamentos_parciais?sessao=eq.'+encodeURIComponent(sessao)+'&select=id',null); if(jaSess&&jaSess.length)return {status:'erro',msg:'Essa sessão já está faturada.'}; } else { var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; } await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,sessao:sessao||null,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async faturarParcial(pedido,dataEmbalagem,sessao,nf,cliente,dataFat,valorComImposto,valorSemImposto){ try{ var p=String(pedido||'').trim(); if(!p||!dataEmbalagem)return {status:'erro',msg:'Pedido e data são obrigatórios.'}; if(sessao){ var jaSess=await sbFetch('GET','/faturamentos_parciais?sessao=eq.'+encodeURIComponent(sessao)+'&select=id',null); if(jaSess&&jaSess.length)return {status:'erro',msg:'Essa sessão já está faturada.'}; } else { var ja=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+encodeURIComponent(p)+'&data_embalagem=eq.'+encodeURIComponent(dataEmbalagem)+'&select=id',null); if(ja&&ja.length)return {status:'erro',msg:'Esse dia já está faturado para esse pedido.'}; } await sbFetch('POST','/faturamentos_parciais',{pedido:p,data_embalagem:dataEmbalagem,sessao:sessao||null,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,valor_com_imposto:valorComImposto!=null?Number(valorComImposto):null,valor_sem_imposto:valorSemImposto!=null?Number(valorSemImposto):null,criado_em:new Date().toISOString()}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Fatura de uma vez todos os dias de embalagem desse pedido que ainda não têm NF — mesma
   // NF/cliente/data aplicada em cada dia pendente. Usado quando o pedido já bateu 100% e não
   // faz sentido clicar Faturar finalização por finalização.
-  async faturarTudoPendente(pedido,sessoesEscolhidas,nf,cliente,dataFat){ try{
+  async faturarTudoPendente(pedido,sessoesEscolhidas,nf,cliente,dataFat,valorComImposto,valorSemImposto){ try{
     var p=String(pedido||'').trim(); if(!p)return {status:'erro',msg:'Pedido vazio.'};
     if(!sessoesEscolhidas||!sessoesEscolhidas.length)return {status:'erro',msg:'Selecione ao menos uma finalização.'};
     var embs=await sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(p)+'&sessao=in.('+sessoesEscolhidas.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=sessao,data_embalagem,finalizada',null);
@@ -1484,7 +1488,11 @@ const Backend={
     // contra o caso de algo ter mudado entre abrir a seleção e confirmar.
     var validas=(embs||[]).filter(function(e){ return e.finalizada!==false && !fatSessaoSet[e.sessao] && sessoesEscolhidas.indexOf(e.sessao)!==-1; });
     if(!validas.length)return {status:'erro',msg:'Nenhuma das finalizações selecionadas está disponível pra faturar agora — pode já ter sido faturada, ou ainda estar em andamento.'};
-    await sbFetch('POST','/faturamentos_parciais',validas.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,evento_numero:novoEvento,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,criado_em:new Date().toISOString()};}));
+    // O valor digitado é o total da NF daquele evento — grava igual em cada linha (uma por
+    // sessão) pra não perder o dado em nenhuma delas; quem lê o relatório deduplica por
+    // pedido+evento_numero antes de somar, senão o total contaria em dobro/triplo.
+    var vCom=valorComImposto!=null?Number(valorComImposto):null, vSem=valorSemImposto!=null?Number(valorSemImposto):null;
+    await sbFetch('POST','/faturamentos_parciais',validas.map(function(e){return {pedido:p,data_embalagem:e.data_embalagem,sessao:e.sessao,evento_numero:novoEvento,nf:nf||null,cliente:cliente||null,data_faturamento:dataFat||null,valor_com_imposto:vCom,valor_sem_imposto:vSem,criado_em:new Date().toISOString()};}));
     return {status:'ok',quantidade:validas.length,evento:novoEvento};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Relatório de faturamento num período: cada faturamento parcial (pedido+dia) vira uma
@@ -1515,14 +1523,14 @@ const Backend={
     var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null);
     if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0,pecas:[]};
     var embsPorFat=await Promise.all(fats.map(function(f){
-      if(f.sessao) return sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(f.sessao)+'&select=sessao,total_caixas,total_unidades',null);
-      return sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=sessao,total_caixas,total_unidades',null);
+      if(f.sessao) return sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(f.sessao)+'&select=sessao,total_caixas,total_unidades,cliente_transp',null);
+      return sbFetch('GET','/embalagens?pedido=eq.'+encodeURIComponent(f.pedido)+'&data_embalagem=eq.'+f.data_embalagem+'&select=sessao,total_caixas,total_unidades,cliente_transp',null);
     }));
     var todasSessoes=[];
     var registros=fats.map(function(f,i){
-      var embs=embsPorFat[i]||[]; var cx=0,un=0;
-      embs.forEach(function(e){ cx+=Number(e.total_caixas)||0; un+=Number(e.total_unidades)||0; if(e.sessao&&todasSessoes.indexOf(e.sessao)===-1) todasSessoes.push(e.sessao); });
-      return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),dataFaturamentoISO:f.data_faturamento||'',caixas:cx,unidades:un};
+      var embs=embsPorFat[i]||[]; var cx=0,un=0,transp='';
+      embs.forEach(function(e){ cx+=Number(e.total_caixas)||0; un+=Number(e.total_unidades)||0; if(!transp&&e.cliente_transp) transp=e.cliente_transp; if(e.sessao&&todasSessoes.indexOf(e.sessao)===-1) todasSessoes.push(e.sessao); });
+      return {id:f.id,pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),dataFaturamentoISO:f.data_faturamento||'',caixas:cx,unidades:un,transportadora:transp,eventoNumero:f.evento_numero!=null?Number(f.evento_numero):null,valorComImposto:f.valor_com_imposto!=null?Number(f.valor_com_imposto):null,valorSemImposto:f.valor_sem_imposto!=null?Number(f.valor_sem_imposto):null};
     });
     var totalUnidades=registros.reduce(function(s,r){return s+r.unidades;},0);
     var totalCaixas=registros.reduce(function(s,r){return s+r.caixas;},0);
@@ -1544,7 +1552,19 @@ const Backend={
         pecas=Object.values(mapaPecas).sort(function(a,b){return b.unidades-a.unidades;});
       }
     }
-    return {status:'ok',registros:registros,totalNFs:registros.length,totalUnidades:totalUnidades,totalCaixas:totalCaixas,pecas:pecas};
+    // totalNFs e os totais de valor precisam deduplicar por evento — faturarTudoPendente grava
+    // uma linha por sessão, todas com o mesmo nf/valor; sem isso, um evento de 3 sessões conta
+    // como 3 NFs e triplica o valor. Linha sem evento_numero (faturamento avulso) conta sozinha.
+    var eventosVistos={}, totalValorCom=0, totalValorSem=0;
+    registros.forEach(function(r){
+      var chave=r.eventoNumero!=null?(r.pedido+'|ev'+r.eventoNumero):('id'+r.id);
+      if(eventosVistos[chave]) return;
+      eventosVistos[chave]=true;
+      if(r.valorComImposto!=null) totalValorCom+=r.valorComImposto;
+      if(r.valorSemImposto!=null) totalValorSem+=r.valorSemImposto;
+    });
+    var totalNFs=Object.keys(eventosVistos).length;
+    return {status:'ok',registros:registros,totalNFs:totalNFs,totalUnidades:totalUnidades,totalCaixas:totalCaixas,totalValorComImposto:Number(totalValorCom.toFixed(2)),totalValorSemImposto:Number(totalValorSem.toFixed(2)),pecas:pecas};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
@@ -4036,6 +4056,8 @@ function renderRelatorioFaturamento(d){
   var comCliente=d.registros.filter(function(r){return r.cliente&&String(r.cliente).trim();});
   var porCliente=agruparPorCampo(comCliente,'cliente');
   var porPedido=agruparPorCampo(d.registros,'pedido');
+  var clientesComValor=agruparClientesComValor(d.registros);
+  var porTransportadora=agruparPorCampo(d.registros.filter(function(r){return r.transportadora&&String(r.transportadora).trim();}),'transportadora');
   var ticketMedio=d.totalNFs>0?Math.round(d.totalUnidades/d.totalNFs):0;
 
   el.innerHTML=
@@ -4046,6 +4068,8 @@ function renderRelatorioFaturamento(d){
       '<div class="dash-kpi bl"><div class="dash-kpiv">'+porCliente.length+'</div><div class="dash-kpil">Clientes</div></div>'+
       '<div class="dash-kpi"><div class="dash-kpiv">'+ticketMedio+'</div><div class="dash-kpil">Média por NF</div></div>'+
       '<div class="dash-kpi'+(nPend?' rd':'')+'" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="dash-kpiv">'+nPend+'</div><div class="dash-kpil">Pendentes</div></div>'+
+      '<div class="dash-kpi gn"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="dash-kpil">Faturado c/ imposto</div></div>'+
+      '<div class="dash-kpi"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="dash-kpil">Faturado s/ imposto</div></div>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:10px">'+
       (cfg.chartStatusPed?(
@@ -4071,7 +4095,39 @@ function renderRelatorioFaturamento(d){
         '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porCliente,d.totalUnidades)+'</div></div>'+
         '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 pedidos</span></div>'+
         '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porPedido,d.totalUnidades)+'</div></div>'+
-      '</div>'
+      '</div>'+
+      (clientesComValor.length?(
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Faturamento por cliente</span></div>'+
+        '<div class="dp2-panel-bd" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr>'+
+          '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Cliente</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">NFs</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Com imposto</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Sem imposto</th>'+
+        '</tr></thead><tbody>'+
+        clientesComValor.map(function(c){
+          return '<tr><td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(c.nome)+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+c.nfs+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--gn)">'+fmtR$(c.valorCom)+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--td)">'+fmtR$(c.valorSem)+'</td></tr>';
+        }).join('')+
+        '</tbody></table></div></div>'
+      ):'')+
+      (porTransportadora.length?(
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Por transportadora</span><span style="font-size:9.5px;color:var(--td)">quantidade — sem preço por peça, não dá pra abrir em R$</span></div>'+
+        '<div class="dp2-panel-bd" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr>'+
+          '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Transportadora</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">NFs</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Unidades</th>'+
+        '</tr></thead><tbody>'+
+        porTransportadora.map(function(t){
+          return '<tr><td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(t.nome)+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+t.eventos+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2)">'+t.unidades+'</td></tr>';
+        }).join('')+
+        '</tbody></table></div></div>'
+      ):'')
     ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
 
   [dashChartTrend,dashChartPecas,dashChartClientes].forEach(function(c){ if(c) c.destroy(); });
@@ -4153,6 +4209,25 @@ function agruparPorCampo(registros,campo){
   });
   return ordem.map(function(k){return mapa[k];}).sort(function(a,b){return b.unidades-a.unidades;});
 }
+// Agrupa por cliente somando valor com/sem imposto — deduplica por evento (pedido+evento_numero,
+// ou id da linha quando não tem evento) porque faturarTudoPendente grava o mesmo valor total em
+// cada sessão do evento; somar linha a linha multiplicaria o valor real pelo nº de sessões.
+function agruparClientesComValor(registros){
+  var eventosVistos={}, mapa={}, ordem=[];
+  registros.forEach(function(r){
+    var cliente=String(r.cliente||'').trim(); if(!cliente) return;
+    if(!mapa[cliente]){ mapa[cliente]={nome:cliente,valorCom:0,valorSem:0,nfs:0,unidades:0}; ordem.push(cliente); }
+    mapa[cliente].unidades+=Number(r.unidades)||0;
+    var chaveEvento=r.eventoNumero!=null?(r.pedido+'|ev'+r.eventoNumero):('id'+r.id);
+    if(eventosVistos[chaveEvento]) return; // valor/NF desse evento já contado (em outra linha da mesma leva)
+    eventosVistos[chaveEvento]=true;
+    mapa[cliente].nfs++;
+    if(r.valorComImposto!=null) mapa[cliente].valorCom+=r.valorComImposto;
+    if(r.valorSemImposto!=null) mapa[cliente].valorSem+=r.valorSemImposto;
+  });
+  return ordem.map(function(k){return mapa[k];}).sort(function(a,b){return b.valorCom-a.valorCom;});
+}
+function fmtR$(v){ return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 // Recorta os 5 primeiros de uma lista já ordenada (desc) e agrupa o resto em "Outros" — usado
 // pro gráfico de pizza de clientes, pra não virar uma pizza com 40 fatias minúsculas.
 function construirTop5MaisOutros(lista){
@@ -4231,6 +4306,14 @@ function imprimirRelatorioFaturamento(){
   var linhasPecas=(d.pecas||[]).map(function(p){
     return '<tr><td>'+escAttr(p.nome)+(p.codigo?' ('+escAttr(p.codigo)+')':'')+'</td><td style="text-align:right">'+p.unidades+'</td></tr>';
   }).join('');
+  var clientesComValor=agruparClientesComValor(d.registros);
+  var linhasClientes=clientesComValor.map(function(c){
+    return '<tr><td>'+escAttr(c.nome)+'</td><td style="text-align:right">'+c.nfs+'</td><td style="text-align:right">'+fmtR$(c.valorCom)+'</td><td style="text-align:right">'+fmtR$(c.valorSem)+'</td></tr>';
+  }).join('');
+  var porTransportadora=agruparPorCampo(d.registros.filter(function(r){return r.transportadora&&String(r.transportadora).trim();}),'transportadora');
+  var linhasTransp=porTransportadora.map(function(t){
+    return '<tr><td>'+escAttr(t.nome)+'</td><td style="text-align:right">'+t.eventos+'</td><td style="text-align:right">'+t.unidades+'</td></tr>';
+  }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Faturamento</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
     '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
@@ -4238,15 +4321,16 @@ function imprimirRelatorioFaturamento(){
     '.hdr-t{text-align:right}'+
     '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
     '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
-    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
-    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
-    '.kpi .v{font-size:25px;font-weight:800;color:#00833E}'+
-    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:12px;text-align:center}'+
+    '.kpi .v{font-size:19px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9px;color:#777;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}'+
     'table{width:100%;border-collapse:collapse;font-size:11px}'+
     'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
     'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
     'tr:nth-child(even) td{background:#f8f9f8}'+
     '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.sec-note{font-size:9.5px;color:#999;font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px}'+
     '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
     '.empty{text-align:center;padding:44px;color:#999;font-size:13px}'+
     '@page{size:A4;margin:14mm}'+
@@ -4257,12 +4341,22 @@ function imprimirRelatorioFaturamento(){
       '<div class="kpi"><div class="v">'+d.totalNFs+'</div><div class="l">Notas Fiscais</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalCaixas+'</div><div class="l">Caixas</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalUnidades+'</div><div class="l">Unidades</div></div>'+
+      '<div class="kpi"><div class="v" style="font-size:15px">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="l">Com imposto</div></div>'+
+      '<div class="kpi"><div class="v" style="font-size:15px">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="l">Sem imposto</div></div>'+
     '</div>'+
     (d.registros.length?(
       '<table><thead><tr><th>Pedido</th><th>NF</th><th>Cliente</th><th>Data Embalagem</th><th>Data Faturamento</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhas+'</tbody></table>'+
+      (linhasClientes?(
+        '<div class="sec-ttl">Faturamento por cliente</div>'+
+        '<table><thead><tr><th>Cliente</th><th style="text-align:right">NFs</th><th style="text-align:right">Com imposto</th><th style="text-align:right">Sem imposto</th></tr></thead><tbody>'+linhasClientes+'</tbody></table>'
+      ):'')+
       (linhasPecas?(
-        '<div class="sec-ttl">Peças faturadas nesse período</div>'+
+        '<div class="sec-ttl">Peças faturadas nesse período<span class="sec-note">quantidade — sem preço por peça, não dá pra abrir em R$</span></div>'+
         '<table><thead><tr><th>Peça</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhasPecas+'</tbody></table>'
+      ):'')+
+      (linhasTransp?(
+        '<div class="sec-ttl">Por transportadora<span class="sec-note">quantidade — mesmo motivo acima</span></div>'+
+        '<table><thead><tr><th>Transportadora</th><th style="text-align:right">NFs</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+linhasTransp+'</tbody></table>'
       ):'')
     ):'<div class="empty">Nenhum faturamento nesse período.</div>')+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
@@ -4279,8 +4373,10 @@ function abrirFaturarDia(pedido,data,dataBR,sessao){
   document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — '+dataBR;
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
+  document.getElementById('fatDiaValorCom').value='';
+  document.getElementById('fatDiaValorSem').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
-  ['fatDiaClienteErr','fatDiaNFErr'].forEach(function(id){document.getElementById(id).style.display='none';});
+  ['fatDiaClienteErr','fatDiaNFErr','fatDiaValorComErr','fatDiaValorSemErr'].forEach(function(id){document.getElementById(id).style.display='none';});
   document.getElementById('ovFaturarDia').classList.remove('hidden');
   setTimeout(function(){document.getElementById('fatDiaCliente').focus();},150);
 }
@@ -4334,8 +4430,10 @@ function abrirFaturarTudo(pedido,sessoesEscolhidas){
   document.getElementById('fatDiaTitulo').textContent='Faturar '+pedido+' — '+n+' finalização'+(n===1?'':'ões')+' selecionada'+(n===1?'':'s');
   document.getElementById('fatDiaCliente').value='';
   document.getElementById('fatDiaNF').value='';
+  document.getElementById('fatDiaValorCom').value='';
+  document.getElementById('fatDiaValorSem').value='';
   document.getElementById('fatDiaData').value=new Date().toISOString().split('T')[0];
-  ['fatDiaClienteErr','fatDiaNFErr'].forEach(function(id){document.getElementById(id).style.display='none';});
+  ['fatDiaClienteErr','fatDiaNFErr','fatDiaValorComErr','fatDiaValorSemErr'].forEach(function(id){document.getElementById(id).style.display='none';});
   document.getElementById('ovFaturarDia').classList.remove('hidden');
   setTimeout(function(){document.getElementById('fatDiaCliente').focus();},150);
 }
@@ -4344,10 +4442,14 @@ function confirmarFaturarDia(){
   if(salvandoFatDia||!fatDiaCtx)return;
   var cliente=document.getElementById('fatDiaCliente').value.trim();
   var nf=document.getElementById('fatDiaNF').value.trim();
+  var valorCom=document.getElementById('fatDiaValorCom').value;
+  var valorSem=document.getElementById('fatDiaValorSem').value;
   var dataFat=document.getElementById('fatDiaData').value.trim();
   var ok=true;
   if(!cliente){document.getElementById('fatDiaClienteErr').style.display='block';ok=false;} else{document.getElementById('fatDiaClienteErr').style.display='none';}
   if(!nf){document.getElementById('fatDiaNFErr').style.display='block';ok=false;} else{document.getElementById('fatDiaNFErr').style.display='none';}
+  if(valorCom===''||isNaN(parseFloat(valorCom))){document.getElementById('fatDiaValorComErr').style.display='block';ok=false;} else{document.getElementById('fatDiaValorComErr').style.display='none';}
+  if(valorSem===''||isNaN(parseFloat(valorSem))){document.getElementById('fatDiaValorSemErr').style.display='block';ok=false;} else{document.getElementById('fatDiaValorSemErr').style.display='none';}
   if(!ok)return;
   salvandoFatDia=true;
   var btn=document.getElementById('btnConfirmFatDia');
@@ -4360,15 +4462,15 @@ function confirmarFaturarDia(){
       toast(ctx.modo==='tudo'?('✅ '+(r.quantidade||0)+' finalização(ões) faturada(s) — evento nº'+(r.evento||'?')+' — NF '+nf):('✅ Dia '+ctx.dataBR+' faturado — NF '+nf));
       carregarFinalizacoesPedido(ctx.pedido);
     }else{
-      alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela, confira se faturamentos_parciais existe no Supabase.');
+      alert('Erro: '+(r&&r.msg?r.msg:'tente de novo')+'\n\nSe falar em tabela ou coluna, confira se faturamentos_parciais e as colunas valor_com_imposto/valor_sem_imposto existem no Supabase.');
     }
   }
   function aoFalhar(e){ salvandoFatDia=false; btn.disabled=false; btn.textContent='✅ Confirmar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); }
   try{
     if(ctx.modo==='tudo'){
-      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,ctx.sessoesEscolhidas,nf,cliente,dataFat);
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarTudoPendente(ctx.pedido,ctx.sessoesEscolhidas,nf,cliente,dataFat,valorCom,valorSem);
     }else{
-      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,ctx.sessao,nf,cliente,dataFat);
+      google.script.run.withSuccessHandler(aoTerminar).withFailureHandler(aoFalhar).faturarParcial(ctx.pedido,ctx.data,ctx.sessao,nf,cliente,dataFat,valorCom,valorSem);
     }
   }catch(e){ aoFalhar(e); }
 }
