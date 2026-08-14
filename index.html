@@ -1273,6 +1273,15 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL DETALHE DE CLIENTE (Dashboard) — NFs individuais de um cliente, aberto ao clicar
+     numa linha das tabelas "Faturamento por cliente" / "Menor recorrência" ou na pizza -->
+<div class="ov hidden" id="ovDetalheClienteFat">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title" id="detClienteFatTitulo">Cliente</span><button class="md-x" onclick="fecharOv('ovDetalheClienteFat')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
+    <div class="md-body" id="detClienteFatBody"></div>
+  </div>
+</div>
+
 <!-- MODAL QR RESULTADO (consulta avulsa, se necessário no futuro) -->
 
 <!-- MENU DE AÇÕES DE UM PEDIDO (⋮): Excel ou Relatório -->
@@ -4029,12 +4038,45 @@ function carregarRelatorioFaturamento(){
   try{
     google.script.run
       .withSuccessHandler(function(d){
-        if(d&&d.status==='ok'){ relatorioAtual=d; renderRelatorioFaturamento(d); }
+        if(d&&d.status==='ok'){ relatorioAtual=d; carregarPeriodoAnteriorEExibir(d,ini,fim); }
         else{ el.innerHTML=renderDashError((d&&d.msg)||'Não consegui carregar os dados desse período.'); }
       })
       .withFailureHandler(function(e){ el.innerHTML=renderDashError('Sem conexão com o servidor'+(e&&e.message?': '+e.message:'.')); })
       .buscarRelatorioFaturamento(ini,fim);
   }catch(e){ el.innerHTML=renderDashError(e.message); }
+}
+// Busca o período imediatamente anterior (mesma duração em dias) só pra calcular a variação %
+// nos KPIs — se essa segunda busca falhar, mostra o dashboard normal sem comparação em vez de
+// travar tudo por causa de um dado que é bônus, não essencial.
+function carregarPeriodoAnteriorEExibir(d,ini,fim){
+  var pa=calcularPeriodoAnterior(ini,fim);
+  try{
+    google.script.run
+      .withSuccessHandler(function(dAnt){ d.anterior=(dAnt&&dAnt.status==='ok')?dAnt:null; renderRelatorioFaturamento(d); })
+      .withFailureHandler(function(){ d.anterior=null; renderRelatorioFaturamento(d); })
+      .buscarRelatorioFaturamento(pa.ini,pa.fim);
+  }catch(e){ d.anterior=null; renderRelatorioFaturamento(d); }
+}
+function calcularPeriodoAnterior(dataIniISO,dataFimISO){
+  var ini=new Date(dataIniISO+'T00:00:00'), fim=new Date(dataFimISO+'T00:00:00');
+  var duracaoDias=Math.round((fim-ini)/86400000)+1;
+  var fimAnt=new Date(ini); fimAnt.setDate(fimAnt.getDate()-1);
+  var iniAnt=new Date(fimAnt); iniAnt.setDate(iniAnt.getDate()-duracaoDias+1);
+  return {ini:iniAnt.toISOString().slice(0,10),fim:fimAnt.toISOString().slice(0,10)};
+}
+// Variação % entre o valor atual e o do período anterior — null quando não dá pra calcular
+// (sem período anterior, ou período anterior zerado).
+function variacaoPct(atual,anteriorObj,campo){
+  if(!anteriorObj) return null;
+  var anterior=anteriorObj[campo];
+  if(anterior==null||anterior===0) return null;
+  return Math.round((atual-anterior)/anterior*100);
+}
+function badgeVariacao(pct){
+  if(pct==null) return '';
+  var cor=pct>0?'var(--gn)':(pct<0?'var(--rd)':'var(--td)');
+  var seta=pct>0?'▲':(pct<0?'▼':'—');
+  return '<div style="font-size:10.5px;font-weight:700;color:'+cor+';margin-top:4px">'+seta+' '+Math.abs(pct)+'% vs período anterior</div>';
 }
 // Estado de erro/indisponibilidade — ícone + mensagem + ação de tentar de novo. Reutilizável
 // em qualquer painel: retryFn é o nome (string) da função a chamar quando clicar "Tentar de novo".
@@ -4057,6 +4099,9 @@ function renderRelatorioFaturamento(d){
   var porCliente=agruparPorCampo(comCliente,'cliente');
   var porPedido=agruparPorCampo(d.registros,'pedido');
   var clientesComValor=agruparClientesComValor(d.registros);
+  var clientesMenorAtividade=clientesComValor.slice().sort(function(a,b){return a.nfs-b.nfs;}).slice(0,5);
+  var top3Valor=clientesComValor.slice(0,3).reduce(function(s,c){return s+c.valorCom;},0);
+  var pctTop3=(d.totalValorComImposto||0)>0?Math.round(top3Valor/d.totalValorComImposto*100):0;
   var porTransportadora=agruparPorCampo(d.registros.filter(function(r){return r.transportadora&&String(r.transportadora).trim();}),'transportadora');
   var ticketMedio=d.totalNFs>0?Math.round(d.totalUnidades/d.totalNFs):0;
 
@@ -4064,11 +4109,11 @@ function renderRelatorioFaturamento(d){
     '<div class="dash-kpis">'+
       '<div class="dash-kpi bl"><div class="dash-kpiv">'+d.totalNFs+'</div><div class="dash-kpil">Notas Fiscais</div></div>'+
       '<div class="dash-kpi gn"><div class="dash-kpiv">'+d.totalCaixas+'</div><div class="dash-kpil">Caixas</div></div>'+
-      '<div class="dash-kpi yw"><div class="dash-kpiv">'+d.totalUnidades+'</div><div class="dash-kpil">Unidades</div></div>'+
+      '<div class="dash-kpi yw"><div class="dash-kpiv">'+d.totalUnidades+'</div><div class="dash-kpil">Unidades</div>'+badgeVariacao(variacaoPct(d.totalUnidades,d.anterior,'totalUnidades'))+'</div>'+
       '<div class="dash-kpi bl"><div class="dash-kpiv">'+porCliente.length+'</div><div class="dash-kpil">Clientes</div></div>'+
       '<div class="dash-kpi"><div class="dash-kpiv">'+ticketMedio+'</div><div class="dash-kpil">Média por NF</div></div>'+
       '<div class="dash-kpi'+(nPend?' rd':'')+'" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="dash-kpiv">'+nPend+'</div><div class="dash-kpil">Pendentes</div></div>'+
-      '<div class="dash-kpi gn"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="dash-kpil">Faturado c/ imposto</div></div>'+
+      '<div class="dash-kpi gn"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="dash-kpil">Faturado c/ imposto</div>'+badgeVariacao(variacaoPct(d.totalValorComImposto||0,d.anterior,'totalValorComImposto'))+'</div>'+
       '<div class="dash-kpi"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="dash-kpil">Faturado s/ imposto</div></div>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:10px">'+
@@ -4097,7 +4142,9 @@ function renderRelatorioFaturamento(d){
         '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porPedido,d.totalUnidades)+'</div></div>'+
       '</div>'+
       (clientesComValor.length?(
-        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Faturamento por cliente</span></div>'+
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Faturamento por cliente</span>'+
+          (pctTop3>0?('<span style="font-size:9.5px;color:var(--yw)">top 3 clientes = '+pctTop3+'% do faturado</span>'):'')+
+        '</div>'+
         '<div class="dp2-panel-bd" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr>'+
           '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Cliente</th>'+
@@ -4106,10 +4153,25 @@ function renderRelatorioFaturamento(d){
           '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Sem imposto</th>'+
         '</tr></thead><tbody>'+
         clientesComValor.map(function(c){
-          return '<tr><td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(c.nome)+'</td>'+
+          return '<tr style="cursor:pointer" onclick="abrirDetalheClienteFat(\''+c.nome.replace(/'/g,"\\'")+'\')"><td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(c.nome)+'</td>'+
             '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+c.nfs+'</td>'+
             '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--gn)">'+fmtR$(c.valorCom)+'</td>'+
             '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--td)">'+fmtR$(c.valorSem)+'</td></tr>';
+        }).join('')+
+        '</tbody></table></div></div>'
+      ):'')+
+      (clientesMenorAtividade.length>1?(
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Clientes com menor recorrência</span><span style="font-size:9.5px;color:var(--td)">menos NFs no período — oportunidade de reativação</span></div>'+
+        '<div class="dp2-panel-bd" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr>'+
+          '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Cliente</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">NFs</th>'+
+          '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Faturado</th>'+
+        '</tr></thead><tbody>'+
+        clientesMenorAtividade.map(function(c){
+          return '<tr style="cursor:pointer" onclick="abrirDetalheClienteFat(\''+c.nome.replace(/'/g,"\\'")+'\')"><td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(c.nome)+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--yw)">'+c.nfs+'</td>'+
+            '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+fmtR$(c.valorCom)+'</td></tr>';
         }).join('')+
         '</tbody></table></div></div>'
       ):'')+
@@ -4142,7 +4204,9 @@ function renderRelatorioFaturamento(d){
       dashChartClientes=new Chart(ctxC,{
         type:'pie',
         data:{labels:topCli.labels,datasets:[{data:topCli.dados,backgroundColor:PALETA_DASH,borderColor:'#1a1a1a',borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}}}}
+        options:{responsive:true,maintainAspectRatio:false,onClick:function(evt,els){ if(els&&els.length){ var nome=topCli.labels[els[0].index]; if(nome!=='Outros') abrirDetalheClienteFat(nome); } },
+          plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}},
+            tooltip:{callbacks:{label:function(ctx){ var total=ctx.dataset.data.reduce(function(a,b){return a+b;},0); var pct=total>0?Math.round(ctx.parsed/total*100):0; return ctx.label+': '+ctx.parsed+' un. ('+pct+'%)'; }}}}}
       });
     }
   }
@@ -4192,7 +4256,8 @@ function renderStatusPedidosChart(){
   dashChartStatus=new Chart(ctx,{
     type:'doughnut',
     data:{labels:['Aberto','Fechado','Finalizado'],datasets:[{data:[aberto,fechado,finalizado],backgroundColor:['#6B6B6B','#c1502f','#2563EB'],borderColor:'#1a1a1a',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}},
+      tooltip:{callbacks:{label:function(ctx){ var t=ctx.dataset.data.reduce(function(a,b){return a+b;},0); var pct=t>0?Math.round(ctx.parsed/t*100):0; return ctx.label+': '+ctx.parsed+' ('+pct+'%)'; }}}}}
   });
 }
 // Agrupa registros faturados por um campo (cliente ou pedido), somando unidades, contando
@@ -4228,6 +4293,37 @@ function agruparClientesComValor(registros){
   return ordem.map(function(k){return mapa[k];}).sort(function(a,b){return b.valorCom-a.valorCom;});
 }
 function fmtR$(v){ return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// Drill-down: NFs individuais de um cliente, deduplicadas por evento (senão um evento de N
+// sessões apareceria como N linhas idênticas). Aberto ao clicar numa linha das tabelas de
+// cliente ou numa fatia da pizza "Unidades por cliente".
+function abrirDetalheClienteFat(clienteNome){
+  if(!relatorioAtual) return;
+  document.getElementById('detClienteFatTitulo').textContent=clienteNome;
+  var eventosVistos={}, eventos=[];
+  relatorioAtual.registros.filter(function(r){return String(r.cliente||'').trim()===clienteNome;}).forEach(function(r){
+    var chave=r.eventoNumero!=null?(r.pedido+'|ev'+r.eventoNumero):('id'+r.id);
+    if(eventosVistos[chave]) return;
+    eventosVistos[chave]=true;
+    eventos.push(r);
+  });
+  eventos.sort(function(a,b){return (b.dataFaturamentoISO||'').localeCompare(a.dataFaturamentoISO||'');});
+  var body=document.getElementById('detClienteFatBody');
+  if(!eventos.length){ body.innerHTML='<div class="dp2-empty">Nenhuma NF encontrada pra esse cliente no período.</div>'; }
+  else{
+    body.innerHTML=eventos.map(function(r){
+      return '<div class="cx-detalhe">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px">'+
+          '<div><div style="font-family:var(--mo);font-weight:600;font-size:13px">NF '+escAttr(r.nf||'—')+'</div>'+
+          '<div style="font-size:10px;color:var(--td);margin-top:2px">Pedido '+escAttr(r.pedido)+' · '+r.dataFaturamento+'</div></div>'+
+          '<div style="text-align:right;flex-shrink:0">'+
+            (r.valorComImposto!=null?('<div style="font-family:var(--mo);color:var(--gn);font-weight:700">'+fmtR$(r.valorComImposto)+'</div>'):'')+
+            (r.valorSemImposto!=null?('<div style="font-size:9.5px;color:var(--td)">'+fmtR$(r.valorSemImposto)+' sem imp.</div>'):'')+
+          '</div>'+
+        '</div></div>';
+    }).join('');
+  }
+  document.getElementById('ovDetalheClienteFat').classList.remove('hidden');
+}
 // Recorta os 5 primeiros de uma lista já ordenada (desc) e agrupa o resto em "Outros" — usado
 // pro gráfico de pizza de clientes, pra não virar uma pizza com 40 fatias minúsculas.
 function construirTop5MaisOutros(lista){
