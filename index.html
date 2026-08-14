@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <style>
 :root{
   /* Paleta oficial Juntas Universal — fundo neutro #121212 conforme seção de acessibilidade */
@@ -319,6 +320,40 @@ tr.nw td{animation:fl 1s ease-out}
   display:flex;align-items:center;justify-content:space-between;font-size:12px}
 .it-cons-n{font-weight:500;flex:1}
 .it-cons-q{background:var(--acd);color:var(--brand2);padding:2px 9px;border-radius:11px;font-weight:600;font-family:var(--mo)}
+
+/* ═══ RASTREABILIDADE — timeline unificada (eventos do pedido + finalizações + faturamento) ═══ */
+.tl-item{position:relative;display:flex;gap:11px;padding:0 0 16px}
+.tl-item:last-child{padding-bottom:0}
+.tl-item::before{content:'';position:absolute;left:13px;top:26px;bottom:0;width:1.5px;background:var(--bd2)}
+.tl-item:last-child::before{display:none}
+.tl-ico{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;flex-shrink:0;z-index:1;border:2px solid var(--s1)}
+.tl-ico.ok{background:var(--gnd);color:var(--gn)}
+.tl-ico.warn{background:var(--ywd);color:var(--yw)}
+.tl-ico.fat{background:var(--stampd);color:var(--stamp)}
+.tl-ico.info{background:var(--pud);color:var(--pu)}
+.tl-body{flex:1;min-width:0;padding-top:2px}
+.tl-title{font-size:12.5px;font-weight:600;color:var(--tx);line-height:1.35}
+.tl-sub{font-size:10.5px;color:var(--td);margin-top:2px;line-height:1.45}
+.tl-meta{font-size:9.5px;color:var(--td);font-family:var(--mo);margin-top:3px}
+
+/* ═══ DETALHE DE PEDIDO v2 (.dp2-*) ═══ */
+.dp2-head{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px;text-align:center}
+.dp2-head-main{font-family:var(--f-d);font-size:34px;line-height:1;letter-spacing:.01em}
+.dp2-head-main.gn{color:var(--gn)}
+.dp2-head-main.yw{color:var(--yw)}
+.dp2-head-main.pu{color:var(--pu)}
+.dp2-head-sub{font-size:11px;color:var(--td);margin-top:6px}
+.dp2-head-bar{background:var(--s2);border-radius:20px;height:6px;overflow:hidden;margin-top:12px}
+.dp2-head-bar-fill{background:var(--ac);height:100%}
+.dp2-panel{background:var(--s2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.dp2-panel-hd{padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dp2-panel-hd-t{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--td)}
+.dp2-panel-bd{padding:12px 14px}
+.dp2-empty{font-size:11px;color:var(--td);padding:4px 0}
+.dp2-foot{position:sticky;bottom:0;margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);
+  background:var(--s1);display:flex;gap:6px;flex-wrap:wrap}
 
 .cx-detalhe{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:6px}
 .cx-detalhe-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
@@ -741,16 +776,44 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <div class="screen-body">
     <div class="adm-wrap">
       <nav class="adm-tabs">
-        <button class="adm-tab active" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic">📦</span>Pedidos</button>
+        <button class="adm-tab active" data-t="dashboard" onclick="fatTab('dashboard')"><span class="ic">📊</span>Dashboard</button>
+        <button class="adm-tab" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic">📦</span>Pedidos</button>
         <button class="adm-tab" data-t="historico" onclick="fatTab('historico')"><span class="ic">📋</span>Histórico</button>
         <!-- Aba "Embalagens (antigo)" removida do menu — painel e funções continuam no código
              (fpane-embalagens, carregarFat, renderFat etc.), só não tem mais botão de acesso.
              NFs emitidas pelo sistema antigo por sessão só existem ali; se precisar consultar
-             uma no futuro, é só devolver este botão. -->
-        <button class="adm-tab" data-t="relatorio" onclick="fatTab('relatorio')"><span class="ic">📊</span>Relatório</button>
+             uma no futuro, é só devolver este botão. A aba "Relatório" seguiu o mesmo caminho,
+             mas virou o Dashboard — mesmo período/botão de PDF, visual novo com gráficos. -->
       </nav>
       <div class="adm-content">
-        <section class="fat-panel active" id="fpane-pedidos">
+        <section class="fat-panel active" id="fpane-dashboard">
+          <h2 class="adm-panel-title">Dashboard</h2>
+          <div class="rel-toolbar">
+            <div class="rel-group">
+              <span class="rel-group-lbl">Período</span>
+              <div class="rel-pills">
+                <button class="fat-filter" id="relBtn30" onclick="setPeriodoRelatorio('30d',this)">30 dias</button>
+                <button class="fat-filter" id="relBtn3m" onclick="setPeriodoRelatorio('3m',this)">3 meses</button>
+                <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
+              </div>
+            </div>
+            <div class="rel-group">
+              <span class="rel-group-lbl">Personalizado</span>
+              <div class="rel-dates">
+                <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()">
+                <span class="rel-dates-sep">até</span>
+                <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()">
+              </div>
+            </div>
+            <div class="rel-acoes">
+              <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
+              <button class="btn-reload rel-pdf" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
+            </div>
+          </div>
+          <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
+        </section>
+
+        <section class="fat-panel" id="fpane-pedidos">
           <h2 class="adm-panel-title">Pedidos <span class="adm-panel-count" style="text-transform:none;letter-spacing:0">· atualiza sozinho</span></h2>
           <div class="adm-searchrow">
             <input autocomplete="off" class="adm-search" id="pedFiltroTexto" placeholder="🔍 Buscar por número do pedido..." oninput="renderPedidosEsperados()">
@@ -796,32 +859,6 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <div id="fatLista"><div class="fat-spin-wrap"><div class="fat-spinner"></div><div style="margin-top:8px">Aguardando...</div></div></div>
         </section>
 
-        <section class="fat-panel" id="fpane-relatorio">
-          <h2 class="adm-panel-title">Relatório</h2>
-          <div class="rel-toolbar">
-            <div class="rel-group">
-              <span class="rel-group-lbl">Período</span>
-              <div class="rel-pills">
-                <button class="fat-filter" id="relBtn30" onclick="setPeriodoRelatorio('30d',this)">30 dias</button>
-                <button class="fat-filter" id="relBtn3m" onclick="setPeriodoRelatorio('3m',this)">3 meses</button>
-                <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
-              </div>
-            </div>
-            <div class="rel-group">
-              <span class="rel-group-lbl">Personalizado</span>
-              <div class="rel-dates">
-                <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()">
-                <span class="rel-dates-sep">até</span>
-                <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()">
-              </div>
-            </div>
-            <div class="rel-acoes">
-              <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
-              <button class="btn-reload rel-pdf" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
-            </div>
-          </div>
-          <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
-        </section>
       </div>
       <button class="fab-add" id="fabNovoPedido" onclick="abrirCadastrarPedido()" title="Novo Pedido">+</button>
     </div>
@@ -846,6 +883,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <button class="adm-tab" data-t="baia" onclick="admTab('baia')"><span class="ic">📍</span>Baias</button>
         <button class="adm-tab" data-t="prod" onclick="admTab('prod')"><span class="ic">🏷️</span>Peças</button>
         <button class="adm-tab" data-t="hist" onclick="admTab('hist')"><span class="ic">📋</span>Histórico</button>
+        <button class="adm-tab" data-t="config" onclick="admTab('config')"><span class="ic">⚙️</span>Configurações</button>
       </nav>
 
       <div class="adm-content">
@@ -912,6 +950,18 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           ⚠ Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
         </div>
         <div class="adm-list" id="histLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
+      </section>
+
+      <section class="adm-panel" id="pane-config">
+        <h2 class="adm-panel-title">Configurações</h2>
+        <div class="dp2-panel">
+          <div class="dp2-panel-bd" style="font-size:13px;color:var(--tm);line-height:1.7">
+            Essa aba ainda não tem conteúdo definido. Candidatos possíveis: dados padrão de
+            faturamento (transportadora/cliente frequente), preferências de impressão de
+            etiqueta, texto do rodapé dos PDFs, gestão das senhas de acesso. Me diga o que
+            entra aqui e eu implemento.
+          </div>
+        </div>
       </section>
       </div>
     </div>
@@ -1307,7 +1357,7 @@ const Backend={
   async listarFinalizacoesPedido(pedido){ try{
     var p=encodeURIComponent(String(pedido||'').trim());
     var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao,data_embalagem,hora_embalagem,operador,total_caixas,total_unidades,peso_total,cliente_lote,finalizada&order=data_embalagem.asc,hora_embalagem.asc',null);
-    var finalizacoes=(embs||[]).map(function(e,i){ return {numero:i+1,sessao:e.sessao,data:e.data_embalagem,dataBR:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',lote:e.cliente_lote||'',caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0,peso:Number((parseFloat(e.peso_total)||0).toFixed(2)),finalizada:e.finalizada!==false,faturado:false,nf:'',cliente:'',dataFaturamento:'',detalheCaixas:[]}; });
+    var finalizacoes=(embs||[]).map(function(e,i){ return {numero:i+1,sessao:e.sessao,data:e.data_embalagem,dataBR:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',lote:e.cliente_lote||'',caixas:Number(e.total_caixas)||0,unidades:Number(e.total_unidades)||0,peso:Number((parseFloat(e.peso_total)||0).toFixed(2)),finalizada:e.finalizada!==false,faturado:false,nf:'',cliente:'',dataFaturamento:'',dataFaturamentoISO:'',eventoNumero:null,detalheCaixas:[]}; });
     // Detalhe por caixa (quais peças, quanto de cada) — em lote: 2 consultas no total pra
     // TODAS as finalizações do pedido, não uma consulta por finalização.
     var sessoesTodas=finalizacoes.map(function(f){return f.sessao;}).filter(function(s){return s;});
@@ -1331,7 +1381,7 @@ const Backend={
       (fats||[]).forEach(function(f){ if(f.sessao) fatPorSessao[f.sessao]=f; else fatPorDia[f.data_embalagem]=f; });
       finalizacoes.forEach(function(fz){
         var f=(fz.sessao&&fatPorSessao[fz.sessao])?fatPorSessao[fz.sessao]:fatPorDia[fz.data];
-        if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); }
+        if(f){ fz.faturado=true; fz.nf=f.nf||''; fz.cliente=f.cliente||''; fz.dataFaturamento=_dataBR(f.data_faturamento); fz.dataFaturamentoISO=f.data_faturamento||''; fz.eventoNumero=f.evento_numero!=null?Number(f.evento_numero):null; }
       });
     }catch(e2){ console.error('faturamentos_parciais falhou, seguindo sem selo de NF:',e2); }
     return {status:'ok',finalizacoes:finalizacoes};
@@ -1393,7 +1443,7 @@ const Backend={
     var registros=fats.map(function(f,i){
       var embs=embsPorFat[i]||[]; var cx=0,un=0;
       embs.forEach(function(e){ cx+=Number(e.total_caixas)||0; un+=Number(e.total_unidades)||0; if(e.sessao&&todasSessoes.indexOf(e.sessao)===-1) todasSessoes.push(e.sessao); });
-      return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),caixas:cx,unidades:un};
+      return {pedido:f.pedido,nf:f.nf||'',cliente:f.cliente||'',dataEmbalagem:_dataBR(f.data_embalagem),dataFaturamento:_dataBR(f.data_faturamento),dataFaturamentoISO:f.data_faturamento||'',caixas:cx,unidades:un};
     });
     var totalUnidades=registros.reduce(function(s,r){return s+r.unidades;},0);
     var totalCaixas=registros.reduce(function(s,r){return s+r.caixas;},0);
@@ -1488,7 +1538,7 @@ const Backend={
   async reabrirPedidoEsperado(pedidoId,motivo){ try{ var patch={fechado:false,finalizado:false}; if(motivo)patch.motivo_reabertura=motivo; await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,patch); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'reaberto',motivo:motivo||null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Histórico completo de eventos de um pedido — todas as vezes que foi fechado/reaberto/
   // finalizado, cada um com seu próprio motivo, sem sobrescrever como o campo único fazia.
-  async listarEventosPedido(pedidoId){ try{ var ev=await sbFetch('GET','/pedido_eventos?pedido_id=eq.'+pedidoId+'&select=*&order=criado_em.desc',null); return {status:'ok',eventos:(ev||[]).map(function(e){return {tipo:e.tipo,motivo:e.motivo||'',quando:new Date(e.criado_em).toLocaleString('pt-BR')};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarEventosPedido(pedidoId){ try{ var ev=await sbFetch('GET','/pedido_eventos?pedido_id=eq.'+pedidoId+'&select=*&order=criado_em.desc',null); return {status:'ok',eventos:(ev||[]).map(function(e){return {tipo:e.tipo,motivo:e.motivo||'',quando:new Date(e.criado_em).toLocaleString('pt-BR'),quandoISO:e.criado_em};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirPedidoEsperado(pedidoId){ try{ await sbFetch('DELETE','/itens_pedido?pedido_id=eq.'+pedidoId,null); await sbFetch('DELETE','/pedidos?id=eq.'+pedidoId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } }
 };
 (function(){
@@ -1568,7 +1618,7 @@ function irPara(id){
     validarCampos();
     setTimeout(function(){ tentarAbrirWizardBip(0); },120);
   }
-  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('pedidos');}
+  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
 // Espera ops/baias carregarem do servidor antes de abrir o popup — sem isso, numa conexão
@@ -3385,7 +3435,7 @@ function fatTab(t){
   if(fab) fab.style.display=(t==='pedidos')?'flex':'none';
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
-  if(t==='relatorio'&&!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
+  if(t==='dashboard'&&!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
 }
 // Aba Histórico: lista todos os pedidos (qualquer estado) — clicar abre o mesmo modal de
 // detalhe da aba Pedidos, que já mostra a tabela de itens e as finalizações.
@@ -3420,21 +3470,77 @@ function carregarEventosPedido(pedidoId){
       .listarEventosPedido(pedidoId);
   }catch(e){ pedEventosCache[pedidoId]='erro'; }
 }
-function renderEventosPedidoHtml(pedidoId){
-  var lista=pedEventosCache[pedidoId];
-  if(lista===undefined||lista==='erro'||!lista.length) return '';
-  var iconePorTipo={fechado:'🔒',reaberto:'↩',finalizado:'✔'};
-  var labelPorTipo={fechado:'Fechado',reaberto:'Reaberto',finalizado:'Finalizado'};
-  return '<div class="ped-sec-ttl">Histórico de eventos</div>'+
-    '<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:4px">'+
-    lista.map(function(e){
-      return '<div style="display:flex;align-items:flex-start;gap:8px;font-size:11px;padding:7px 0;border-bottom:1px dashed var(--bd)">'+
-        '<span style="flex-shrink:0">'+(iconePorTipo[e.tipo]||'•')+'</span>'+
-        '<div style="min-width:0"><b>'+(labelPorTipo[e.tipo]||e.tipo)+'</b> <span style="color:var(--td)">· '+e.quando+'</span>'+
-        (e.motivo?('<div style="color:var(--tm);margin-top:2px">'+escAttr(e.motivo)+'</div>'):'')+
-        '</div></div>';
-    }).join('')+
-    '</div>';
+// ── RASTREABILIDADE UNIFICADA ───────────────────────────────────────────────
+// Funde pedido_eventos (fechado/reaberto/finalizado, via pedEventosCache) com as sessões de
+// bipagem (iniciada/finalizada/faturada, via pedEsperFinalizacoes) numa timeline única,
+// ordenada por data — mais recente primeiro. Substitui a antiga renderEventosPedidoHtml, que
+// só mostrava fechado/reaberto/finalizado isolados, sem cruzar com o que realmente aconteceu
+// na produção. Não substitui os cards detalhados de finalização (renderFinalizacoesPedidoHtml)
+// — esta é a visão panorâmica "o que aconteceu, em ordem"; aquela é o drill-down por sessão.
+function coletarRastreabilidade(p){
+  var itens=[];
+  if(p.criadoEm){
+    itens.push({tipo:'info',ico:'📝',quandoISO:p.criadoEm,titulo:'Pedido cadastrado',sub:formatarQuandoTimeline(p.criadoEm,true)});
+  }
+  var eventos=pedEventosCache[p.id];
+  if(Array.isArray(eventos)){
+    var infoPorTipoEvento={
+      fechado:{tipo:'warn',ico:'🔒',titulo:'Pedido fechado'},
+      reaberto:{tipo:'info',ico:'↩',titulo:'Pedido reaberto'},
+      finalizado:{tipo:'ok',ico:'✔',titulo:'Pedido finalizado'}
+    };
+    eventos.forEach(function(e){
+      var info=infoPorTipoEvento[e.tipo]||{tipo:'info',ico:'•',titulo:e.tipo};
+      itens.push({tipo:info.tipo,ico:info.ico,quandoISO:e.quandoISO,titulo:info.titulo,sub:e.motivo?escAttr(e.motivo):e.quando});
+    });
+  }
+  var finalizacoes=pedEsperFinalizacoes[p.pedido];
+  if(Array.isArray(finalizacoes)){
+    finalizacoes.forEach(function(fz){
+      var quandoISO=fz.data?(fz.data+'T'+(fz.hora||'00:00:00')):null;
+      itens.push({
+        tipo:fz.finalizada?'ok':'info',ico:'📦',quandoISO:quandoISO,
+        titulo:'Finalização '+fz.numero+(fz.finalizada?'':' — em andamento'),
+        sub:fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · '+fz.caixas+' cx · '+fz.unidades+' un'
+      });
+      if(fz.faturado){
+        itens.push({
+          tipo:'fat',ico:'💰',quandoISO:fz.dataFaturamentoISO||quandoISO,
+          titulo:'Finalização '+fz.numero+' faturada'+(fz.eventoNumero?(' — evento '+String(fz.eventoNumero).padStart(2,'0')):''),
+          sub:'NF '+escAttr(fz.nf)+(fz.cliente?(' · '+escAttr(fz.cliente)):'')
+        });
+      }
+    });
+  }
+  itens.sort(function(a,b){
+    var ta=a.quandoISO?new Date(a.quandoISO).getTime():0;
+    var tb=b.quandoISO?new Date(b.quandoISO).getTime():0;
+    return tb-ta; // mais recente primeiro
+  });
+  return itens;
+}
+// Formata um timestamp ISO pra exibição na timeline. temHora=true para timestamps completos
+// (ex: pedido_eventos.criado_em); false para datas puras (ex: data_embalagem, sem hora real).
+function formatarQuandoTimeline(iso,temHora){
+  if(!iso) return '';
+  try{
+    var d=new Date(iso);
+    if(isNaN(d.getTime())) return String(iso);
+    return temHora?d.toLocaleString('pt-BR'):d.toLocaleDateString('pt-BR');
+  }catch(e){ return String(iso); }
+}
+function renderRastreabilidadeHtml(p){
+  var carregandoEventos=(pedEventosCache[p.id]===undefined);
+  var carregandoFin=(pedEsperFinalizacoes[p.pedido]===undefined);
+  if(carregandoEventos||carregandoFin) return '<div class="dp2-empty">Carregando histórico...</div>';
+  var itens=coletarRastreabilidade(p);
+  if(!itens.length) return '<div class="dp2-empty">Nenhum evento registrado ainda.</div>';
+  return '<div class="tl-wrap">'+itens.map(function(it){
+    return '<div class="tl-item"><div class="tl-ico '+it.tipo+'">'+it.ico+'</div>'+
+      '<div class="tl-body"><div class="tl-title">'+it.titulo+'</div>'+
+      (it.sub?('<div class="tl-sub">'+it.sub+'</div>'):'')+
+      '</div></div>';
+  }).join('')+'</div>';
 }
 function toggleEditarItensPedido(){ editandoItensPedido=!editandoItensPedido; renderDetalhePedido(); }
 function salvarQtdItemPedido(itemId,jaEmbalado){
@@ -3519,48 +3625,76 @@ function renderDetalhePedido(){
   if(!p){ body.innerHTML='<div style="font-size:12px;color:var(--td)">Pedido não encontrado — pode ter sido excluído.</div>'; return; }
   var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
   var totEmb=p.totalEmbalado||0;
+  var saldo=Math.max(0,totEsp-totEmb);
   var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
-  var exportBtns='<div style="display:flex;gap:8px;margin-bottom:12px">'+
-    '<button class="adm-btn-add" style="flex:1;background:var(--gnd);color:var(--gn);border:1px solid rgba(0,131,62,.4)" onclick="exportarPedidoDetalheExcel()">⬇ Excel</button>'+
-    '<button class="adm-btn-add" style="flex:1;background:var(--acd);color:var(--brand2);border:1px solid rgba(0,131,62,.35)" onclick="imprimirPedidoPDF()">🖨 PDF</button>'+
-  '</div>';
   var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
-  var cabecalho='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:12px;color:var(--td)">'+totEmb+' / '+totEsp+' un. embaladas</span>'+badge+'</div>'+
-    (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:6px;overflow:hidden;margin-bottom:14px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>');
-  var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
-  var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
+
+  // ── Cabeçalho: UMA informação em destaque — saldo restante, "tudo entregue" ou total
+  // finalizado. Antes eram duas linhas de texto pequeno (X/Y un. + badge) competindo pela
+  // atenção; agora só existe uma resposta pra "como está esse pedido?" por vez.
+  var headCls,headMain,headSub;
+  if(p.finalizado){
+    headCls='pu'; headMain=totEmb+' un.'; headSub='embaladas ao todo · pedido encerrado';
+  }else if(totEsp>0&&saldo<=0){
+    headCls='gn'; headMain='Tudo entregue'; headSub=totEmb+' / '+totEsp+' un. embaladas';
+  }else{
+    headCls='yw'; headMain=saldo+' un.'; headSub='restantes de '+totEsp+' un. esperadas';
+  }
+  var head='<div class="dp2-head">'+
+    '<div style="display:flex;justify-content:center;margin-bottom:8px">'+badge+'</div>'+
+    '<div class="dp2-head-main '+headCls+'">'+headMain+'</div>'+
+    '<div class="dp2-head-sub">'+headSub+'</div>'+
+    (p.finalizado?'':'<div class="dp2-head-bar"><div class="dp2-head-bar-fill" style="width:'+pct+'%"></div></div>')+
+  '</div>';
+
+  var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
+  var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
+
+  // ── Painel: Itens do pedido ──
   var podeEditarItens=!p.finalizado;
-  var itensHtml;
+  var itensBodyHtml;
   if(editandoItensPedido&&podeEditarItens){
-    itensHtml=(p.itens.length?p.itens.map(function(it){
+    itensBodyHtml=(p.itens.length?p.itens.map(function(it){
       var emb=it.embalado||0;
-      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--bd)">'+
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">'+
         '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
         '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.id+'">'+
         '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido('+it.id+','+emb+')" title="Salvar quantidade">💾</button>'+
         '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
       '</div>';
-    }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 0">Sem itens ainda.</div>')+
+    }).join(''):'<div class="dp2-empty">Sem itens ainda.</div>')+
     '<button class="adm-btn-add" style="width:100%;margin-top:10px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)" onclick="abrirAdicionarItemPedido('+p.id+')">+ Adicionar produto</button>';
   }else{
-    itensHtml=p.itens.length?(
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr>'+
-        '<th style="text-align:left;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Produto</th>'+
-        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Original</th>'+
-        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Embalado</th>'+
-        '<th style="text-align:right;padding:6px 4px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)">Saldo</th>'+
-      '</tr></thead><tbody>'+
-      p.itens.map(function(it){
-        var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
-        return '<tr><td style="padding:7px 4px;border-bottom:1px solid var(--bd)">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+it.codigo+')</span></td>'+
-          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd)">'+esp+'</td>'+
-          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:var(--brand2)">'+emb+'</td>'+
-          '<td style="text-align:right;padding:7px 4px;font-family:var(--mo);border-bottom:1px solid var(--bd);color:'+(sld>0?'var(--yw)':'var(--td)')+'">'+sld+'</td></tr>';
-      }).join('')+
-      '</tbody></table>'
-    ):'<div style="font-size:11px;color:var(--td)">Sem itens</div>';
+    itensBodyHtml=p.itens.length?p.itens.map(function(it){
+      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+      return '<div class="it-cons" style="align-items:flex-start">'+
+        '<div class="it-cons-n">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+
+        '<div style="font-size:9.5px;color:var(--td);margin-top:2px;font-family:var(--mo)">'+emb+' / '+esp+' un.</div></div>'+
+        '<span class="it-cons-q" style="'+(sld>0?'':'background:var(--gnd);color:var(--gn)')+'">'+(sld>0?(sld+' rest.'):'✔ completo')+'</span>'+
+      '</div>';
+    }).join(''):'<div class="dp2-empty">Sem itens</div>';
   }
+  var itensPanel='<div class="dp2-panel">'+
+    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Itens do pedido</span>'+
+      (podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none;margin:0" onclick="toggleEditarItensPedido()">'+(editandoItensPedido?'✔ Concluir edição':'✎ Editar')+'</button>'):'')+
+    '</div>'+
+    '<div class="dp2-panel-bd">'+itensBodyHtml+'</div>'+
+  '</div>';
+
+  // ── Painel: Rastreabilidade — timeline única (cadastro/fechado/reaberto/finalizado do
+  // pedido + início/fim de cada sessão de bipagem + faturamento), tudo em ordem cronológica ──
+  var rastreabPanel='<div class="dp2-panel">'+
+    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Rastreabilidade</span></div>'+
+    '<div class="dp2-panel-bd">'+renderRastreabilidadeHtml(p)+'</div>'+
+  '</div>';
+
+  // ── Painel: Finalizações — drill-down por sessão (caixas/itens, PDF individual) ──
+  var finPanel='<div class="dp2-panel">'+
+    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Finalizações — detalhe</span></div>'+
+    '<div class="dp2-panel-bd">'+renderFinalizacoesPedidoHtml(p.pedido)+'</div>'+
+  '</div>';
+
+  // ── Rodapé de ações ──
   var acoes;
   var btnSec='style="flex:1;background:transparent;border:1.5px solid var(--bd2);color:var(--tm)"';
   if(p.finalizado){
@@ -3572,9 +3706,8 @@ function renderDetalhePedido(){
     acoes='<button class="adm-btn-add" '+btnSec+' onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
           '<button class="adm-btn-add" style="flex:2;background:var(--ac)" onclick="finalizarPedEsper('+p.id+')">✅ Finalizar</button>';
   }
-  // Faturar agora é ação do pedido, ao lado de Fechar/Finalizar/Reabrir/Excluir — não é mais
-  // um botão por finalização. Rótulo muda conforme o saldo: zerado = "Faturar", com saldo
-  // ainda pendente = "Faturar Parcial" (fatura só o que já foi finalizado, o resto fica de fora).
+  // Faturar é ação do pedido, ao lado de Fechar/Finalizar/Reabrir/Excluir. Rótulo muda
+  // conforme o saldo: zerado = "Faturar", com saldo ainda pendente = "Faturar Parcial".
   var listaFin=pedEsperFinalizacoes[p.pedido];
   var temPendenteFat=Array.isArray(listaFin)&&listaFin.some(function(fz){return !fz.faturado&&fz.finalizada;});
   var saldoZerado=totEsp>0&&totEmb>=totEsp;
@@ -3582,21 +3715,20 @@ function renderDetalhePedido(){
     var labelFaturar=saldoZerado?'💰 Faturar':'💰 Faturar Parcial';
     acoes+='<button class="adm-btn-add" style="flex:2;background:var(--gn)" onclick="abrirSelecaoFinalizacoes(\''+String(p.pedido).replace(/'/g,"\\'")+'\')">'+labelFaturar+'</button>';
   }
+  var foot='<div class="dp2-foot">'+acoes+'<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button></div>';
+
   body.innerHTML=
-    exportBtns+
-    cabecalho+
+    '<div style="display:flex;gap:8px;margin-bottom:14px">'+
+      '<button class="adm-btn-add" style="flex:1;background:var(--gnd);color:var(--gn);border:1px solid rgba(0,131,62,.4)" onclick="exportarPedidoDetalheExcel()">⬇ Excel</button>'+
+      '<button class="adm-btn-add" style="flex:1;background:var(--acd);color:var(--brand2);border:1px solid rgba(0,131,62,.35)" onclick="imprimirPedidoPDF()">🖨 PDF</button>'+
+    '</div>'+
+    head+
     motivoBox+
     motivoReabBox+
-    '<div class="ped-sec-ttl" style="margin-top:0;display:flex;justify-content:space-between;align-items:center">Itens do pedido'+
-      (podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="toggleEditarItensPedido()">'+(editandoItensPedido?'✔ Concluir edição':'✎ Editar itens')+'</button>'):'')+
-    '</div>'+
-    itensHtml+
-    renderFinalizacoesPedidoHtml(p.pedido)+
-    renderEventosPedidoHtml(p.id)+
-    '<div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">'+
-      acoes+
-      '<button class="btn-rm" onclick="excluirPedEsper('+p.id+')">🗑 Excluir</button>'+
-    '</div>';
+    itensPanel+
+    rastreabPanel+
+    finPanel+
+    foot;
 }
 // Lista plana das finalizações desse pedido, numeradas em ordem cronológica — sem agrupar
 // por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
@@ -3660,14 +3792,13 @@ function imprimirFinalizacaoPDF(pedido,sessao){
 }
 function renderFinalizacoesPedidoHtml(pedidoNome){
   var lista=pedEsperFinalizacoes[pedidoNome];
-  if(lista===undefined) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Carregando histórico...</div>';
+  if(lista===undefined) return '<div class="dp2-empty">Carregando histórico...</div>';
   if(lista==='erro'){
     var pedEscErr=String(pedidoNome).replace(/'/g,"\\'");
-    return '<div style="font-size:11px;color:var(--rd);padding:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠ Não consegui carregar o histórico.<button class="btn-gh" style="width:auto;padding:6px 12px" onclick="carregarFinalizacoesPedido(\''+pedEscErr+'\')">🔄 Tentar de novo</button></div>';
+    return '<div class="dp2-empty" style="color:var(--rd);display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠ Não consegui carregar o histórico.<button class="btn-gh" style="width:auto;padding:6px 12px" onclick="carregarFinalizacoesPedido(\''+pedEscErr+'\')">🔄 Tentar de novo</button></div>';
   }
-  if(!lista.length) return '<div style="font-size:11px;color:var(--td);padding:8px 0">Nenhuma produção finalizada ainda pra este pedido.</div>';
-  return '<div class="ped-sec-ttl">Histórico — finalizações</div>'+
-    lista.map(function(fz){
+  if(!lista.length) return '<div class="dp2-empty">Nenhuma produção finalizada ainda pra este pedido.</div>';
+  return lista.map(function(fz){
       var aberto=!!finCaixasOpenSet[fz.sessao];
       var temCaixas=fz.detalheCaixas&&fz.detalheCaixas.length;
       return '<div class="cx-detalhe" style="cursor:pointer" onclick="togFinCaixas(\''+fz.sessao+'\')">'+
@@ -3733,45 +3864,88 @@ function carregarRelatorioFaturamento(){
       .buscarRelatorioFaturamento(ini,fim);
   }catch(e){ el.innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
 }
+// Instâncias Chart.js do dashboard — precisam ser destruídas antes de redesenhar (trocar
+// período/reabrir a aba), senão o canvas acumula gráficos fantasmas por baixo.
+var dashChartTrend=null, dashChartPecas=null;
+// Nomes históricos (esta função alimentava a antiga aba "Relatório"; agora alimenta o
+// Dashboard) — mantidos para não precisar tocar em todos os pontos que já chamam
+// carregarRelatorioFaturamento()/setPeriodoRelatorio() pelo nome antigo.
 function renderRelatorioFaturamento(d){
   var el=document.getElementById('relFatSec');
+  var nPend=Object.keys(pedidosPendentesFat).length;
   el.innerHTML=
     '<div class="ped-kpis" style="margin-bottom:16px">'+
       '<div class="ped-kpi bl"><div class="ped-kpiv">'+d.totalNFs+'</div><div class="ped-kpil">NFs</div></div>'+
       '<div class="ped-kpi gn"><div class="ped-kpiv">'+d.totalCaixas+'</div><div class="ped-kpil">Caixas</div></div>'+
       '<div class="ped-kpi yw"><div class="ped-kpiv">'+d.totalUnidades+'</div><div class="ped-kpil">Unidades</div></div>'+
+      '<div class="ped-kpi" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="ped-kpiv" style="color:'+(nPend?'var(--rd)':'var(--td)')+'">'+nPend+'</div><div class="ped-kpil">Pendentes</div></div>'+
     '</div>'+
     (d.registros.length?(
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr>'+
-        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
-        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">NF</th>'+
-        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Cliente</th>'+
-        '<th style="text-align:left;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Data Fat.</th>'+
-        '<th style="text-align:right;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Caixas</th>'+
-        '<th style="text-align:right;padding:8px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Un.</th>'+
-      '</tr></thead><tbody>'+
-      d.registros.map(function(r){
-        return '<tr><td style="padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(r.pedido)+'</td>'+
-          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd)">'+escAttr(r.nf||'—')+'</td>'+
-          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd)">'+escAttr(r.cliente||'—')+'</td>'+
-          '<td style="padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.dataFaturamento+'</td>'+
-          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.caixas+'</td>'+
-          '<td style="text-align:right;padding:8px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+r.unidades+'</td></tr>';
-      }).join('')+
-      '</tbody></table>'+
+      '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades faturadas no período</span></div>'+
+      '<div class="dp2-panel-bd"><canvas id="chartTrendFat"></canvas></div></div>'+
       (d.pecas&&d.pecas.length?(
-        '<div class="ped-sec-ttl">Peças faturadas nesse período</div>'+
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-        '<thead><tr><th style="text-align:left;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
-        '<th style="text-align:right;padding:7px 6px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Unidades</th></tr></thead><tbody>'+
-        d.pecas.map(function(p){
-          return '<tr><td style="padding:7px 6px;border-bottom:1px solid var(--bd)">'+escAttr(p.nome)+(p.codigo?' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span>':'')+'</td>'+
-            '<td style="text-align:right;padding:7px 6px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2)">'+p.unidades+'</td></tr>';
-        }).join('')+
-        '</tbody></table>'
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Peças mais faturadas</span></div>'+
+        '<div class="dp2-panel-bd"><canvas id="chartPecasFat"></canvas></div></div>'
       ):'')
     ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
+
+  if(dashChartTrend){ dashChartTrend.destroy(); dashChartTrend=null; }
+  if(dashChartPecas){ dashChartPecas.destroy(); dashChartPecas=null; }
+  if(!d.registros.length) return;
+
+  var buckets=agruparRegistrosPorPeriodo(d.registros);
+  var ctxT=document.getElementById('chartTrendFat');
+  if(ctxT&&buckets.length){
+    ctxT.parentElement.style.height=Math.max(200,220)+'px';
+    dashChartTrend=new Chart(ctxT,{
+      type:'bar',
+      data:{labels:buckets.map(function(b){return b.label;}),datasets:[{label:'Unidades',data:buckets.map(function(b){return b.unidades;}),backgroundColor:'#16A34A',borderRadius:4,maxBarThickness:46}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},x:{grid:{display:false},ticks:{color:'#B9B9B9'}}}}
+    });
+  }
+  var ctxP=document.getElementById('chartPecasFat');
+  if(ctxP&&d.pecas&&d.pecas.length){
+    var top=d.pecas.slice(0,10);
+    ctxP.parentElement.style.height=Math.max(200,top.length*34)+'px';
+    dashChartPecas=new Chart(ctxP,{
+      type:'bar',
+      data:{labels:top.map(function(p){return p.nome.length>28?p.nome.slice(0,26)+'…':p.nome;}),datasets:[{label:'Unidades',data:top.map(function(p){return p.unidades;}),backgroundColor:'#00833E',borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},y:{grid:{display:false},ticks:{color:'#F5F5F5'}}}}
+    });
+  }
+}
+// Agrupa os registros faturados em baldes de tempo pro gráfico de tendência — por dia se o
+// período é curto (≤31 dias), por semana se médio (≤120 dias), por mês se mais longo. Sem
+// isso, um filtro de 6 meses gera até ~180 barras, ilegível num tablet.
+function agruparRegistrosPorPeriodo(registros){
+  var comData=registros.filter(function(r){return r.dataFaturamentoISO;});
+  if(!comData.length) return [];
+  var tempos=comData.map(function(r){return new Date(r.dataFaturamentoISO).getTime();});
+  var diffDias=Math.max(1,Math.round((Math.max.apply(null,tempos)-Math.min.apply(null,tempos))/86400000));
+  var modo=diffDias<=31?'dia':(diffDias<=120?'semana':'mes');
+  var MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var mapa={}, ordem=[];
+  comData.forEach(function(r){
+    var d=new Date(r.dataFaturamentoISO);
+    var chave,label;
+    if(modo==='dia'){
+      chave=d.toISOString().slice(0,10);
+      label=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    }else if(modo==='semana'){
+      var inicioSemana=new Date(d.getTime()); inicioSemana.setDate(d.getDate()-d.getDay());
+      chave=inicioSemana.toISOString().slice(0,10);
+      label=String(inicioSemana.getDate()).padStart(2,'0')+'/'+String(inicioSemana.getMonth()+1).padStart(2,'0');
+    }else{
+      chave=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      label=MESES[d.getMonth()]+'/'+String(d.getFullYear()).slice(2);
+    }
+    if(!mapa[chave]){ mapa[chave]={label:label,unidades:0}; ordem.push(chave); }
+    mapa[chave].unidades+=Number(r.unidades)||0;
+  });
+  ordem.sort();
+  return ordem.map(function(k){return mapa[k];});
 }
 // Gera a versão de impressão — cabeçalho com logo (reaproveita a mesma imagem já embutida
 // na tela inicial, sem duplicar o base64 gigante), KPIs e tabela. "Baixar PDF" = imprimir e
@@ -4034,8 +4208,14 @@ function exportarPedidoDetalheExcel(){
       cx.itens.forEach(function(it){ caixasLinhas.push([f.numero,cx.num,it.nome,it.codigo,it.qty]); });
     });
   });
+  // 4ª aba: rastreabilidade — mesma timeline unificada mostrada na tela (coletarRastreabilidade),
+  // uma linha por evento, mais recente primeiro.
+  var rastreabLinhas=[['Quando','Evento','Detalhe']];
+  coletarRastreabilidade(p).forEach(function(it){
+    rastreabLinhas.push([formatarQuandoTimeline(it.quandoISO,true),it.titulo,String(it.sub||'')]);
+  });
   var nomeArq='pedido_'+String(p.pedido).replace(/[^a-zA-Z0-9]/g,'_')+'.xlsx';
-  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,caixas:caixasLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
+  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,caixas:caixasLinhas,rastreab:rastreabLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando...</title>'+
@@ -4047,6 +4227,7 @@ function exportarPedidoDetalheExcel(){
     'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:14},{wch:10},{wch:10},{wch:10}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
     'var s2=XLSX.utils.aoa_to_sheet(D.fin);s2["!cols"]=[{wch:5},{wch:12},{wch:8},{wch:16},{wch:14},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20},{wch:14}];XLSX.utils.book_append_sheet(wb,s2,"Finalizações");'+
     'var s3=XLSX.utils.aoa_to_sheet(D.caixas);s3["!cols"]=[{wch:12},{wch:8},{wch:32},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,s3,"Caixas");'+
+    'var s4=XLSX.utils.aoa_to_sheet(D.rastreab);s4["!cols"]=[{wch:19},{wch:28},{wch:44}];XLSX.utils.book_append_sheet(wb,s4,"Rastreabilidade");'+
     'XLSX.writeFile(wb,D.nomeArq);document.getElementById("msg").textContent="Pronto!";}catch(e){document.getElementById("msg").textContent="Falha: "+e.message;}<\/script></body></html>';
   w.document.write(h);w.document.close();
 }
@@ -4061,6 +4242,9 @@ function imprimirPedidoPDF(){
   var linhasItens=p.itens.map(function(it){
     var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
     return '<tr><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+esp+'</td><td style="text-align:right">'+emb+'</td><td style="text-align:right">'+sld+'</td></tr>';
+  }).join('');
+  var linhasRastreab=coletarRastreabilidade(p).map(function(it){
+    return '<tr><td style="font-family:monospace;font-size:9.5px;white-space:nowrap">'+formatarQuandoTimeline(it.quandoISO,true)+'</td><td>'+it.titulo+'</td><td style="color:#555">'+(it.sub||'')+'</td></tr>';
   }).join('');
   var linhasFin=finLista.map(function(f){
     return '<tr><td>'+f.numero+'</td><td>'+f.dataBR+(f.hora?' '+String(f.hora).substring(0,5):'')+'</td><td>'+escAttr(f.operador||'—')+'</td><td>'+escAttr(f.lote||'—')+'</td><td style="text-align:right">'+f.caixas+'</td><td style="text-align:right">'+f.unidades+'</td><td>'+(f.faturado?('NF '+escAttr(f.nf)):'—')+'</td></tr>';
@@ -4111,6 +4295,10 @@ function imprimirPedidoPDF(){
     '</div>'+
     '<div class="sec-ttl">Itens do pedido</div>'+
     '<table><thead><tr><th>Produto</th><th style="text-align:right">Original</th><th style="text-align:right">Embalado</th><th style="text-align:right">Saldo</th></tr></thead><tbody>'+linhasItens+'</tbody></table>'+
+    (linhasRastreab?(
+      '<div class="sec-ttl">Rastreabilidade</div>'+
+      '<table><thead><tr><th style="width:110px">Quando</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody>'+linhasRastreab+'</tbody></table>'
+    ):'')+
     (finLista.length?(
       '<div class="sec-ttl">Histórico — Finalizações</div>'+
       '<table><thead><tr><th>#</th><th>Data</th><th>Operador</th><th>Lote</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>Faturamento</th></tr></thead><tbody>'+linhasFin+'</tbody></table>'+
@@ -4332,712 +4520,694 @@ function buscarProgressoParaSessAtual(pedido){
       .buscarProgressoPedido(pedido);
   }catch(e){ sess.pedidoProgresso=null; salvarSess(); }
 }
-
-// ── Passo 4 (final): lote, confirma tudo e inicia a sessão no servidor ──
 function confirmarOperBaia(){
-  if(!popOpSel){ mostrarStepPop(1); return; }
-  if(!popBaiaSel){ mostrarStepPop(2); return; }
-  if(!popPedSel){ mostrarStepPop(3); return; }
   var lote=document.getElementById('inpLotePop').value.trim();
-  if(!lote){document.getElementById('lotePopErr').style.display='block';return;} else {document.getElementById('lotePopErr').style.display='none';}
+  if(!lote){document.getElementById('lotePopErr').style.display='block';document.getElementById('inpLotePop').focus();return;}
+  document.getElementById('lotePopErr').style.display='none';
   document.getElementById('selOp').value=popOpSel;
   document.getElementById('selBaia').value=popBaiaSel;
-  sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.lote=lote; salvarSess();
-  document.getElementById('ovOperBaia').classList.add('hidden');
-  iniciarSessaoNoServidorSeNecessario();
+  sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.lote=lote;
+  salvarSess();
   validarCampos();
-  atualizarAvisoProgresso();
-  focusScan();
+  fecharOv('ovOperBaia');
+  iniciarSessaoNoServidorSeNecessario();
+  toast('✔ Sessão iniciada — '+popPedSel);
+  setTimeout(focusScan,150);
 }
-// Mostra/esconde o aviso persistente de "progresso não carregou" — só faz sentido exibir
-// quando já existe um pedido selecionado (senão nem tem o que checar ainda).
+// Mostra/esconde o aviso de "progresso não carregou" no topo da bipagem — some assim que
+// sess.pedidoProgresso vem preenchido, aparece se ficou null depois de tentar buscar.
 function atualizarAvisoProgresso(){
-  var el=document.getElementById('semProgressoWarn'); if(!el)return;
-  el.style.display=(sess.ped&&!sess.pedidoProgresso)?'flex':'none';
+  var warn=document.getElementById('semProgressoWarn');
+  if(!warn)return;
+  var precisa=sess.ped && !sess.pedidoProgresso;
+  warn.style.display=precisa?'flex':'none';
 }
-// Botão "Tentar de novo" do aviso — refaz a busca de progresso sem precisar sair da sessão.
 function recarregarProgressoPedido(){
-  if(!sess.ped){return;}
-  toast('Recarregando progresso...');
-  try{
-    google.script.run
-      .withSuccessHandler(function(d){
-        if(d&&d.status==='ok'){
-          var mapa={};
-          d.itens.forEach(function(it){ mapa[it.codigo]={nome:it.nome,esperado:it.esperado,embaladoServidor:it.embalado}; });
-          sess.pedidoProgresso=mapa; salvarSess();
-          atualizarAvisoProgresso();
-          toast('✔ Progresso carregado');
-        }else{
-          console.error('recarregarProgressoPedido: retornou erro:',d&&d.msg);
-          toast('⚠ Ainda não consegui — '+(d&&d.msg?d.msg:'tente de novo'));
-        }
-      })
-      .withFailureHandler(function(e){ console.error('recarregarProgressoPedido: falhou:',e); toast('⚠ Sem conexão'); })
-      .buscarProgressoPedido(sess.ped);
-  }catch(e){ toast('⚠ Sem conexão'); }
+  if(!sess.ped){toast('Nenhum pedido selecionado');return;}
+  toast('🔄 Recarregando progresso...');
+  buscarProgressoParaSessAtual(sess.ped);
 }
+// Garante que a sessão já existe como registro em /embalagens antes do operador começar a
+// bipar — assim o Faturamento enxerga progresso em andamento, não só sessões finalizadas.
 function iniciarSessaoNoServidorSeNecessario(){
-  var s={id:sess.id,pedido:sess.ped,operador:sess.op,baia:sess.baia,lote:sess.lote,data:sess.data,hora:new Date().getHours().toString().padStart(2,'0')+':'+new Date().getMinutes().toString().padStart(2,'0')+':'+new Date().getSeconds().toString().padStart(2,'0')};
+  var payload={id:sess.id,pedido:sess.ped,operador:sess.op,baia:sess.baia,lote:sess.lote,data:sess.data,hora:new Date().toLocaleTimeString('pt-BR')};
   if(online){
     try{
       google.script.run
-        .withSuccessHandler(function(r){ if(!r||r.status!=='ok'){ addFila({tipo:'iniciarSessao',dados:s}); } })
-        .withFailureHandler(function(){ addFila({tipo:'iniciarSessao',dados:s}); })
-        .iniciarSessaoEmbalagem(s);
-    }catch(e){ addFila({tipo:'iniciarSessao',dados:s}); }
-  }else{
-    addFila({tipo:'iniciarSessao',dados:s});
-  }
+        .withSuccessHandler(function(r){ if(!r||r.status!=='ok'){ addFila({tipo:'iniciarSessao',dados:payload}); } })
+        .withFailureHandler(function(){ addFila({tipo:'iniciarSessao',dados:payload}); })
+        .iniciarSessaoEmbalagem(payload);
+    }catch(e){ addFila({tipo:'iniciarSessao',dados:payload}); }
+  }else{ addFila({tipo:'iniciarSessao',dados:payload}); }
 }
+
+// ── Admin: Operadores/Baias — adicionar e remover ──
 function addOp(){
-  var inp=document.getElementById('addOpI');var v=inp.value.trim();
-  if(!v)return;
-  if(ops.some(function(o){return o.toLowerCase()===v.toLowerCase();})){toast('Esse operador já existe');return;}
-  ops.push(v);inp.value='';renderCfg('listOp',ops,'op');inp.focus();
+  var inp=document.getElementById('addOpI');
+  var v=inp.value.trim();
+  if(!v){toast('Digite um nome');return;}
+  if(ops.some(function(o){return o.toLowerCase()===v.toLowerCase();})){toast('Esse operador já existe');inp.value='';return;}
+  ops.push(v);
+  inp.value='';
+  renderCfg('listOp',ops,'op');
   persistCfg('operador',ops,'Operador adicionado');
 }
-function delOp(i){ops.splice(i,1);renderCfg('listOp',ops,'op');persistCfg('operador',ops,'Operador removido');}
+function delOp(idx){
+  if(!confirm('Remover "'+ops[idx]+'" da lista de operadores?'))return;
+  ops.splice(idx,1);
+  renderCfg('listOp',ops,'op');
+  persistCfg('operador',ops,'Operador removido');
+}
 function addBaia(){
-  var inp=document.getElementById('addBaiaI');var v=inp.value.trim();
-  if(!v)return;
-  if(baias.some(function(b){return b.toLowerCase()===v.toLowerCase();})){toast('Essa baia já existe');return;}
-  baias.push(v);inp.value='';renderCfg('listBaia',baias,'baia');inp.focus();
+  var inp=document.getElementById('addBaiaI');
+  var v=inp.value.trim();
+  if(!v){toast('Digite um nome');return;}
+  if(baias.some(function(b){return b.toLowerCase()===v.toLowerCase();})){toast('Essa baia já existe');inp.value='';return;}
+  baias.push(v);
+  inp.value='';
+  renderCfg('listBaia',baias,'baia');
   persistCfg('baia',baias,'Baia adicionada');
 }
-function delBaia(i){baias.splice(i,1);renderCfg('listBaia',baias,'baia');persistCfg('baia',baias,'Baia removida');}
+function delBaia(idx){
+  if(!confirm('Remover "'+baias[idx]+'" da lista de baias?'))return;
+  baias.splice(idx,1);
+  renderCfg('listBaia',baias,'baia');
+  persistCfg('baia',baias,'Baia removida');
+}
 
 // ═══════════════════════════════════════
 // ADMIN — CADASTRO DE PEÇAS
 // ═══════════════════════════════════════
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var editandoCod=null; // código da peça em edição inline
 function carregarProdutosAdmin(){
-  document.getElementById('prodList').innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>';
+  var el=document.getElementById('prodList');
+  el.innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>';
   try{
     google.script.run
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
           produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
-          // atualiza também o cache de validação
           produtosCache={};
           produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           renderProdList();
         }else{
-          document.getElementById('prodList').innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro')+'</div>';
+          el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro ao carregar')+'</div>';
         }
       })
-      .withFailureHandler(function(e){document.getElementById('prodList').innerHTML='<div class="adm-empty">📡 Falha'+(e&&e.message?': '+e.message:'')+'</div>';})
+      .withFailureHandler(function(e){ el.innerHTML='<div class="adm-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
       .listarProdutos();
-  }catch(e){document.getElementById('prodList').innerHTML='<div class="adm-empty">📡 '+e.message+'</div>';}
+  }catch(e){ el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>'; }
 }
-
-var editandoCod=null; // código da peça em edição inline (null = nenhuma)
-var histEditCaixaId=null, histEditDraft=null; // caixa do Histórico em edição (rascunho local até salvar)
-function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
-
 function renderProdList(){
-  var inp=document.getElementById('prodSearchInp');
-  var q=(inp?inp.value:'').trim().toLowerCase(); // busca por EAN (codigo) ou peça (nome), parcial
-  var lista=produtosAdmin;
-  if(q) lista=lista.filter(function(p){
-    return String(p.codigo).toLowerCase().indexOf(q)!==-1 || String(p.nome).toLowerCase().indexOf(q)!==-1;
-  });
-  document.getElementById('prodCount').textContent='('+produtosAdmin.length+' cadastrada'+(produtosAdmin.length===1?'':'s')+(q?' · '+lista.length+' encontrada'+(lista.length===1?'':'s'):'')+')';
+  var q=(document.getElementById('prodSearchInp').value||'').trim().toLowerCase();
+  var lista=(produtosAdmin||[]).filter(function(p){ return !q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1; });
   var el=document.getElementById('prodList');
-  if(!lista.length){el.innerHTML='<div class="adm-empty2"><div class="em-ic">🏷️</div>'+(q?'Nenhuma peça bate com "'+escAttr(inp.value)+'"':'Nenhuma peça cadastrada ainda. Use o campo acima para adicionar.')+'</div>';return;}
-  // Mostra no máximo 300 para não travar a tela
+  var cntEl=document.getElementById('prodCount');
+  if(cntEl) cntEl.textContent=produtosAdmin.length?(lista.length+' de '+produtosAdmin.length+' peça(s)'):'';
+  if(!produtosAdmin.length){
+    el.innerHTML='<div class="adm-empty2 full"><div class="em-ic">🏷️</div>Nenhuma peça cadastrada. Use o formulário acima para adicionar.</div>';
+    return;
+  }
+  if(!lista.length){
+    el.innerHTML='<div class="adm-empty2 full"><div class="em-ic">🔍</div>Nenhuma peça encontrada com esse filtro.</div>';
+    return;
+  }
   el.innerHTML=lista.slice(0,300).map(function(p){
-    var cod=String(p.codigo).replace(/'/g,"\\'");
-    if(p.codigo===editandoCod){
-      // linha em modo edição: dois campos + salvar/cancelar
-      return '<div class="prod-item full" style="gap:6px">'+
-        '<input autocomplete="off" class="adm-input" id="editProdCod" value="'+escAttr(p.codigo)+'" style="max-width:150px;font-family:var(--mo);font-size:13px;padding:10px 12px">'+
-        '<input autocomplete="off" class="adm-input" id="editProdNome" value="'+escAttr(p.nome)+'" style="flex:1;padding:10px 12px">'+
-        '<button class="adm-btn-add" onclick="saveProdEdit(\''+cod+'\')" style="padding:0 14px">Salvar</button>'+
-        '<button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">'+ICO_X+'</button>'+
+    if(editandoCod===p.codigo){
+      var codEsc2=p.codigo.replace(/'/g,"\\'");
+      return '<div class="prod-item full" style="flex-direction:column;align-items:stretch;gap:8px">'+
+        '<input autocomplete="off" class="adm-input" id="editProdNomeInp" value="'+escAttr(p.nome)+'" style="padding:10px 12px" onkeydown="if(event.key===\'Enter\')saveProdEdit(\''+codEsc2+'\')">'+
+        '<div style="display:flex;gap:6px"><button class="adm-btn-add" style="flex:1" onclick="saveProdEdit(\''+codEsc2+'\')">Salvar</button><button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">'+ICO_X+'</button></div>'+
       '</div>';
     }
+    var codEsc=p.codigo.replace(/'/g,"\\'");
     return '<div class="prod-item">'+
       '<div class="prod-item-info">'+
-        '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+p.codigo+'</span></div>'+
-        '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+p.nome+'</span></div>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+escAttr(p.codigo)+'</span></div>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span></div>'+
       '</div>'+
       '<div class="prod-item-acts">'+
-        '<button class="adm-icon-btn edit" onclick="editProd(\''+cod+'\')" title="Editar">'+ICO_EDIT+'</button>'+
-        '<button class="adm-icon-btn del" onclick="delProd(\''+cod+'\')" title="Excluir">'+ICO_X+'</button>'+
-      '</div></div>';
-  }).join('')+(lista.length>300?'<div style="text-align:center;font-size:10px;color:var(--td);padding:8px">Mostrando 300 de '+lista.length+' — use o filtro</div>':'');
-  if(editandoCod){var f=document.getElementById('editProdNome');if(f)f.focus();}
+        '<button class="adm-icon-btn edit" onclick="editProd(\''+codEsc+'\')" title="Editar">'+ICO_EDIT+'</button>'+
+        '<button class="adm-icon-btn del" onclick="delProd(\''+codEsc+'\')" title="Remover">'+ICO_X+'</button>'+
+      '</div>'+
+    '</div>';
+  }).join('')+(lista.length>300?'<div class="full" style="text-align:center;font-size:10px;color:var(--td);padding:8px">Mostrando 300 de '+lista.length+' — use a busca para refinar</div>':'');
+  if(editandoCod){var f=document.getElementById('editProdNomeInp');if(f){f.focus();f.select();}}
 }
-
 function addProd(){
   var cod=document.getElementById('addProdCod').value.trim();
   var nome=document.getElementById('addProdNome').value.trim();
-  var err=document.getElementById('addProdErr');
-  if(!cod||!nome){err.textContent='Preencha o código e a peça.';err.style.display='block';return;}
-  if(produtosAdmin.some(function(p){return p.codigo===cod;})){err.textContent='Esse código já está cadastrado.';err.style.display='block';return;}
-  err.style.display='none';
-  var btn=event&&event.target;if(btn){btn.disabled=true;}
+  var errEl=document.getElementById('addProdErr');
+  errEl.style.display='none';
+  if(!cod||!nome){errEl.textContent='Preencha o código EAN e o Código Sabó.';errEl.style.display='block';return;}
+  if(produtosAdmin.some(function(p){return p.codigo===cod;})){errEl.textContent='Já existe uma peça com esse código EAN.';errEl.style.display='block';return;}
   try{
     google.script.run
       .withSuccessHandler(function(r){
-        if(btn)btn.disabled=false;
         if(r&&r.status==='ok'){
+          toast('✔ Peça adicionada');
           document.getElementById('addProdCod').value='';
           document.getElementById('addProdNome').value='';
-          document.getElementById('addProdCod').focus();
-          toast('✔ Peça cadastrada');
           carregarProdutosAdmin();
-        }else{
-          err.textContent='Erro: '+(r&&r.msg?r.msg:'tente de novo');err.style.display='block';
-        }
+        }else{ errEl.textContent='Erro: '+(r&&r.msg?r.msg:'tente de novo'); errEl.style.display='block'; }
       })
-      .withFailureHandler(function(e){if(btn)btn.disabled=false;err.textContent='Sem conexão: '+(e&&e.message?e.message:'');err.style.display='block';})
+      .withFailureHandler(function(e){ errEl.textContent='Sem conexão: '+(e&&e.message?e.message:''); errEl.style.display='block'; })
       .salvarProduto(cod,nome);
-  }catch(e){if(btn)btn.disabled=false;err.textContent='Sem conexão: '+e.message;err.style.display='block';}
+  }catch(e){ errEl.textContent='Sem conexão: '+e.message; errEl.style.display='block'; }
 }
-
-function delProd(codigo){
+function delProd(cod){
   exigirSenhaMaster(function(){
-    if(!confirm('Excluir a peça do código '+codigo+'?'))return;
+    if(!confirm('Remover esta peça do cadastro? Isso não afeta embalagens já registradas, mas a peça deixa de poder ser bipada.'))return;
     try{
-      google.script.run
-        .withSuccessHandler(function(r){
-          if(r&&r.status==='ok'){toast('🗑 Peça excluída');carregarProdutosAdmin();}
-          else{alert('Erro: '+(r&&r.msg?r.msg:'tente de novo'));}
-        })
-        .withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));})
-        .excluirProduto(codigo);
-    }catch(e){alert('Sem conexão: '+e.message);}
+      google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('🗑 Peça removida');carregarProdutosAdmin();}else{toast('⚠ Não removeu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).excluirProduto(cod);
+    }catch(e){toast('⚠ Sem conexão');}
   });
 }
-
-// ── Edição inline de uma peça já cadastrada ──
-function editProd(codigo){ editandoCod=codigo; renderProdList(); }
+function editProd(cod){ editandoCod=cod; renderProdList(); }
 function cancelProdEdit(){ editandoCod=null; renderProdList(); }
-
-function saveProdEdit(oldCod){
-  var novoCod=document.getElementById('editProdCod').value.trim();
-  var novoNome=document.getElementById('editProdNome').value.trim();
-  if(!novoCod||!novoNome){alert('Preencha o código e a peça.');return;}
-  // se trocou o código para um que já existe em OUTRA peça, bloqueia
-  if(novoCod!==oldCod && produtosAdmin.some(function(p){return p.codigo===novoCod;})){
-    alert('O código '+novoCod+' já está cadastrado em outra peça.');return;
-  }
-  editandoCod=null;
-  // salva (upsert) o novo; se o código mudou, remove o antigo depois
+function saveProdEdit(cod){
+  var inp=document.getElementById('editProdNomeInp'); if(!inp)return;
+  var novoNome=inp.value.trim();
+  if(!novoNome){toast('O nome não pode ficar vazio');return;}
   try{
-    google.script.run
-      .withSuccessHandler(function(r){
-        if(r&&r.status==='ok'){
-          if(novoCod!==oldCod){
-            google.script.run
-              .withSuccessHandler(function(){toast('✔ Peça atualizada');carregarProdutosAdmin();})
-              .withFailureHandler(function(){toast('⚠ Salvou o novo, mas não removeu o código antigo');carregarProdutosAdmin();})
-              .excluirProduto(oldCod);
-          }else{
-            toast('✔ Peça atualizada');carregarProdutosAdmin();
-          }
-        }else{
-          alert('Erro ao salvar: '+(r&&r.msg?r.msg:'tente de novo'));carregarProdutosAdmin();
-        }
-      })
-      .withFailureHandler(function(e){alert('Sem conexão: '+(e&&e.message?e.message:''));carregarProdutosAdmin();})
-      .salvarProduto(novoCod,novoNome);
-  }catch(e){alert('Sem conexão: '+e.message);carregarProdutosAdmin();}
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.status==='ok'){ editandoCod=null; toast('✔ Peça atualizada'); carregarProdutosAdmin(); }
+      else{ toast('⚠ Não salvou — tente de novo'); }
+    }).withFailureHandler(function(){ toast('⚠ Sem conexão'); }).salvarProduto(cod,novoNome);
+  }catch(e){ toast('⚠ Sem conexão'); }
 }
 
+// ═══════════════════════════════════════
+// ADMIN — HISTÓRICO (todas as embalagens finalizadas, agrupadas por pedido)
+// ═══════════════════════════════════════
+var histTodas=[]; // cache bruto de todas as embalagens vindas do servidor
+var histOpenSet={}, histPedOpenSet={}; // {pedido: bool} grupo aberto / {sessao: bool} sessão aberta
+var histPecasFiltro=[]; // códigos selecionados no filtro por peças
 function carregarHist(){
   var el=document.getElementById('histLista');
   el.innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>';
   try{
     google.script.run
       .withSuccessHandler(function(d){
-        try{
-          if(d&&d.status==='ok'){
-            todasEmb=d.embalagens||[];popularHistFiltros();renderHist(todasEmb);
-            var avisoEl=document.getElementById('histLimiteAviso');
-            if(avisoEl) avisoEl.style.display=(todasEmb.length>=200)?'flex':'none';
-          }else{el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro')+'</div>';}
+        if(d&&d.status==='ok'){
+          histTodas=d.embalagens||[];
+          document.getElementById('histLimiteAviso').style.display=(histTodas.length>=200)?'flex':'none';
+          popularHistFiltros();
+          filtrarHist();
+        }else{
+          el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro ao carregar')+'</div>';
         }
-        catch(e2){el.innerHTML='<div class="adm-empty">⚠ Erro: '+e2.message+'</div>';console.error(e2);}
       })
-      .withFailureHandler(function(e){el.innerHTML='<div class="adm-empty">📡 Falha'+(e&&e.message?': '+e.message:'')+'</div>';console.error(e);})
+      .withFailureHandler(function(e){ el.innerHTML='<div class="adm-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
       .listarEmbalagens();
-  }catch(e){el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>';}
+  }catch(e){ el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>'; }
 }
-// Quais linhas do Histórico estão expandidas agora — {ri: true}. Sobrevive a re-render
-// porque orienta o próprio render, ao contrário de uma classe CSS que se perderia toda
-// vez que innerHTML é reconstruído do zero.
-var histOpenSet={};
-function togHist(ri){ histOpenSet[ri]=!histOpenSet[ri]; filtrarHist(); }
-
-var histPedOpenSet={}; // quais grupos de pedido estão expandidos no Admin › Histórico
-function togHistPed(pedNum){ histPedOpenSet[pedNum]=!histPedOpenSet[pedNum]; filtrarHist(); }
-function renderHist(lista){
-  if(!lista.length){document.getElementById('histLista').innerHTML='<div class="adm-empty2"><div class="em-ic">📭</div>Nenhuma embalagem para este filtro.</div>';return;}
-  var grupos={}, ordem=[];
-  lista.forEach(function(e){
-    var ri=todasEmb.indexOf(e);
-    if(!grupos[e.pedido]){ grupos[e.pedido]=[]; ordem.push(e.pedido); }
-    grupos[e.pedido].push(ri);
-  });
-  document.getElementById('histLista').innerHTML=ordem.map(function(pedNum){
-    var ris=grupos[pedNum];
-    var totCx=0, totUn=0;
-    ris.forEach(function(ri){ var e=todasEmb[ri]; totCx+=e.totalCaixas||0; totUn+=e.totalUnid||0; });
-    var abertoPed=!!histPedOpenSet[pedNum];
-    var pedKey=String(pedNum).replace(/'/g,"\\'");
-    var pedLabel=pedNum?escAttr(pedNum):'<span style="color:var(--td);font-style:italic">(sem número)</span>';
-    return '<div class="ped-card" style="margin-bottom:8px">'+
-      '<div class="ped-hdr" onclick="togHistPed(\''+pedKey+'\')" style="cursor:pointer">'+
-        '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
-          '<div style="width:40px;height:40px;border-radius:10px;background:var(--pud);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📦</div>'+
-          '<div style="min-width:0"><div class="ped-num" style="font-size:18px">'+pedLabel+'</div><div class="ped-sub">'+ris.length+' finalização(ões) · '+totCx+' cx · '+totUn+' un</div></div>'+
-        '</div>'+
-        '<span style="font-size:20px;color:var(--td);flex-shrink:0;display:inline-block;transition:transform .15s;transform:rotate('+(abertoPed?'90':'0')+'deg)">›</span>'+
-      '</div>'+
-      (abertoPed?('<div class="hist-body open"><div class="hist-body-inner">'+
-        ris.map(function(ri){
-          var e=todasEmb[ri];
-          var abertoEdit=!!histOpenSet[ri];
-          return '<div class="cx-detalhe">'+
-            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-              '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+(e.nf?' <span class="ped-badge fat" style="font-size:9px;margin-left:6px">NF '+escAttr(e.nf)+'</span>':'')+'</div>'+
-              '<div style="font-size:10px;color:var(--td);margin-top:2px">'+e.operador+' · '+e.baia+' · '+e.totalCaixas+' cx · '+e.totalUnid+' un · '+e.peso+' kg</div></div>'+
-              '<div style="display:flex;gap:5px;flex-wrap:wrap">'+
-                '<button class="btn-rp rel" onclick="rRel('+ri+')">🖨 Rel.</button>'+
-                '<button class="btn-rp etq" onclick="rEtq('+ri+')">🏷 Etq.</button>'+
-                '<button class="btn-rp cli" onclick="rCli('+ri+')">📦 Cliente</button>'+
-                '<button class="btn-rp all" onclick="rTudo('+ri+')">⚡</button>'+
-                '<button class="btn-rp" style="background:var(--acd);color:var(--brand2);border:1px solid rgba(0,131,62,.35)" onclick="togHist('+ri+')">✎ '+(abertoEdit?'Fechar':'Editar')+'</button>'+
-              '</div>'+
-            '</div>'+
-            (abertoEdit?renderHistBody(e,ri):'')+
-          '</div>';
-        }).join('')+
-      '</div></div>'):'')+
-    '</div>';
-  }).join('');
-}
-
-// Corpo expandido de uma linha do Histórico: campo de pedido editável + um card por caixa.
-function renderHistBody(e,ri){
-  var pedRow='<div class="md-row" style="margin-bottom:0"><label class="lbl">Número do Pedido</label><div style="display:flex;gap:6px">'+
-    '<input autocomplete="off" class="inp" id="histPedInp-'+ri+'" value="'+escAttr(e.pedido)+'" style="flex:1">'+
-    '<button class="adm-btn-add" onclick="salvarPedidoHist('+ri+')">Salvar</button>'+
-  '</div></div>';
-  var caixasHtml=(e.caixas&&e.caixas.length)?(e.caixas.map(function(cx){return renderCaixaEditCard(cx,ri);}).join('')):'<div style="font-size:11px;color:var(--td)">Sem caixas nesta embalagem.</div>';
-  return '<div class="hist-body-inner">'+pedRow+caixasHtml+'</div>';
-}
-
-// Card de uma caixa: modo resumo (✎ Editar / 🗑 Excluir) ou modo edição (peso + itens + add item).
-function renderCaixaEditCard(cx,ri){
-  var editando = histEditCaixaId!==null && histEditCaixaId===cx.id;
-  if(!editando){
-    return '<div class="cx-detalhe">'+
-      '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
-      (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+it.nome+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
-      '<div style="display:flex;gap:6px;margin-top:8px">'+
-        '<button class="adm-btn-add" style="flex:1;padding:8px;font-size:12px" onclick="abrirEdicaoCaixaHist('+cx.id+','+ri+')"'+(cx.id?'':' disabled title="Caixa sem id — offline, sincronize antes"')+'>✎ Editar</button>'+
-        '<button class="btn-rm" onclick="pedirExcluirCaixaHist('+cx.id+','+ri+')" title="Excluir esta caixa"'+(cx.id?'':' disabled')+'>🗑</button>'+
-      '</div>'+
-    '</div>';
-  }
-  var itensRows=(histEditDraft.itens||[]).map(function(it,i){
-    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'+
-      '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.nome+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+it.codigo+')</span></span>'+
-      '<input autocomplete="off" class="inp" type="number" min="0" step="1" value="'+it.qty+'" style="width:70px;padding:8px;min-height:0" onchange="histDraftSetQty('+i+',this.value)">'+
-      '<button class="btn-rm" onclick="histDraftRemoveItem('+i+','+ri+')" style="padding:6px 10px">✕</button>'+
-    '</div>';
-  }).join('');
-  return '<div class="cx-detalhe" style="border-color:var(--ac)">'+
-    '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' — editando</span></div>'+
-    '<div class="md-row" style="margin-bottom:8px"><label class="lbl">Peso (kg)</label><input autocomplete="off" class="inp" type="number" min="0" step="0.01" value="'+histEditDraft.peso+'" style="min-height:0;padding:9px" onchange="histDraftSetPeso(this.value)"></div>'+
-    '<div class="lbl" style="margin-bottom:5px">Itens</div>'+
-    itensRows+
-    '<div style="display:flex;gap:6px;margin:8px 0">'+
-      '<input autocomplete="off" class="inp" id="histAddCod-'+ri+'" placeholder="Código" style="width:40%;padding:8px;font-size:12px;min-height:0">'+
-      '<input autocomplete="off" class="inp" id="histAddQtd-'+ri+'" type="number" placeholder="Qtd" min="1" style="width:70px;padding:8px;font-size:12px;min-height:0">'+
-      '<button class="adm-btn-add" onclick="histDraftAddItem('+ri+')" style="padding:0 12px;font-size:12px">+ item</button>'+
-    '</div>'+
-    '<div style="display:flex;gap:6px;margin-top:10px">'+
-      '<button class="btn-cncl" style="flex:1" onclick="cancelarEdicaoCaixaHist('+ri+')">Cancelar</button>'+
-      '<button class="btn-ok green" style="flex:1;padding:10px" onclick="salvarCaixaHist('+ri+')">✔ Salvar Caixa</button>'+
-    '</div>'+
-  '</div>';
-}
-
-// Preenche os dropdowns de operador e pedido do Histórico
 function popularHistFiltros(){
-  var opSel=document.getElementById('histOpSel'), pedSel=document.getElementById('histPedSel');
-  if(!opSel||!pedSel)return;
-  var opAtual=opSel.value, pedAtual=pedSel.value;
-  var opsSet={}, peds=[];
-  todasEmb.forEach(function(e){ if(e.operador)opsSet[e.operador]=1; if(e.pedido!=null&&e.pedido!=='')peds.push(String(e.pedido)); });
-  var opsArr=Object.keys(opsSet).sort(function(a,b){return a.localeCompare(b,'pt');});
-  opSel.innerHTML='<option value="">Todos os operadores</option>'+opsArr.map(function(o){return '<option value="'+escAttr(o)+'"'+(o===opAtual?' selected':'')+'>'+escAttr(o)+'</option>';}).join('');
-  pedSel.innerHTML='<option value="">Todos os pedidos</option>'+peds.map(function(p){return '<option value="'+escAttr(p)+'"'+(p===pedAtual?' selected':'')+'>'+escAttr(p)+'</option>';}).join('');
+  var opsSet=[], pedsSet=[];
+  histTodas.forEach(function(e){
+    if(e.operador&&opsSet.indexOf(e.operador)===-1) opsSet.push(e.operador);
+    if(e.pedido&&pedsSet.indexOf(e.pedido)===-1) pedsSet.push(e.pedido);
+  });
+  opsSet.sort(); pedsSet.sort();
+  var selOp=document.getElementById('histOpSel'), selPed=document.getElementById('histPedSel');
+  var opAtual=selOp.value, pedAtual=selPed.value;
+  selOp.innerHTML='<option value="">Todos os operadores</option>'+opsSet.map(function(o){return '<option value="'+escAttr(o)+'"'+(o===opAtual?' selected':'')+'>'+escAttr(o)+'</option>';}).join('');
+  selPed.innerHTML='<option value="">Todos os pedidos</option>'+pedsSet.map(function(p){return '<option value="'+escAttr(p)+'"'+(p===pedAtual?' selected':'')+'>'+escAttr(p)+'</option>';}).join('');
 }
-
+function togHist(pedido){ histOpenSet[pedido]=!histOpenSet[pedido]; filtrarHist(); }
+function togHistPed(sessao){ histPedOpenSet[sessao]=!histPedOpenSet[sessao]; filtrarHist(); }
 function filtrarHist(){
-  var op=(document.getElementById('histOpSel')||{}).value||'';
-  var ped=(document.getElementById('histPedSel')||{}).value||'';
-  var dataIni=(document.getElementById('histDataInicio')||{}).value||'';
-  var dataFim=(document.getElementById('histDataFim')||{}).value||'';
-  var nfBusca=((document.getElementById('histNfBusca')||{}).value||'').trim().toLowerCase();
-  var pecasCods=Object.keys(histPecasFiltro).filter(function(k){return histPecasFiltro[k];});
-  var lista=todasEmb.filter(function(e){
-    if(op&&String(e.operador||'')!==op) return false;
-    if(ped&&String(e.pedido||'')!==ped) return false;
-    if(nfBusca&&String(e.nf||'').toLowerCase().indexOf(nfBusca)===-1) return false;
-    if(dataIni||dataFim){
-      var dIso=_dataISO(e.data);
-      if(dataIni&&dIso<dataIni) return false;
-      if(dataFim&&dIso>dataFim) return false;
+  var op=document.getElementById('histOpSel').value;
+  var ped=document.getElementById('histPedSel').value;
+  var nf=(document.getElementById('histNfBusca').value||'').trim().toLowerCase();
+  var di=document.getElementById('histDataInicio').value, df=document.getElementById('histDataFim').value;
+  atualizarLabelPecasHist();
+  var lista=histTodas.filter(function(e){
+    if(op&&e.operador!==op) return false;
+    if(ped&&e.pedido!==ped) return false;
+    if(nf&&(!e.nf||e.nf.toLowerCase().indexOf(nf)===-1)) return false;
+    if(di||df){
+      var iso=_dataISO(e.data);
+      if(di&&iso<di) return false;
+      if(df&&iso>df) return false;
     }
-    if(pecasCods.length){
-      var temPeca=(e.caixas||[]).some(function(cx){
-        return (cx.itens||[]).some(function(it){ return pecasCods.indexOf(it.codigo)!==-1; });
-      });
+    if(histPecasFiltro.length){
+      var temPeca=(e.caixas||[]).some(function(cx){ return (cx.itens||[]).some(function(it){ return histPecasFiltro.indexOf(it.codigo)!==-1; }); });
       if(!temPeca) return false;
     }
     return true;
   });
   renderHist(lista);
 }
-// ── Filtro por peças (multi-seleção) — reaproveita produtosAdmin, mas é filtro, não cadastro ──
-var histPecasFiltro={}; // {codigo: true}
+function renderHist(lista){
+  var el=document.getElementById('histLista');
+  if(!histTodas.length){ el.innerHTML='<div class="adm-empty full">Nenhuma embalagem finalizada ainda.</div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="adm-empty full">Nenhum resultado com esse filtro.</div>'; return; }
+  var grupos={}, ordem=[];
+  lista.forEach(function(e){
+    var key=String(e.pedido);
+    if(!grupos[key]){ grupos[key]=[]; ordem.push(key); }
+    grupos[key].push(e);
+  });
+  el.innerHTML='<div class="full">'+ordem.map(function(pedKey){
+    var sessoes=grupos[pedKey];
+    var totCx=0,totUn=0;
+    sessoes.forEach(function(e){ totCx+=Number(e.totalCaixas)||0; totUn+=Number(e.totalUnid)||0; });
+    var aberto=!!histOpenSet[pedKey];
+    var pedKeyEsc=pedKey.replace(/'/g,"\\'");
+    return '<div class="hist-row">'+
+      '<div class="hist-top" style="cursor:pointer" onclick="togHist(\''+pedKeyEsc+'\')">'+
+        '<span class="hist-ped">'+escAttr(pedKey)+'</span>'+
+        '<span style="font-size:20px;color:var(--td);transition:transform .15s;transform:rotate('+(aberto?'90':'0')+'deg)">›</span>'+
+      '</div>'+
+      '<div class="hist-mid">'+sessoes.length+' sessão(ões) · '+totCx+' cx · '+totUn+' un.</div>'+
+      (aberto?renderHistBody(sessoes):'')+
+    '</div>';
+  }).join('')+'</div>';
+}
+function renderHistBody(sessoes){
+  return '<div class="hist-body open"><div class="hist-body-inner">'+
+    sessoes.map(function(e){
+      var abertoSess=!!histPedOpenSet[e.sessao];
+      var sessEsc=String(e.sessao).replace(/'/g,"\\'");
+      return '<div class="cx-detalhe" style="padding:0;overflow:hidden">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer" onclick="togHistPed(\''+sessEsc+'\')">'+
+          '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+'</div>'+
+          '<div style="font-size:10px;color:var(--td);margin-top:2px">'+(e.operador||'—')+' · '+(e.baia||'—')+' · '+(e.totalCaixas||0)+' cx · '+(e.totalUnid||0)+' un.'+(e.nf?(' · NF '+escAttr(e.nf)):'')+'</div></div>'+
+          '<span style="font-size:16px;color:var(--td);transition:transform .15s;transform:rotate('+(abertoSess?'90':'0')+'deg)">›</span>'+
+        '</div>'+
+        (abertoSess?(
+          '<div style="padding:0 12px 12px;border-top:1px dashed var(--bd)">'+
+          '<div class="hist-btns" style="margin:10px 0">'+
+            '<button class="btn-rp rel" onclick="rRel(\''+sessEsc+'\')">🖨 Relatório</button>'+
+            '<button class="btn-rp etq" onclick="rEtq(\''+sessEsc+'\')">🏷 Etiquetas</button>'+
+            (e.cliLote?'<button class="btn-rp cli" onclick="rCli(\''+sessEsc+'\')">📦 Etq. Cliente</button>':'')+
+            '<button class="btn-rp all" onclick="rTudo(\''+sessEsc+'\')" title="Relatório + etiquetas">⚡</button>'+
+          '</div>'+
+          (e.caixas&&e.caixas.length?e.caixas.map(function(cx){ return renderCaixaEditCard(e,cx); }).join(''):'<div style="font-size:11px;color:var(--td)">Sem caixas registradas.</div>')+
+          '</div>'
+        ):'')+
+      '</div>';
+    }).join('')+
+  '</div></div>';
+}
+// Card de edição de uma caixa dentro do Histórico — mostra os itens e, quando em modo de
+// edição (histEditCaixaId===cx.id), permite mudar peso/quantidades antes de salvar.
+var histEditCaixaId=null, histEditDraft=null;
+function renderCaixaEditCard(e,cx){
+  var editando=(histEditCaixaId===cx.id);
+  if(!editando){
+    return '<div class="cx-detalhe">'+
+      '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
+      (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+      '<div style="display:flex;gap:6px;margin-top:8px">'+
+        '<button class="btn-gh" style="width:auto;padding:6px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="abrirEdicaoCaixaHist('+cx.id+')">✎ Editar</button>'+
+        '<button class="btn-rm" style="padding:6px 10px" onclick="pedirExcluirCaixaHist('+cx.id+',\''+String(e.sessao).replace(/'/g,"\\'")+'\')">🗑 Excluir</button>'+
+      '</div>'+
+    '</div>';
+  }
+  return '<div class="cx-detalhe" style="border-color:var(--ac)">'+
+    '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+' (editando)</span></div>'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><label class="lbl" style="margin:0">Peso</label><input autocomplete="off" class="inp" type="number" step="0.01" min="0.01" value="'+histEditDraft.peso+'" style="width:100px;padding:8px" onchange="histDraftSetPeso(this.value)"><span style="font-size:12px;color:var(--td)">kg</span></div>'+
+    histEditDraft.itens.map(function(it,i){
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px">'+
+        '<span style="flex:1">'+escAttr(it.nome)+'</span>'+
+        '<input autocomplete="off" class="inp" type="number" min="0" value="'+it.qty+'" style="width:70px;padding:6px" onchange="histDraftSetQty('+i+',this.value)">'+
+        '<button class="btn-rm" style="padding:5px 9px" onclick="histDraftRemoveItem('+i+')">✕</button>'+
+      '</div>';
+    }).join('')+
+    '<button class="btn-gh" style="margin:6px 0" onclick="histDraftAddItem()">+ Adicionar item</button>'+
+    '<div style="display:flex;gap:6px;margin-top:6px">'+
+      '<button class="adm-btn-add" style="flex:1" onclick="salvarCaixaHist('+cx.id+')">💾 Salvar</button>'+
+      '<button class="adm-icon-btn cancel" onclick="cancelarEdicaoCaixaHist()" title="Cancelar">'+ICO_X+'</button>'+
+    '</div>'+
+  '</div>';
+}
+function abrirEdicaoCaixaHist(caixaId){
+  var alvo=null;
+  histTodas.forEach(function(e){ (e.caixas||[]).forEach(function(cx){ if(cx.id===caixaId) alvo=cx; }); });
+  if(!alvo){toast('Caixa não encontrada');return;}
+  histEditCaixaId=caixaId;
+  histEditDraft={peso:alvo.peso||0,itens:(alvo.itens||[]).map(function(it){return {codigo:it.codigo,nome:it.nome,qty:it.qty};})};
+  filtrarHist();
+}
+function cancelarEdicaoCaixaHist(){ histEditCaixaId=null; histEditDraft=null; filtrarHist(); }
+function histDraftSetPeso(v){ if(histEditDraft) histEditDraft.peso=parseFloat(v)||0; }
+function histDraftSetQty(i,v){ if(histEditDraft&&histEditDraft.itens[i]) histEditDraft.itens[i].qty=Math.max(0,parseInt(v,10)||0); }
+function histDraftRemoveItem(i){ if(histEditDraft){ histEditDraft.itens.splice(i,1); filtrarHist(); } }
+function histDraftAddItem(){
+  if(!histEditDraft)return;
+  var cod=prompt('Código EAN do produto a adicionar:');
+  if(!cod)return;
+  cod=cod.trim();
+  if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod)){ alert('Código não cadastrado em Peças.'); return; }
+  var qtd=parseInt(prompt('Quantidade:','1'),10);
+  if(!qtd||qtd<=0){ alert('Quantidade inválida.'); return; }
+  histEditDraft.itens.push({codigo:cod,nome:produtosCache[cod],qty:qtd});
+  filtrarHist();
+}
+function salvarCaixaHist(caixaId){
+  if(!histEditDraft)return;
+  if(!histEditDraft.peso||histEditDraft.peso<=0){toast('⚠ Informe um peso válido');return;}
+  var sessaoDaCaixa=null;
+  histTodas.forEach(function(e){ (e.caixas||[]).forEach(function(cx){ if(cx.id===caixaId) sessaoDaCaixa=e.sessao; }); });
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){
+          toast('✔ Caixa atualizada');
+          histEditCaixaId=null; histEditDraft=null;
+          if(sessaoDaCaixa) Backend.recalcularEsalvarAgregados(sessaoDaCaixa).catch(function(){});
+          carregarHist();
+        }else{ toast('⚠ Não salvou — tente de novo'); }
+      })
+      .withFailureHandler(function(){ toast('⚠ Sem conexão'); })
+      .atualizarCaixaAdmin(caixaId,histEditDraft.peso,histEditDraft.itens);
+  }catch(e){ toast('⚠ Sem conexão'); }
+}
+function pedirExcluirCaixaHist(caixaId,sessao){
+  exigirSenhaMaster(function(){
+    if(!confirm('Excluir esta caixa e todos os itens dela? Isso não pode ser desfeito.'))return;
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.status==='ok'){
+            toast('🗑 Caixa excluída');
+            Backend.recalcularEsalvarAgregados(sessao).catch(function(){});
+            carregarHist();
+          }else{ toast('⚠ Não excluiu — tente de novo'); }
+        })
+        .withFailureHandler(function(){ toast('⚠ Sem conexão'); })
+        .excluirCaixaAdmin(caixaId);
+    }catch(e){ toast('⚠ Sem conexão'); }
+  });
+}
+// Reatribui a embalagem inteira (todas as caixas dessa sessão) para outro número de pedido —
+// usado quando o operador bipou no pedido errado por engano.
+function salvarPedidoHist(sessao,novoPedido){
+  novoPedido=String(novoPedido||'').trim();
+  if(!novoPedido){toast('Informe um número de pedido');return;}
+  try{
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.status==='ok'){toast('✔ Pedido reatribuído');carregarHist();}
+      else{toast('⚠ Não salvou — tente de novo');}
+    }).withFailureHandler(function(){toast('⚠ Sem conexão');}).atualizarPedidoEmbalagem(sessao,novoPedido);
+  }catch(e){toast('⚠ Sem conexão');}
+}
+
+// ── Filtro por Peças (modal usado no Histórico do Admin) ──
 function abrirFiltroPecasHist(){
   document.getElementById('filtroPecasBusca').value='';
   renderFiltroPecasHist();
   document.getElementById('ovFiltrarPecasHist').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('filtroPecasBusca').focus();},150);
 }
 function renderFiltroPecasHist(){
   var q=(document.getElementById('filtroPecasBusca').value||'').trim().toLowerCase();
   var lista=(produtosAdmin||[]).filter(function(p){ return !q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1; });
   var el=document.getElementById('filtroPecasLista');
-  if(!lista.length){ el.innerHTML='<div style="font-size:12px;color:var(--td);padding:14px;text-align:center">Nenhuma peça encontrada.</div>'; return; }
+  if(!lista.length){el.innerHTML='<div style="font-size:12px;color:var(--td);padding:14px;text-align:center">Nenhum produto encontrado.</div>';return;}
   el.innerHTML=lista.slice(0,200).map(function(p){
-    var checked=!!histPecasFiltro[p.codigo];
+    var checked=histPecasFiltro.indexOf(p.codigo)!==-1;
     var codEsc=p.codigo.replace(/'/g,"\\'");
-    return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
-      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleFiltroPecaHist(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:'+(checked?'var(--acd)':'var(--s2)')+';border:1px solid '+(checked?'var(--ac)':'var(--bd)')+';border-radius:8px;cursor:pointer">'+
+      '<input autocomplete="off" type="checkbox" '+(checked?'checked':'')+' onchange="toggleFiltroPecaHist(\''+codEsc+'\')" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)">'+
       '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escAttr(p.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:10px">('+escAttr(p.codigo)+')</span></span>'+
     '</label>';
   }).join('')+(lista.length>200?'<div style="text-align:center;font-size:10px;color:var(--td);padding:6px">Mostrando 200 de '+lista.length+' — use a busca</div>':'');
 }
-function toggleFiltroPecaHist(cod){ histPecasFiltro[cod]=!histPecasFiltro[cod]; renderFiltroPecasHist(); }
-function limparFiltroPecasHist(){ histPecasFiltro={}; renderFiltroPecasHist(); atualizarLabelPecasHist(); filtrarHist(); }
+function toggleFiltroPecaHist(cod){
+  var i=histPecasFiltro.indexOf(cod);
+  if(i===-1) histPecasFiltro.push(cod); else histPecasFiltro.splice(i,1);
+  renderFiltroPecasHist();
+}
+function limparFiltroPecasHist(){ histPecasFiltro=[]; renderFiltroPecasHist(); atualizarLabelPecasHist(); filtrarHist(); }
 function aplicarFiltroPecasHist(){ fecharOv('ovFiltrarPecasHist'); atualizarLabelPecasHist(); filtrarHist(); }
 function atualizarLabelPecasHist(){
-  var n=Object.keys(histPecasFiltro).filter(function(k){return histPecasFiltro[k];}).length;
-  var el=document.getElementById('histPecasCountLabel'); if(el) el.textContent=n?('('+n+' selecionada'+(n===1?'':'s')+')'):'';
+  var lbl=document.getElementById('histPecasCountLabel'); if(!lbl)return;
+  lbl.textContent=histPecasFiltro.length?('('+histPecasFiltro.length+' selecionada'+(histPecasFiltro.length===1?'':'s')+')'):'';
 }
 
 // ═══════════════════════════════════════
-// HISTÓRICO — edição de pedido, peso, itens e exclusão de caixa (admin)
+// REIMPRESSÃO (a partir do Histórico do Admin)
 // ═══════════════════════════════════════
-function salvarPedidoHist(ri){
-  var e=todasEmb[ri]; if(!e)return;
-  var inp=document.getElementById('histPedInp-'+ri); if(!inp)return;
-  var novo=inp.value.trim();
-  if(!novo){toast('Pedido não pode ficar vazio');return;}
-  if(novo===e.pedido){return;}
-  try{
-    google.script.run
-      .withSuccessHandler(function(r){
-        if(r&&r.status==='ok'){ toast('✔ Pedido atualizado'); carregarHist(); }
-        else{ toast('⚠ Não salvou — tente de novo'); }
-      })
-      .withFailureHandler(function(){toast('⚠ Sem conexão — não salvou');})
-      .atualizarPedidoEmbalagem(e.sessao,novo);
-  }catch(e2){toast('⚠ Sem conexão — não salvou');}
-}
-
-function abrirEdicaoCaixaHist(caixaId,ri){
-  var e=todasEmb[ri]; if(!e)return;
-  var cx=(e.caixas||[]).find(function(c){return c.id===caixaId;});
-  if(!cx){toast('Caixa não encontrada — recarregue o Histórico');return;}
-  histEditCaixaId=caixaId;
-  histEditDraft={peso:cx.peso||0,itens:(cx.itens||[]).map(function(it){return {codigo:it.codigo,nome:it.nome,qty:it.qty};})};
-  filtrarHist();
-}
-function cancelarEdicaoCaixaHist(ri){
-  histEditCaixaId=null; histEditDraft=null;
-  filtrarHist();
-}
-function histDraftSetPeso(v){ if(histEditDraft) histEditDraft.peso=parseFloat(v)||0; }
-function histDraftSetQty(i,v){ if(histEditDraft&&histEditDraft.itens[i]) histEditDraft.itens[i].qty=Math.max(0,parseInt(v,10)||0); }
-function histDraftRemoveItem(i,ri){ if(!histEditDraft)return; histEditDraft.itens.splice(i,1); filtrarHist(); }
-function histDraftAddItem(ri){
-  if(!histEditDraft)return;
-  var codInp=document.getElementById('histAddCod-'+ri), qtdInp=document.getElementById('histAddQtd-'+ri);
-  var cod=codInp.value.trim(), qtd=parseInt(qtdInp.value,10);
-  if(!cod||!qtd||qtd<=0){toast('Informe código e quantidade válida');return;}
-  if(!produtosCache||!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
-    toast('Código não cadastrado em Admin › Peças');return;
-  }
-  var existente=histEditDraft.itens.find(function(it){return it.codigo===cod;});
-  if(existente){ existente.qty+=qtd; } else { histEditDraft.itens.push({codigo:cod,nome:produtosCache[cod],qty:qtd}); }
-  filtrarHist();
-}
-function salvarCaixaHist(ri){
-  if(!histEditDraft||histEditCaixaId===null)return;
-  if(!histEditDraft.itens.length){toast('Caixa precisa ter ao menos 1 item — para zerar, exclua a caixa');return;}
-  var e=todasEmb[ri]; if(!e)return;
-  var caixaId=histEditCaixaId, draft=histEditDraft, sessao=e.sessao;
-  try{
-    google.script.run
-      .withSuccessHandler(function(r){
-        if(r&&r.status==='ok'){
-          histEditCaixaId=null; histEditDraft=null;
-          try{
-            google.script.run
-              .withSuccessHandler(function(){toast('✔ Caixa atualizada');carregarHist();})
-              .withFailureHandler(function(){toast('⚠ Caixa salva, mas os totais do pedido podem estar desatualizados — recarregue');carregarHist();})
-              .recalcularEsalvarAgregados(sessao);
-          }catch(e2){carregarHist();}
-        }else{ toast('⚠ Não salvou — tente de novo'); }
-      })
-      .withFailureHandler(function(){toast('⚠ Sem conexão — não salvou');})
-      .atualizarCaixaAdmin(caixaId,draft.peso,draft.itens);
-  }catch(e3){toast('⚠ Sem conexão — não salvou');}
-}
-function pedirExcluirCaixaHist(caixaId,ri){
-  exigirSenhaMaster(function(){
-    if(!confirm('Excluir esta caixa e todos os itens dela? Isso não pode ser desfeito, e o número dela não vai ser reaproveitado por outra caixa.'))return;
-    var e=todasEmb[ri]; if(!e)return;
-    var sessao=e.sessao;
-    try{
-      google.script.run
-        .withSuccessHandler(function(r){
-          if(r&&r.status==='ok'){
-            try{
-              google.script.run
-                .withSuccessHandler(function(){toast('🗑 Caixa excluída');carregarHist();})
-                .withFailureHandler(function(){toast('⚠ Caixa excluída, mas os totais do pedido podem estar desatualizados — recarregue');carregarHist();})
-                .recalcularEsalvarAgregados(sessao);
-            }catch(e2){carregarHist();}
-          }else{ toast('⚠ Não excluiu — tente de novo'); }
-        })
-        .withFailureHandler(function(){toast('⚠ Sem conexão — não excluiu');})
-        .excluirCaixaAdmin(caixaId);
-    }catch(e3){toast('⚠ Sem conexão — não excluiu');}
-  });
-}
-
-// ═══════════════════════════════════════
-// REIMPRIMIR
-// ═══════════════════════════════════════
+// Monta o objeto dadosFin a partir de uma embalagem já salva (histTodas ou lista do
+// Faturamento) — reaproveita as mesmas funções de impressão da bipagem (impRel/impEtq/impTudo).
 function prepDados(e){
-  var cxs=(e.caixas||[]).map(function(cx,i){return{id:cx.id||null,num:i+1,itens:(cx.itens||[]).map(function(it){return{codigo:String(it.codigo||''),nome:String(it.nome||''),qty:Number(it.qty)||0};}),totalUnid:Number(cx.totalUnid)||0,peso:Number(cx.peso)||0};});
-  return{session:{id:e.sessao,pedido:e.pedido,operador:e.operador||'—',baia:e.baia||'—',peso:parseFloat(e.peso)||0},caixas:cxs,dataEmbalagem:e.data,horaEmbalagem:e.hora||'',cliLote:e.cliLote||'',cliTransp:e.cliTransp||'',cliData:e.cliData||''};
+  return {
+    session:{id:e.sessao,pedido:e.pedido,peso:parseFloat(e.peso)||0,operador:e.operador,baia:e.baia,lote:e.cliLote||''},
+    caixas:(e.caixas||[]).map(function(cx){return {num:cx.num,peso:cx.peso,totalUnid:cx.totalUnid,itens:cx.itens,etqImpressa:true};}),
+    dataEmbalagem:e.data,
+    horaEmbalagem:e.hora||''
+  };
 }
-function rRel(i){dadosFin=prepDados(todasEmb[i]);if(dadosFin.caixas.length)impRel();else rSimples(todasEmb[i]);}
-function rEtq(i){dadosFin=prepDados(todasEmb[i]);if(dadosFin.caixas.length)impEtq();}
-function rTudo(i){rRel(i);setTimeout(function(){rEtq(i);},600);}
-function rCli(i){dadosFin=prepDados(todasEmb[i]);if(!dadosFin.caixas.length){alert('Sem caixas detalhadas.');return;}imprimirEtqClienteCom(dadosFin.cliLote,dadosFin.cliTransp,dadosFin.cliData);}
-
-// Reimpressão da etiqueta do cliente a partir do Faturamento — o lote já veio da bipagem
-// (salvo em cliLote assim que a embalagem foi finalizada), não depende mais de faturado=true.
-// Sem senha extra: quem chegou até esse botão já passou pela senha de Faturamento pra entrar na tela.
+function rRel(sessao){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  dadosFin=prepDados(e);
+  impRel();
+}
+function rEtq(sessao){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  dadosFin=prepDados(e);
+  impEtq();
+}
+function rTudo(sessao){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  dadosFin=prepDados(e);
+  impTudo();
+}
+// Reimprime a etiqueta do cliente (GS1-like) pra TODAS as caixas de uma sessão já finalizada,
+// a partir do Histórico do Admin.
+function rCli(sessao){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  if(!e.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
+  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliTransp||'', e.cliData||'', (e.caixas||[]).length);
+}
+// Mesmo que rCli, mas a partir da lista de pedidos do Faturamento (índice em todosPed).
 function imprimirEtqClienteFat(idx){
   var p=todosPed[idx];
   if(!p){toast('Pedido não encontrado');return;}
-  dadosFin=prepDados(p);
-  if(!dadosFin.caixas.length){alert('Sem caixas detalhadas para etiquetar.');return;}
-  if(!dadosFin.cliLote){toast('Este pedido ainda não tem lote registrado na bipagem');return;}
-  imprimirEtqClienteCom(dadosFin.cliLote,dadosFin.cliTransp,dadosFin.cliData);
+  if(!p.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
+  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliTransp||'', p.cliData||'', (p.caixas||[]).length);
 }
-function rSimples(e){var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+e.pedido+'</title><style>body{font-family:sans-serif;padding:20px;font-size:13px}h1{font-size:18px;font-weight:800;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f5;font-weight:700}</style></head><body><h1>'+e.pedido+'</h1><table><tbody><tr><td><b>Pedido</b></td><td>'+e.pedido+'</td></tr><tr><td><b>Data</b></td><td>'+e.data+'</td></tr><tr><td><b>Operador</b></td><td>'+e.operador+'</td></tr><tr><td><b>Baia</b></td><td>'+e.baia+'</td></tr><tr><td><b>Caixas</b></td><td>'+e.totalCaixas+'</td></tr><tr><td><b>Unidades</b></td><td>'+e.totalUnid+'</td></tr><tr><td><b>Peso</b></td><td>'+e.peso+' kg</td></tr></tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>';var w=window.open('','_blank');w.document.write(h);w.document.close();}
 
 // ═══════════════════════════════════════
-// IMPRESSÃO RELATÓRIO
+// IMPRESSÃO — Relatório da embalagem (todas as caixas de uma sessão)
 // ═══════════════════════════════════════
 function impRel(){
-  var d=dadosFin;if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
-  var tot=d.caixas.reduce(function(s,cx){return s+cx.totalUnid;},0);
-  var ppu=tot>0?d.session.peso/tot:0;
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — '+d.session.pedido+'</title><style>body{font-family:Segoe UI,sans-serif;padding:24px;color:#111;font-size:13px}h1{font-size:20px;font-weight:800;margin-bottom:2px}.rel-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap-reverse}.rel-ped{background:#00833E;color:#fff;border-radius:8px;padding:9px 22px;text-align:center;flex-shrink:0}.rel-ped-k{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.85}.rel-ped-v{font-size:28px;font-weight:900;line-height:1.15;white-space:nowrap}.meta{font-size:11px;color:#666;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{border:1px solid #ddd;padding:8px 12px;text-align:left}th{background:#f5f5f5;font-weight:700;font-size:11px;text-transform:uppercase}.tots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.ti{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px;padding:12px;text-align:center}.tv{font-size:22px;font-weight:800}.tl{font-size:10px;color:#777;text-transform:uppercase;margin-top:2px}</style></head><body>'+
-    '<div class="rel-hdr"><div><h1>Relatório de Embalagem</h1>'+
-    '<div class="meta"><span>'+d.dataEmbalagem+' '+d.horaEmbalagem+'</span><span>'+d.session.operador+'</span><span>'+d.session.baia+'</span><span>'+d.session.id+'</span></div></div>'+
-    '<div class="rel-ped"><div class="rel-ped-k">PEDIDO</div><div class="rel-ped-v">'+d.session.pedido+'</div></div></div>'+
-    '<table><thead><tr><th>Caixa</th><th>Peça</th><th>Código de barra</th><th>Unidades</th><th>Peso</th></tr></thead><tbody>'+
-    d.caixas.map(function(cx){var pesoCx=cx.peso>0?cx.peso.toFixed(2):(ppu*cx.totalUnid).toFixed(2);return '<tr><td><b>Caixa '+cx.num+' / '+d.caixas.length+'</b></td><td>'+cx.itens.map(function(it){return it.nome+' × '+it.qty;}).join('<br>')+'</td><td style="font-family:monospace;font-size:11px">'+cx.itens.map(function(it){return (it.codigo||'—');}).join('<br>')+'</td><td style="text-align:center;font-weight:700">'+cx.totalUnid+'</td><td style="text-align:center">'+pesoCx+' kg</td></tr>';}).join('')+
+  if(!dadosFin){toast('Nada para imprimir');return;}
+  var s=dadosFin.session, cxs=dadosFin.caixas||[];
+  var totalUnid=cxs.reduce(function(a,c){return a+(Number(c.totalUnid)||0);},0);
+  var totalPeso=cxs.reduce(function(a,c){return a+(parseFloat(c.peso)||0);},0);
+  var itensMap={};
+  cxs.forEach(function(cx){(cx.itens||[]).forEach(function(it){var k=it.nome;if(!itensMap[k])itensMap[k]=0;itensMap[k]+=Number(it.qty)||0;});});
+  var itens=Object.entries(itensMap);
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var linhasCx=cxs.map(function(cx){
+    return '<tr><td>'+cx.num+'</td><td>'+(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ')+'</td><td style="text-align:right">'+cx.totalUnid+'</td><td style="text-align:right">'+(cx.peso||0)+' kg</td></tr>';
+  }).join('');
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — '+escAttr(s.pedido)+'</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:23px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Relatório de Embalagem</h1><div class="sub">Pedido '+escAttr(s.pedido)+' · '+dadosFin.dataEmbalagem+(dadosFin.horaEmbalagem?' '+dadosFin.horaEmbalagem:'')+' · '+escAttr(s.operador||'—')+' · '+escAttr(s.baia||'—')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+cxs.length+'</div><div class="l">Caixas</div></div>'+
+      '<div class="kpi"><div class="v">'+totalUnid+'</div><div class="l">Unidades</div></div>'+
+      '<div class="kpi"><div class="v">'+totalPeso.toFixed(2)+' kg</div><div class="l">Peso total</div></div>'+
+      '<div class="kpi"><div class="v">'+itens.length+'</div><div class="l">Produtos</div></div>'+
+    '</div>'+
+    '<div class="sec-ttl">Itens consolidados</div>'+
+    '<table><thead><tr><th>Produto</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+
+      itens.map(function(e){return '<tr><td>'+escAttr(e[0])+'</td><td style="text-align:right">'+e[1]+'</td></tr>';}).join('')+
     '</tbody></table>'+
-    '<div class="tots"><div class="ti"><div class="tv">'+d.caixas.length+'</div><div class="tl">Caixas</div></div><div class="ti"><div class="tv">'+tot+'</div><div class="tl">Unidades</div></div><div class="ti"><div class="tv">'+d.session.peso.toFixed(2)+' kg</div><div class="tl">Peso total</div></div><div class="ti"><div class="tv">'+d.caixas.reduce(function(s,cx){return s+cx.itens.length;},0)+'</div><div class="tl">Produtos</div></div></div>'+
-    '<script>window.onload=function(){window.print();}<\/script></body></html>';
-  var w=window.open('','_blank');w.document.write(h);w.document.close();
+    '<div class="sec-ttl">Detalhamento por caixa</div>'+
+    '<table><thead><tr><th>Caixa</th><th>Conteúdo</th><th style="text-align:right">Unidades</th><th style="text-align:right">Peso</th></tr></thead><tbody>'+linhasCx+'</tbody></table>'+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor · Sessão '+s.id+'</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
 }
 
 // ═══════════════════════════════════════
-// IMPRESSÃO ETIQUETAS — com QR Code variável na saída
+// IMPRESSÃO — Etiquetas em lote (uma por caixa, QR de controle interno)
 // ═══════════════════════════════════════
 function impEtq(){
-  var d=dadosFin;if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
-  var tot=d.caixas.reduce(function(s,cx){return s+cx.totalUnid;},0);
-  var ppu=tot>0?d.session.peso/tot:0;
-  var qrD=d.caixas.map(function(cx){return{id:'qr_'+cx.num,data:JSON.stringify({pedido:d.session.pedido,caixa:cx.num,totalCaixas:d.caixas.length,totalUnid:cx.totalUnid,data:d.dataEmbalagem,operador:d.session.operador,baia:d.session.baia,itens:cx.itens,peso:cx.peso||(ppu*cx.totalUnid).toFixed(2),sessao:d.session.id})};});
-  var etqs=d.caixas.map(function(cx){var ps=cx.peso>0?cx.peso.toFixed(2):(ppu*cx.totalUnid).toFixed(2);return '<div class="label">'+
-      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+d.session.pedido+'</div></div>'+
-      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+'<small>/'+d.caixas.length+'</small></div></div></div>'+
+  if(!dadosFin||!dadosFin.caixas||!dadosFin.caixas.length){toast('Nada para imprimir');return;}
+  var s=dadosFin.session, cxs=dadosFin.caixas;
+  var labels=cxs.map(function(cx){
+    var qrData=JSON.stringify({pedido:s.pedido,caixa:cx.num,totalUnid:cx.totalUnid,data:dadosFin.dataEmbalagem,operador:s.operador,baia:s.baia,itens:cx.itens,peso:cx.peso,sessao:s.id});
+    return {qr:qrData,html:'<div class="label">'+
+      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+s.pedido+'</div></div>'+
+      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+'</div></div></div>'+
       '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+cx.totalUnid+'</span></div>'+
-      '<div class="st"><span class="stk">PESO</span><span class="stv">'+ps+'<i> kg</i></span></div></div>'+
-      '<div class="meta">'+d.dataEmbalagem+' · '+d.session.operador+' · '+d.session.baia+'</div>'+
-      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div>'+cx.itens.map(function(it){return '<div class="item"><span class="in">'+it.nome+'</span> <b>×'+it.qty+'</b></div>';}).join('')+'</div>'+
-      '<div class="qrbox"><div id="qr_'+cx.num+'"></div><div class="sess">'+d.session.id+'</div></div></div>'+
-    '</div>';}).join('');
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiquetas</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 10px;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;color:#111}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:25px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:30px;font-weight:900;line-height:1}.cxv small{font-size:16px;font-weight:800;opacity:.7}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:26px;font-weight:900;color:#111;line-height:1}.stv i{font-size:13px;font-weight:700;font-style:normal;color:#666}.meta{font-size:10px;font-weight:800;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:17px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 0;border-bottom:1px solid #ccc;color:#000}.item b{font-weight:900;color:#000}.qrbox{width:20mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{font-size:7px;color:#999;margin-top:3px;text-align:center;word-break:break-all;line-height:1.1}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style><\/head><body>'+etqs+'<script>var qD='+JSON.stringify(qrD)+';window.onload=function(){qD.forEach(function(q){var el=document.getElementById(q.id);if(el)new QRCode(el,{text:q.data,width:84,height:84,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},900);};<\/script><\/body><\/html>';
-  var w=window.open('','_blank');w.document.write(h);w.document.close();
-}
-function impTudo(){impRel();setTimeout(impEtq,600);}
-
-// ═══════════════════════════════════════
-// ETIQUETA DO CLIENTE (padrão fornecedor: EAN 1D + QR, uma por peça de cada caixa)
-// Campos que o sistema não tem (transportadora, data) são digitados no Faturamento.
-// O lote vem da sessão de bipagem (sess.lote), travado no popup "Quem está embalando?".
-// ═══════════════════════════════════════
-// Gera o "SSCC" de 12 posições da caixa (não é um SSCC GS1 real — o padrão oficial exige
-// 18 dígitos + prefixo de empresa registrado na GS1 — mas segue o formato de 12 posições pedido).
-// Usa o id real da caixa no Supabase quando disponível: é permanente, então fica igual em
-// qualquer reimpressão futura. Sem id ainda (ex.: etiqueta impressa offline, antes do sync,
-// ou impressão feita direto na bipagem antes de finalizar a embalagem), cai para um valor
-// derivado do id da sessão (que já é fixo e salvo) + número da caixa — então também
-// continua estável se essa mesma etiqueta for reimpressa depois.
-function gerarSSCCCaixa(cx,sessaoId){
-  if(cx.id){
-    return String(cx.id).padStart(12,'0').slice(-12);
-  }
-  var ts=parseInt(String(sessaoId||'').replace(/^SES-/,''),36);
-  if(!ts||isNaN(ts)) ts=Date.now();
-  var s=String(ts).slice(-9).padStart(9,'0');
-  var c=String(cx.num).padStart(3,'0').slice(-3);
-  return s+c;
-}
-
-// Monta a string do QR no padrão (00)SSCC(02)GTIN(11)LOTE(37)QTD
-function montarQRGS1(sscc,codigoProduto,lote,qtd){
-  return '(00)'+sscc+'(02)'+String(codigoProduto||'')+'(11)'+(lote||'')+'(37)'+qtd;
-}
-
-// Núcleo reutilizável: monta e imprime etiquetas do cliente pra um conjunto de caixas.
-// totalCaixasConhecido: null/0 quando ainda não se sabe o total final do pedido (ex.: print
-// direto da bipagem, antes de finalizar) — nesse caso a etiqueta mostra só "Caixa X", sem "/Y".
-function montarImprimirEtqCliente(caixasArr, pedidoNum, sessaoId, lote, transp, dfab, totalCaixasConhecido){
-  if(!caixasArr||!caixasArr.length){alert('Sem dados.');return;}
-  lote=lote||''; transp=transp||''; dfab=dfab||'';
-
-  var tot=caixasArr.reduce(function(s,cx){return s+cx.totalUnid;},0);
-  var pesoTotal=caixasArr.reduce(function(s,cx){return s+(cx.peso||0);},0);
-  var ppu=tot>0?pesoTotal/tot:0;
-  var labels=[], qrList=[], bcList=[], idx=0;
-  caixasArr.forEach(function(cx){
-    var ps=cx.peso>0?cx.peso.toFixed(2):(ppu*cx.totalUnid).toFixed(2);
-    var sscc=gerarSSCCCaixa(cx,sessaoId); // uma vez por caixa — não por peça
-    (cx.itens||[]).forEach(function(it){
-      var id=idx++; var cod=String(it.codigo||'');
-      // código Sabó = nome da peça (convenção do cadastro); cai pro EAN só se nome estiver vazio
-      var codSabo=String(it.nome||'').trim()||cod;
-      labels.push({id:id,cod:cod,codSabo:codSabo,qty:it.qty,cx:cx.num,total:totalCaixasKnownOrArr(totalCaixasConhecido,caixasArr),peso:ps,ped:pedidoNum});
-      qrList.push({id:'qr_'+id,data:montarQRGS1(sscc,codSabo,lote,it.qty)});
-      bcList.push({id:'bc_'+id,cod:cod});
-    });
+      '<div class="st"><span class="stk">PESO</span><span class="stv">'+(cx.peso||0).toFixed?((cx.peso||0).toFixed(2)):(cx.peso||0)+'<i> kg</i></span></div></div>'+
+      '<div class="meta">'+dadosFin.dataEmbalagem+' · '+s.operador+' · '+s.baia+'</div>'+
+      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div>'+(cx.itens||[]).map(function(it){return '<div class="item"><span class="in">'+it.nome+'</span> <b>×'+it.qty+'</b></div>';}).join('')+'</div>'+
+      '<div class="qrbox"><div class="qr_x"></div><div class="sess">'+s.id+'</div></div></div>'+
+    '</div>'};
   });
-  if(!labels.length){alert('Nenhuma peça com código para etiquetar.');return;}
-
-  var body=labels.map(function(l){return '<div class="clabel">'+
-      '<div class="cl"><div class="ck">CÓDIGO SABÓ</div><div class="cbig">'+l.codSabo+'</div>'+
-      '<div class="ck">QUANTIDADE</div><div class="qtyv">'+l.qty+'</div>'+
-      '<div class="qrc"><div id="qr_'+l.id+'"></div></div></div>'+
-      '<div class="cr"><div class="mib">MADE IN BRAZIL</div>'+
-      '<svg id="bc_'+l.id+'" class="bcsvg"></svg>'+
-      '<div class="foot">'+
-        '<div><span class="fk">VOL/PESO:</span> '+(l.total||l.cx)+' VOL / '+l.peso+' kg</div>'+
-        (lote?'<div><span class="fk">LOTE FABR.:</span> '+lote+'</div>':'')+
-        (transp?'<div><span class="fk">TRANSP.:</span> '+transp+'</div>':'')+
-        (dfab?'<div><span class="fk">DATA FABR.:</span> '+dfab+'</div>':'')+
-        '<div class="cxi">Ped. '+l.ped+' · Caixa '+l.cx+(l.total?' / '+l.total:'')+'</div>'+
-      '</div></div>'+
-    '</div>';}).join('');
-
-  var css='*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#e5e5e5;padding:10px}.clabel{width:95mm;height:76mm;padding:4mm;margin:0 auto 10px;display:flex;gap:4mm;overflow:hidden;background:#fff;border:1px solid #ccc;color:#000;page-break-after:always}.cl{flex:1;display:flex;flex-direction:column;min-width:0}.ck{font-size:11px;font-weight:800;letter-spacing:.05em}.cbig{font-family:Courier New,monospace;font-size:21px;font-weight:900;line-height:1;letter-spacing:.02em;white-space:nowrap;overflow:hidden;margin:1px 0 7px}.qtyv{font-size:38px;font-weight:900;line-height:.95}.qrc{margin-top:auto;padding-top:6px}.cr{width:41mm;flex-shrink:0;display:flex;flex-direction:column;text-align:center}.mib{font-size:11px;font-weight:800;letter-spacing:.1em;margin-bottom:3px}.bcsvg{width:100%;max-height:54px}.foot{margin-top:auto;text-align:left;font-size:9px;line-height:1.55}.foot .fk{font-weight:800}.cxi{margin-top:3px;font-size:10px;color:#000;font-weight:800}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.clabel{border:none;margin:0}}';
-
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta do Cliente</title>'+
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>'+
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>'+
-    '<style>'+css+'<\/style></head><body>'+body+
-    '<script>var QR='+JSON.stringify(qrList)+',BC='+JSON.stringify(bcList)+';'+
-    'window.onload=function(){'+
-    'BC.forEach(function(b){try{JsBarcode("#"+b.id,b.cod,{format:"EAN13",width:1.5,height:44,fontSize:12,textMargin:2,margin:0});}catch(e){try{JsBarcode("#"+b.id,b.cod,{format:"CODE128",width:1.2,height:44,fontSize:11,margin:0});}catch(e2){}}});'+
-    'QR.forEach(function(q){var el=document.getElementById(q.id);if(el)new QRCode(el,{text:q.data,width:84,height:84,correctLevel:QRCode.CorrectLevel.M});});'+
-    'setTimeout(function(){window.print();},1000);};<\/script></body></html>';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiquetas — '+escAttr(s.pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:25px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:30px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:26px;font-weight:900;color:#111;line-height:1}.stv i{font-size:13px;font-weight:700;font-style:normal;color:#666}.meta{font-size:10px;font-weight:800;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:17px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 0;border-bottom:1px solid #ccc;color:#000}.item b{font-weight:900;color:#000}.qrbox{width:20mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{font-size:7px;color:#999;margin-top:3px;text-align:center;word-break:break-all;line-height:1.1}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
+    labels.map(function(l){return l.html;}).join('')+
+    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return l.qr;}))+';window.onload=function(){var boxes=document.querySelectorAll(".qr_x");boxes.forEach(function(el,i){new QRCode(el,{text:LBLS[i],width:84,height:84,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},800);};<\/script>'+
+    '</body></html>';
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para imprimir');return;}
   w.document.write(h);w.document.close();
 }
-// Resolve o total de caixas a mostrar na etiqueta: usa o valor explícito quando informado
-// (impressão avulsa, total ainda desconhecido), senão usa o tamanho do array (impressão em lote).
-function totalCaixasKnownOrArr(totalCaixasConhecido,caixasArr){
-  if(totalCaixasConhecido===null||totalCaixasConhecido===undefined) {
-    return caixasArr.length>1?caixasArr.length:0; // 0 = omite "/Y" quando é só 1 caixa avulsa
-  }
-  return totalCaixasConhecido;
-}
+function impTudo(){ impRel(); setTimeout(impEtq,600); }
 
-// Núcleo: monta e imprime as etiquetas do cliente usando dadosFin + os campos informados
-// (chamado do Faturamento e do Histórico, onde o total de caixas já é conhecido)
-function imprimirEtqClienteCom(lote,transp,dfab){
-  var d=dadosFin;
-  if(!d||!d.caixas||!d.caixas.length){alert('Sem dados.');return;}
-  montarImprimirEtqCliente(d.caixas, d.session.pedido, d.session.id, lote, transp, dfab, d.caixas.length);
+// ═══════════════════════════════════════
+// ETIQUETA DO CLIENTE — GS1-like (EAN + QR com AIs entre parênteses + lote)
+// Nota: usa parênteses como texto literal, não como separador FNC1 — não é um símbolo GS1
+// de verdade, mas segue o padrão visual que o cliente pediu. (11) aqui = lote (oficialmente
+// (11) é data de fabricação em GS1; lote oficial seria (10) — mantido assim por pedido do
+// cliente, documentado aqui para não se perder).
+// ═══════════════════════════════════════
+// SSCC: 18 dígitos. Fonte primária = caixas.id (estável, não muda entre sessões); fallback
+// = timestamp da sessão + número da caixa, usado quando a caixa ainda não tem id do servidor
+// (ex: impressão offline, antes de sincronizar).
+function gerarSSCCCaixa(cx,sessaoId){
+  var base;
+  if(cx.id){
+    base=String(cx.id).padStart(11,'0');
+  }else{
+    var hash=String(sessaoId||'').split('').reduce(function(a,c){return ((a<<5)-a+c.charCodeAt(0))|0;},0);
+    base=String(Math.abs(hash)).padStart(8,'0').slice(0,8)+String(cx.num||0).padStart(3,'0');
+  }
+  var corpo=('00'+base).slice(-17);
+  var soma=0;
+  for(var i=0;i<corpo.length;i++){ var d=parseInt(corpo[corpo.length-1-i],10); soma+=(i%2===0?3:1)*d; }
+  var dv=(10-(soma%10))%10;
+  return corpo+dv;
+}
+function montarQRGS1(cx,pedido,sessaoId,lote){
+  var sscc=gerarSSCCCaixa(cx,sessaoId);
+  var codProduto=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
+  var qtd=cx.totalUnid||0;
+  return '(00)'+sscc+'(02)'+codProduto+'(11)'+lote+'(37)'+qtd;
+}
+// Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
+// quando fornecido, mostra "Caixa N/Total"; senão mostra só "Caixa N".
+function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalCaixas:(arr?arr.length:null); }
+function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,totalCaixasParam){
+  if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
+  var totalCx=totalCaixasKnownOrArr(totalCaixasParam,caixas);
+  var labels=caixas.map(function(cx){
+    var qrTexto=montarQRGS1(cx,pedido,sessaoId,lote);
+    var itensResumo=(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ');
+    return {qr:qrTexto,html:'<div class="label">'+
+      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+escAttr(pedido)+'</div></div>'+
+      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+(totalCx?('/'+totalCx):'')+'</div></div></div>'+
+      '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+(cx.totalUnid||0)+'</span></div>'+
+      '<div class="st"><span class="stk">LOTE</span><span class="stv" style="font-size:18px">'+escAttr(lote)+'</span></div></div>'+
+      '<div class="meta">'+(transp?('Transp: '+escAttr(transp)+' · '):'')+(dataFab?('Fab: '+escAttr(dataFab)):'')+'</div>'+
+      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div><div class="item" style="white-space:normal;line-height:1.3">'+escAttr(itensResumo)+'</div></div>'+
+      '<div class="qrbox"><div class="qr_x"></div><div class="sess" style="font-size:8px;word-break:break-all">'+escAttr(qrTexto)+'</div></div></div>'+
+    '</div>'};
+  });
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
+    labels.map(function(l){return l.html;}).join('')+
+    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return l.qr;}))+';window.onload=function(){var boxes=document.querySelectorAll(".qr_x");boxes.forEach(function(el,i){new QRCode(el,{text:LBLS[i],width:96,height:96,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},800);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para imprimir');return;}
+  w.document.write(h);w.document.close();
+}
+// Wrapper usado pelo Admin/Faturamento quando já se tem o array completo (mesma assinatura,
+// nome mais claro no contexto de "reimprimir com todos os dados que já tenho").
+function imprimirEtqClienteCom(caixas,pedido,sessaoId,lote,transp,dataFab){
+  montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,caixas?caixas.length:null);
 }
 
 // ═══════════════════════════════════════
-// ETIQUETA OFFLINE
+// ETIQUETA OFFLINE — gera uma etiqueta simples a partir da caixa atual, sem depender do
+// fechamento oficial (usado quando a impressora está por perto mas a rede caiu no meio)
 // ═══════════════════════════════════════
 function impOffline(){
-  var op=document.getElementById('selOp').value||'_______________';
-  var baia=document.getElementById('selBaia').value||'_______________';
-  var dt=new Date().toLocaleDateString('pt-BR');
-  var qtd=parseInt(prompt('Quantas etiquetas em branco?','6'))||6;
-  var etqs=Array.from({length:qtd},function(){return '<div class="label">'+
-      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="pedwr"></div></div>'+
-      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv"><span class="cb"></span><small>/<span class="cb sm"></span></small></div></div></div>'+
-      '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stwr"></span></div>'+
-      '<div class="st"><span class="stk">PESO</span><span class="stwr"></span><i> kg</i></div></div>'+
-      '<div class="meta">'+dt+' · '+op+' · '+baia+'</div>'+
-      '<div class="lines"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>'+
-      '<div class="off">ETIQUETA OFFLINE</div>'+
-    '</div>';}).join('');
-  var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Offline</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 10px;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;color:#111}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{flex:1;min-width:0}.hk{font-size:8px;font-weight:800;letter-spacing:.18em;opacity:.9}.pedwr{background:#fff;border-radius:4px;height:22px;margin-top:2px}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 10px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:24px;font-weight:900;line-height:1.1}.cxv small{font-size:15px;font-weight:800;opacity:.7}.cb{display:inline-block;border-bottom:2px solid #00833E;min-width:20px}.cb.sm{min-width:14px}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.4mm 3.5mm;display:flex;align-items:baseline;gap:8px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:9px;font-weight:800;letter-spacing:.06em;color:#999}.stwr{display:inline-block;border-bottom:2px solid #111;min-width:42px;height:16px}.st i{font-size:11px;font-weight:700;font-style:normal;color:#666}.meta{font-size:8.5px;font-weight:800;color:#333;padding:1.6mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lines{flex:1;display:flex;flex-direction:column;min-height:0;padding:1.6mm 3.5mm 0}.ln{flex:1;border-bottom:1px solid #ccc}.off{text-align:center;font-size:8px;font-weight:800;letter-spacing:.1em;color:#bbb;padding:2mm 0}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}</style></head><body>'+etqs+'<script>window.onload=function(){window.print();};<\/script></body></html>';
-  var w=window.open('','_blank');w.document.write(h);w.document.close();
+  var itens=Object.entries(cxAtual);
+  if(!itens.length){toast('Nenhum item na caixa atual para gerar etiqueta');return;}
+  var mapa={};itens.forEach(function(e){mapa[e[0]]={codigo:e[0],nome:e[1].nome,qty:e[1].qty};});
+  var tot=Object.values(mapa).reduce(function(s,i){return s+i.qty;},0);
+  var num=cxFech.length+1;
+  var cxTemp={num:num,itens:Object.values(mapa),totalUnid:tot,peso:0};
+  rSimples(cxTemp);
+}
+// Etiqueta mínima (sem peso, sem QR de controle completo) — só o essencial pra não perder a
+// rastreabilidade caso a etiqueta oficial não tenha sido gerada ainda.
+function rSimples(cx){
+  var qrData=JSON.stringify({pedido:sess.ped,caixa:cx.num,totalUnid:cx.totalUnid,data:new Date().toLocaleDateString('pt-BR'),operador:sess.op,baia:sess.baia,itens:cx.itens,sessao:sess.id,offline:true});
+  var etq='<div class="label">'+
+      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO (OFFLINE)</div><div class="ped">'+(sess.ped||'—')+'</div></div>'+
+      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+'</div></div></div>'+
+      '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+cx.totalUnid+'</span></div></div>'+
+      '<div class="meta">'+new Date().toLocaleDateString('pt-BR')+' · '+(sess.op||'—')+' · '+(sess.baia||'—')+'</div>'+
+      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO (parcial, ainda bipando)</div>'+cx.itens.map(function(it){return '<div class="item"><span class="in">'+it.nome+'</span> <b>×'+it.qty+'</b></div>';}).join('')+'</div>'+
+      '<div class="qrbox"><div id="qr_x"></div><div class="sess">'+sess.id+'</div></div></div>'+
+    '</div>';
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Offline</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;color:#111}.hd{background:#DC2626;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.12em;opacity:.9}.ped{font-size:20px;font-weight:900;line-height:1.05;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#DC2626;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#DC2626;opacity:.65}.cxv{font-size:30px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:26px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:800;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:11px;font-weight:800;letter-spacing:.04em;color:#DC2626;margin-bottom:5px}.item{font-size:16px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 0;border-bottom:1px solid #ccc;color:#000}.item b{font-weight:900}.qrbox{width:20mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{font-size:7px;color:#999;margin-top:3px;text-align:center;word-break:break-all}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+etq+'<script>var QD='+qrData+';window.onload=function(){var el=document.getElementById("qr_x");if(el)new QRCode(el,{text:JSON.stringify(QD),width:84,height:84,correctLevel:QRCode.CorrectLevel.M});setTimeout(function(){window.print();},700);};<\/script></body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para imprimir');return;}
+  w.document.write(h);w.document.close();
 }
 
 // ═══════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════
+var toastTimer=null;
 function toast(msg){
+  var el=document.getElementById('toastEl');
   document.getElementById('toastMsg').textContent=msg;
-  var t=document.getElementById('toastEl');t.classList.add('show');
-  setTimeout(function(){t.classList.remove('show');},2800);
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){el.classList.remove('show');},3200);
 }
 
 // ═══════════════════════════════════════
-// INIT
+// INIT — retoma sessão de bipagem em andamento, se houver (localStorage já carregado no topo)
 // ═══════════════════════════════════════
-renderCxFech();renderTabela(null);renderStats();
-(function(){
-  var totCx=Object.values(cxAtual).reduce(function(s,i){return s+(i.qty||0);},0);
-  var cc=document.getElementById('cxCount'); if(cc)cc.textContent=totCx;
-  if(Object.keys(cxAtual).length>0){ var bc=document.getElementById('btnCx'); if(bc)bc.disabled=false; }
-})();
-if(cxFech.length>0||Object.keys(cxAtual).length>0){
+(function init(){
+  renderCxFech();
+  renderTabela(null);
+  renderStats();
   atualizarBtnFin();
-  // Havia embalagem em andamento (peças/caixas não finalizadas): retoma a bipagem
-  // em vez de voltar pra tela inicial, pra não parecer que "perdeu tudo".
-  try{ irPara('bip'); showFb('↩ Sessão anterior retomada','ok'); }catch(e){}
-}
+  document.getElementById('btnCx').disabled=Object.keys(cxAtual).length===0;
+  if(sess.op||sess.baia||sess.ped){
+    // Havia uma sessão em andamento (recarregou a página, trocou de aba etc.) — não mostra o
+    // wizard de novo, só repopula os campos e deixa o operador continuar de onde parou.
+    setTimeout(function(){
+      var selO=document.getElementById('selOp'), selB=document.getElementById('selBaia');
+      if(selO&&sess.op) selO.value=sess.op;
+      if(selB&&sess.baia) selB.value=sess.baia;
+      validarCampos();
+    },300);
+  }
+})();
 </script>
 </body>
 </html>
