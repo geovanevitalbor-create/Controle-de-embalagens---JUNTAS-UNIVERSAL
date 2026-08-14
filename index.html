@@ -346,7 +346,7 @@ tr.nw td{animation:fl 1s ease-out}
 .dp2-head-sub{font-size:11px;color:var(--td);margin-top:6px}
 .dp2-head-bar{background:var(--s2);border-radius:20px;height:6px;overflow:hidden;margin-top:12px}
 .dp2-head-bar-fill{background:var(--ac);height:100%}
-.dp2-panel{background:var(--s2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.dp2-panel{background:var(--s2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.28)}
 .dp2-panel-hd{padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--bd);
   display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dp2-panel-hd-t{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--td)}
@@ -607,7 +607,7 @@ tr.nw td{animation:fl 1s ease-out}
 /* Hero — o número que mais importa na página (faturado), tratamento distinto de tudo o
    resto: é o único lugar do dashboard com fundo em gradiente, reservado pra não virar rotina */
 .dash-hero-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:24px}
-.dash-hero{background:linear-gradient(155deg,var(--s2) 0%,var(--s1) 100%);border:1px solid var(--bd);border-radius:14px;padding:20px 22px;position:relative;overflow:hidden}
+.dash-hero{background:linear-gradient(155deg,var(--s2) 0%,var(--s1) 100%);border:1px solid var(--bd);border-radius:14px;padding:20px 22px;position:relative;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .dash-hero::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--hero-c,var(--gn))}
 .dash-hero.sem{--hero-c:#3a4a42}
 .dash-hero-lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--td)}
@@ -4107,6 +4107,49 @@ function renderDashError(msg,retryFn){
 // período/reabrir a aba), senão o canvas acumula gráficos fantasmas por baixo.
 var dashChartTrend=null, dashChartPecas=null, dashChartStatus=null, dashChartClientes=null;
 var PALETA_DASH=['#16A34A','#2563EB','#FBBF24','#c1502f','#00833E','#6B6B6B'];
+// Plugin Chart.js: número grande no centro do doughnut (total), com um rótulo pequeno embaixo.
+// Registrado uma vez, ligado por gráfico via options.plugins.centerText={text,label}.
+var centerTextPlugin={
+  id:'centerText',
+  afterDraw:function(chart){
+    var opts=chart.config.options.plugins&&chart.config.options.plugins.centerText;
+    if(!opts||!opts.text) return;
+    var ctx=chart.ctx, w=chart.width, h=chart.height;
+    ctx.save();
+    ctx.font="700 27px 'Bebas Neue',sans-serif";
+    ctx.fillStyle=opts.color||'#F5F5F5';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(opts.text,w/2,h/2-(opts.label?9:0));
+    if(opts.label){
+      ctx.font="600 8.5px 'IBM Plex Sans',sans-serif";
+      ctx.fillStyle='#6B6B6B';
+      ctx.fillText(opts.label,w/2,h/2+13);
+    }
+    ctx.restore();
+  }
+};
+// Plugin Chart.js: escreve o valor de cada barra do lado dela — recomendação padrão pra
+// gráfico de comparação de categorias (não depender só do eixo/tooltip pra ler o número).
+var barValueLabelsPlugin={
+  id:'barValueLabels',
+  afterDatasetsDraw:function(chart){
+    if(!(chart.config.options.plugins&&chart.config.options.plugins.barValueLabels&&chart.config.options.plugins.barValueLabels.enabled)) return;
+    var ctx=chart.ctx, horizontal=chart.config.options.indexAxis==='y';
+    chart.data.datasets.forEach(function(dataset,di){
+      chart.getDatasetMeta(di).data.forEach(function(bar,idx){
+        var value=dataset.data[idx];
+        if(value==null) return;
+        ctx.save();
+        ctx.fillStyle='#F5F5F5';
+        ctx.font="600 10.5px 'IBM Plex Mono',monospace";
+        if(horizontal){ ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(value,bar.x+7,bar.y); }
+        else{ ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(value,bar.x,bar.y-5); }
+        ctx.restore();
+      });
+    });
+  }
+};
+Chart.register(centerTextPlugin,barValueLabelsPlugin);
 // Nomes históricos (esta função alimentava a antiga aba "Relatório"; agora alimenta o
 // Dashboard) — mantidos para não precisar tocar em todos os pontos que já chamam
 // carregarRelatorioFaturamento()/setPeriodoRelatorio() pelo nome antigo.
@@ -4237,13 +4280,16 @@ function renderRelatorioFaturamento(d){
 
   if(porCliente.length){
     var topCli=construirTop5MaisOutros(porCliente);
+    var totalUnidCli=topCli.dados.reduce(function(a,b){return a+b;},0);
     var ctxC=document.getElementById('chartClientesFat');
     if(ctxC){
       dashChartClientes=new Chart(ctxC,{
-        type:'pie',
-        data:{labels:topCli.labels,datasets:[{data:topCli.dados,backgroundColor:PALETA_DASH,borderColor:'#1a1a1a',borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,onClick:function(evt,els){ if(els&&els.length){ var nome=topCli.labels[els[0].index]; if(nome!=='Outros') abrirDetalheClienteFat(nome); } },
+        type:'doughnut',
+        data:{labels:topCli.labels,datasets:[{data:topCli.dados,backgroundColor:PALETA_DASH,borderColor:'#1a1a1a',borderWidth:2,hoverOffset:10}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'68%',animation:{duration:700,easing:'easeOutQuart'},
+          onClick:function(evt,els){ if(els&&els.length){ var nome=topCli.labels[els[0].index]; if(nome!=='Outros') abrirDetalheClienteFat(nome); } },
           plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}},
+            centerText:{text:String(totalUnidCli),label:'UNIDADES'},
             tooltip:{callbacks:{label:function(ctx){ var total=ctx.dataset.data.reduce(function(a,b){return a+b;},0); var pct=total>0?Math.round(ctx.parsed/total*100):0; return ctx.label+': '+ctx.parsed+' un. ('+pct+'%)'; }}}}}
       });
     }
@@ -4255,10 +4301,25 @@ function renderRelatorioFaturamento(d){
   var ctxT=document.getElementById('chartTrendFat');
   if(ctxT&&buckets.length){
     dashChartTrend=new Chart(ctxT,{
-      type:'bar',
-      data:{labels:buckets.map(function(b){return b.label;}),datasets:[{label:'Unidades',data:buckets.map(function(b){return b.unidades;}),backgroundColor:'#16A34A',borderRadius:4,maxBarThickness:46}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{y:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},x:{grid:{display:false},ticks:{color:'#B9B9B9'}}}}
+      type:'line',
+      data:{labels:buckets.map(function(b){return b.label;}),datasets:[{
+        label:'Unidades',
+        data:buckets.map(function(b){return b.unidades;}),
+        borderColor:'#16A34A',
+        backgroundColor:function(context){
+          var chart=context.chart, area=chart.chartArea;
+          if(!area) return 'rgba(22,163,74,.15)';
+          var g=chart.ctx.createLinearGradient(0,area.top,0,area.bottom);
+          g.addColorStop(0,'rgba(22,163,74,.38)'); g.addColorStop(1,'rgba(22,163,74,.02)');
+          return g;
+        },
+        fill:true,tension:.35,borderWidth:2.5,
+        pointRadius:buckets.length>20?0:3,pointHoverRadius:6,
+        pointBackgroundColor:'#16A34A',pointBorderColor:'#121212',pointBorderWidth:2
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:800,easing:'easeOutQuart'},
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},x:{grid:{display:false},ticks:{color:'#B9B9B9',maxRotation:0,autoSkip:true}}}}
     });
   }
   var ctxP=document.getElementById('chartPecasFat');
@@ -4267,8 +4328,20 @@ function renderRelatorioFaturamento(d){
     ctxP.parentElement.style.height=Math.max(200,topPecas.length*34)+'px';
     dashChartPecas=new Chart(ctxP,{
       type:'bar',
-      data:{labels:topPecas.map(function(p){return p.nome.length>28?p.nome.slice(0,26)+'…':p.nome;}),datasets:[{label:'Unidades',data:topPecas.map(function(p){return p.unidades;}),backgroundColor:'#00833E',borderRadius:4}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      data:{labels:topPecas.map(function(p){return p.nome.length>28?p.nome.slice(0,26)+'…':p.nome;}),datasets:[{
+        label:'Unidades',data:topPecas.map(function(p){return p.unidades;}),
+        backgroundColor:function(context){
+          var chart=context.chart, area=chart.chartArea;
+          if(!area) return '#00833E';
+          var g=chart.ctx.createLinearGradient(area.left,0,area.right,0);
+          g.addColorStop(0,'#00833E'); g.addColorStop(1,'#16A34A');
+          return g;
+        },
+        borderRadius:5,barPercentage:.82
+      }]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:700,easing:'easeOutQuart'},
+        layout:{padding:{right:34}},
+        plugins:{legend:{display:false},barValueLabels:{enabled:true}},
         scales:{x:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},y:{grid:{display:false},ticks:{color:'#F5F5F5'}}}}
     });
   }
@@ -4293,8 +4366,10 @@ function renderStatusPedidosChart(){
   if(!total) return;
   dashChartStatus=new Chart(ctx,{
     type:'doughnut',
-    data:{labels:['Aberto','Fechado','Finalizado'],datasets:[{data:[aberto,fechado,finalizado],backgroundColor:['#6B6B6B','#c1502f','#2563EB'],borderColor:'#1a1a1a',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}},
+    data:{labels:['Aberto','Fechado','Finalizado'],datasets:[{data:[aberto,fechado,finalizado],backgroundColor:['#6B6B6B','#c1502f','#2563EB'],borderColor:'#1a1a1a',borderWidth:2,hoverOffset:10}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',animation:{duration:700,easing:'easeOutQuart'},
+      plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}},
+      centerText:{text:String(total),label:'PEDIDOS'},
       tooltip:{callbacks:{label:function(ctx){ var t=ctx.dataset.data.reduce(function(a,b){return a+b;},0); var pct=t>0?Math.round(ctx.parsed/t*100):0; return ctx.label+': '+ctx.parsed+' ('+pct+'%)'; }}}}}
   });
 }
