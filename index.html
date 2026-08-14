@@ -564,16 +564,71 @@ tr.nw td{animation:fl 1s ease-out}
 .adm-panel.active{display:block}
 .fat-panel{display:none;animation:admFade .2s ease-out}
 .fat-panel.active{display:block}
-.rel-toolbar{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;margin-bottom:18px;
-  padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:12px}
-.rel-group{display:flex;flex-direction:column;gap:7px}
-.rel-group-lbl{font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
-.rel-pills{display:flex;gap:6px}
-.rel-dates{display:flex;align-items:center;gap:8px}
-.rel-dates input{max-width:145px}
+.rel-toolbar{display:flex;flex-direction:column;gap:14px;margin-bottom:18px;
+  padding:16px 18px;background:var(--s2);border:1px solid var(--bd);border-radius:12px;
+  background-image:
+    linear-gradient(var(--bd2) 2px,transparent 2px),
+    linear-gradient(90deg,var(--bd2) 2px,transparent 2px);
+  background-repeat:no-repeat;background-size:12px 12px;background-position:0 0,0 0;}
+.rel-group{display:flex;flex-direction:column;gap:8px}
+.rel-group-lbl{font-size:9.5px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.rel-pills{display:flex;gap:6px;flex-wrap:wrap}
+.rel-dates{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rel-dates input{max-width:150px}
 .rel-dates-sep{font-size:11px;color:var(--td)}
-.rel-acoes{display:flex;gap:8px;margin-left:auto}
+.rel-acoes{display:flex;gap:8px}
 .rel-pdf{background:var(--gnd)!important;border-color:var(--gn)!important;color:var(--gn)!important}
+
+/* ═══ DASHBOARD FATURAMENTO — cards dedicados, maiores que os do modal de pedido (.ped-kpi),
+   pensados pra serem lidos de longe numa tela cheia, não espremidos dentro de um painel ═══ */
+.dash-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.dash-kpi{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px 15px;position:relative;overflow:hidden}
+.dash-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kpi-c,var(--td))}
+.dash-kpi.bl{--kpi-c:var(--pu)}
+.dash-kpi.gn{--kpi-c:var(--gn)}
+.dash-kpi.yw{--kpi-c:var(--yw)}
+.dash-kpi.rd{--kpi-c:var(--rd)}
+.dash-kpiv{font-family:var(--f-d);font-size:36px;line-height:1;color:var(--kpi-c,var(--tx))}
+.dash-kpil{font-size:10.5px;color:var(--td);margin-top:7px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+
+.dash-top5-row{display:flex;align-items:center;gap:13px;padding:12px 0}
+.dash-top5-row:not(:last-child){border-bottom:1px solid var(--bd)}
+.dash-top5-rank{width:34px;height:34px;border-radius:10px;background:var(--s3);color:var(--tm);
+  font-family:var(--f-d);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash-top5-rank.r1{background:var(--gnd);color:var(--gn)}
+.dash-top5-body{flex:1;min-width:0}
+.dash-top5-nome{font-size:14px;font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-top5-meta{font-size:10px;color:var(--td);margin-top:2px;font-family:var(--mo)}
+.dash-top5-bar{background:var(--bg);border-radius:20px;height:4px;overflow:hidden;margin-top:7px}
+.dash-top5-bar-fill{background:var(--ac);height:100%}
+.dash-top5-val{font-family:var(--f-d);font-size:23px;color:var(--brand2);flex-shrink:0;text-align:right;line-height:1}
+.dash-top5-val small{display:block;font-family:var(--f-b);font-size:8.5px;color:var(--td);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
+
+.ped-filterbar{background-color:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin-bottom:14px;
+  background-image:
+    linear-gradient(var(--bd2) 2px,transparent 2px),
+    linear-gradient(90deg,var(--bd2) 2px,transparent 2px);
+  background-repeat:no-repeat;background-size:12px 12px;background-position:0 0,0 0;}
+.ped-filterbar-lbl{font-size:9.5px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px;display:block}
+
+.dash-state{padding:44px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.dash-state-ico{font-size:28px;opacity:.75}
+.dash-state-txt{font-size:13px;color:var(--tm);max-width:360px;line-height:1.55}
+
+/* ═══ CONFIGURAÇÕES — switches de liga/desliga ═══ */
+.cfg-group-ttl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--td);margin:20px 0 4px}
+.cfg-group-ttl:first-child{margin-top:0}
+.cfg-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--bd);cursor:pointer}
+.cfg-toggle-row:last-child{border-bottom:none}
+.cfg-toggle-txt{flex:1;min-width:0}
+.cfg-toggle-title{font-size:13.5px;font-weight:600;color:var(--tx)}
+.cfg-toggle-sub{font-size:10.5px;color:var(--td);margin-top:3px;line-height:1.45}
+.cfg-switch{position:relative;width:44px;height:26px;flex-shrink:0}
+.cfg-switch input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.cfg-switch-track{position:absolute;inset:0;background:var(--s3);border:1px solid var(--bd2);border-radius:20px;transition:background .15s,border-color .15s;pointer-events:none}
+.cfg-switch-thumb{position:absolute;top:2.5px;left:3px;width:19px;height:19px;background:var(--tm);border-radius:50%;transition:transform .15s,background .15s;pointer-events:none}
+.cfg-switch input:checked~.cfg-switch-track{background:var(--acd);border-color:var(--ac)}
+.cfg-switch input:checked~.cfg-switch-thumb{transform:translateX(17px);background:var(--gn)}
 .fab-add{position:fixed;bottom:26px;right:26px;width:58px;height:58px;border-radius:50%;
   background:var(--ac);color:#fff;border:none;font-size:30px;font-weight:400;line-height:1;cursor:pointer;
   box-shadow:0 6px 18px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;
@@ -680,7 +735,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <header class="hdr no-print">
     <div class="hdr-l">
       <button class="btn-back" onclick="voltarInicio()">←</button>
-      <div class="logo"><div class="logo-box">📦</div>Bipagem</div>
+      <div class="logo"><div class="logo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 7.5l9-4.5 9 4.5-9 4.5-9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg></div>Bipagem</div>
       <div class="conn err" id="connBdg"><span class="cd"></span><span id="connLbl">Conectando...</span></div>
     </div>
     <div class="hdr-r">
@@ -690,10 +745,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </header>
   <div class="screen-body">
     <div class="bip-main">
-      <div class="req-warn" id="reqWarn">⚠️ Selecione <strong>operador</strong> e <strong>baia</strong> antes de bipar</div>
+      <div class="req-warn" id="reqWarn">Selecione <strong>operador</strong> e <strong>baia</strong> antes de bipar</div>
       <div class="req-warn" id="semProgressoWarn" style="display:none;justify-content:space-between;align-items:center;gap:8px">
-        <span>⚠ Progresso do pedido não carregou — bipando sem checar saldo.</span>
-        <button class="btn-gh" style="width:auto;padding:7px 12px;white-space:nowrap" onclick="recarregarProgressoPedido()">🔄 Tentar de novo</button>
+        <span>Progresso do pedido não carregou — bipando sem checar saldo.</span>
+        <button class="btn-gh" style="width:auto;padding:7px 12px;white-space:nowrap" onclick="recarregarProgressoPedido()">Tentar de novo</button>
       </div>
       <div class="cfg">
         <div class="fld"><label class="lbl req">Operador</label><select class="sel" id="selOp" onchange="validarCampos()"><option value="">Selecione...</option></select></div>
@@ -712,7 +767,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         </div>
         <div class="scan-input-row">
           <input type="text" id="scanInput" inputmode="none" readonly placeholder="Selecione operador e baia..." autocomplete="off" disabled>
-          <button class="btn-camscan" id="btnBipCam" onclick="toggleBipCam()" disabled title="Ler QR com a câmera">📷</button>
+          <button class="btn-camscan" id="btnBipCam" onclick="toggleBipCam()" disabled title="Ler QR com a câmera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M4 8.5h3l1.5-2h7l1.5 2h3v11H4z"/><circle cx="12" cy="14" r="3.3"/></svg></button>
         </div>
         <div class="fb" id="fb"></div>
       </div>
@@ -730,7 +785,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       </div>
       <div class="tbl-card">
         <div class="tbl-hd"><span class="tbl-ttl" id="tblTtl">Caixa atual</span><span class="bdg" id="tblBdg">0</span></div>
-        <div id="tblCont"><div class="empty"><div class="empty-ico">📋</div><div style="font-weight:600;margin-bottom:3px">Aguardando scan</div><div style="font-size:11px">Selecione operador e baia para iniciar</div></div></div>
+        <div id="tblCont"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6v2.5H9z" fill="currentColor" stroke="none"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg></div><div style="font-weight:600;margin-bottom:3px">Aguardando scan</div><div style="font-size:11px">Selecione operador e baia para iniciar</div></div></div>
       </div>
       <div class="cx-list" id="cxList"></div>
     </div>
@@ -751,11 +806,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div class="sc">
         <div class="sc-t">Ações</div>
         <div class="sc-b">
-          <button class="btn-cx" id="btnCx" disabled onclick="fecharCaixa()">📦 Fechar Caixa Atual</button>
-          <button class="btn-fin" id="btnFin" disabled onclick="abrirFin()">✅ Finalizar Embalagem</button>
-          <button class="btn-gh" onclick="pedirSenhaQtdManual()">🔒 Adicionar Qtd. Manual</button>
-          <button class="btn-gh" onclick="impOffline()">🖨 Etiqueta Offline</button>
-          <button class="btn-gh" onclick="limpar()" style="color:var(--rd);border-color:var(--rdd)">🗑 Limpar sessão</button>
+          <button class="btn-cx" id="btnCx" disabled onclick="fecharCaixa()">Fechar Caixa Atual</button>
+          <button class="btn-fin" id="btnFin" disabled onclick="abrirFin()">Finalizar Embalagem</button>
+          <button class="btn-gh" onclick="pedirSenhaQtdManual()">Adicionar Qtd. Manual</button>
+          <button class="btn-gh" onclick="impOffline()">Etiqueta Offline</button>
+          <button class="btn-gh" onclick="limpar()" style="color:var(--rd);border-color:var(--rdd)">Limpar sessão</button>
         </div>
       </div>
     </div>
@@ -769,17 +824,20 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <header class="hdr no-print">
     <div class="hdr-l">
       <button class="btn-back" onclick="voltarInicio()">←</button>
-      <div class="logo"><div class="logo-box">💰</div>Faturamento</div>
+      <div class="logo"><div class="logo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M6 2.5h8.5L19 7v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M14.5 2.5V7H19"/><path d="M8.5 12.5h7M8.5 16h4.5"/></svg></div>Faturamento</div>
     </div>
     <div class="hdr-r"><span class="clk" id="clk2">00:00</span></div>
   </header>
   <div class="screen-body">
     <div class="adm-wrap">
       <nav class="adm-tabs">
-        <button class="adm-tab active" data-t="dashboard" onclick="fatTab('dashboard')"><span class="ic">📊</span>Dashboard</button>
-        <button class="adm-tab" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic">📦</span>Pedidos</button>
-        <button class="adm-tab" data-t="historico" onclick="fatTab('historico')"><span class="ic">📋</span>Histórico</button>
-        <!-- Aba "Embalagens (antigo)" removida do menu — painel e funções continuam no código
+        <button class="adm-tab active" data-t="dashboard" onclick="fatTab('dashboard')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M5 20V13M12 20V6M19 20v-9"/></svg></span>Dashboard</button>
+        <button class="adm-tab" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 7.5l9-4.5 9 4.5-9 4.5-9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg></span>Pedidos</button>
+        <!-- Aba "Histórico" removida do menu — painel e função continuam no código
+             (fpane-historico, renderHistoricoFatSec), só não tem mais botão de acesso.
+             Ficou redundante: o filtro "Todos" da aba Pedidos já lista qualquer pedido
+             (aberto/fechado/finalizado) e abre o mesmo modal de detalhe.
+             Aba "Embalagens (antigo)" removida do menu — painel e funções continuam no código
              (fpane-embalagens, carregarFat, renderFat etc.), só não tem mais botão de acesso.
              NFs emitidas pelo sistema antigo por sessão só existem ali; se precisar consultar
              uma no futuro, é só devolver este botão. A aba "Relatório" seguiu o mesmo caminho,
@@ -789,6 +847,20 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <section class="fat-panel active" id="fpane-dashboard">
           <h2 class="adm-panel-title">Dashboard</h2>
           <div class="rel-toolbar">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+              <div class="rel-group">
+                <span class="rel-group-lbl">Datas selecionadas</span>
+                <div class="rel-dates">
+                  <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()">
+                  <span class="rel-dates-sep">até</span>
+                  <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()">
+                </div>
+              </div>
+              <div class="rel-acoes">
+                <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
+                <button class="btn-reload rel-pdf" onclick="imprimirRelatorioFaturamento()">Baixar PDF</button>
+              </div>
+            </div>
             <div class="rel-group">
               <span class="rel-group-lbl">Período</span>
               <div class="rel-pills">
@@ -797,33 +869,33 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
                 <button class="fat-filter" id="relBtn6m" onclick="setPeriodoRelatorio('6m',this)">6 meses</button>
               </div>
             </div>
-            <div class="rel-group">
-              <span class="rel-group-lbl">Personalizado</span>
-              <div class="rel-dates">
-                <input autocomplete="off" class="adm-search" id="relDataInicio" type="date" onchange="periodoRelPersonalizado()">
-                <span class="rel-dates-sep">até</span>
-                <input autocomplete="off" class="adm-search" id="relDataFim" type="date" onchange="periodoRelPersonalizado()">
-              </div>
-            </div>
-            <div class="rel-acoes">
-              <button class="btn-reload" onclick="carregarRelatorioFaturamento()">↻ Atualizar</button>
-              <button class="btn-reload rel-pdf" onclick="imprimirRelatorioFaturamento()">🖨 Baixar PDF</button>
-            </div>
           </div>
           <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
         </section>
 
         <section class="fat-panel" id="fpane-pedidos">
-          <h2 class="adm-panel-title">Pedidos <span class="adm-panel-count" style="text-transform:none;letter-spacing:0">· atualiza sozinho</span></h2>
-          <div class="adm-searchrow">
-            <input autocomplete="off" class="adm-search" id="pedFiltroTexto" placeholder="🔍 Buscar por número do pedido..." oninput="renderPedidosEsperados()">
-            <input autocomplete="off" class="adm-search" id="pedFiltroData" type="date" onchange="renderPedidosEsperados()" style="max-width:170px">
-            <button class="adm-btn-ghost" onclick="document.getElementById('pedFiltroTexto').value='';document.getElementById('pedFiltroData').value='';renderPedidosEsperados();" title="Limpar filtros">✕</button>
+          <h2 class="adm-panel-title">Pedidos <span class="adm-panel-count" data-dica style="text-transform:none;letter-spacing:0">· atualiza sozinho</span></h2>
+          <div class="ped-filterbar">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+              <div style="flex:1;min-width:220px">
+                <span class="ped-filterbar-lbl">Buscar</span>
+                <input autocomplete="off" class="adm-search" id="pedFiltroBusca" placeholder="Nº do pedido, código ou peça..." oninput="renderPedidosEsperados()">
+              </div>
+              <div>
+                <span class="ped-filterbar-lbl">Cadastrado em</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input autocomplete="off" class="adm-search" id="pedFiltroDataIni" type="date" onchange="renderPedidosEsperados()" style="max-width:150px">
+                  <span class="rel-dates-sep">até</span>
+                  <input autocomplete="off" class="adm-search" id="pedFiltroDataFim" type="date" onchange="renderPedidosEsperados()" style="max-width:150px">
+                  <button class="adm-btn-ghost" onclick="limparFiltrosPedidos()" title="Limpar filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="fat-filters" style="margin:10px 0 4px">
             <button class="fat-filter active" onclick="setPedFiltroStatus('todos',this)">Todos</button>
-            <button class="fat-filter" onclick="setPedFiltroStatus('aberto',this)">📦 Em Aberto</button>
-            <button class="fat-filter fat-ok" onclick="setPedFiltroStatus('faturado',this)">✅ Faturados</button>
+            <button class="fat-filter" onclick="setPedFiltroStatus('aberto',this)">Em Aberto</button>
+            <button class="fat-filter fat-ok" onclick="setPedFiltroStatus('faturado',this)">Faturados</button>
           </div>
           <div id="bannerPendenciasFat" style="display:none;margin-bottom:8px"></div>
           <div id="bannerProntoFinalizar" style="display:none;margin-bottom:12px"></div>
@@ -833,9 +905,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <section class="fat-panel" id="fpane-historico">
           <h2 class="adm-panel-title">Histórico</h2>
           <div class="adm-searchrow">
-            <input autocomplete="off" class="adm-search" id="histFatFiltroTexto" placeholder="🔍 Buscar por número do pedido..." oninput="renderHistoricoFatSec()">
+            <input autocomplete="off" class="adm-search" id="histFatFiltroTexto" placeholder="Buscar por número do pedido..." oninput="renderHistoricoFatSec()">
             <input autocomplete="off" class="adm-search" id="histFatFiltroData" type="date" onchange="renderHistoricoFatSec()" style="max-width:170px">
-            <button class="adm-btn-ghost" onclick="document.getElementById('histFatFiltroTexto').value='';document.getElementById('histFatFiltroData').value='';renderHistoricoFatSec();" title="Limpar filtros">✕</button>
+            <button class="adm-btn-ghost" onclick="document.getElementById('histFatFiltroTexto').value='';document.getElementById('histFatFiltroData').value='';renderHistoricoFatSec();" title="Limpar filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
           </div>
           <div id="histFatSec"></div>
         </section>
@@ -846,15 +918,15 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
             <div class="fat-sub">Itens consolidados · NF por sessão</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn-reload" onclick="exportarFatExcel()" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)">⬇ Excel (tudo)</button>
-              <button class="btn-reload" onclick="imprimirRelatorioEmbalagensAntigo()" style="background:var(--acd);border-color:var(--ac);color:var(--brand2)">🖨 PDF (tudo)</button>
+              <button class="btn-reload" onclick="imprimirRelatorioEmbalagensAntigo()" style="background:var(--acd);border-color:var(--ac);color:var(--brand2)">PDF (tudo)</button>
               <button class="btn-reload" onclick="carregarFat()">↻ Atualizar</button>
             </div>
           </div>
-          <input autocomplete="off" class="fat-search" id="fatSearch" placeholder="🔍 Buscar por pedido, operador ou NF..." oninput="filtrarFat()">
+          <input autocomplete="off" class="fat-search" id="fatSearch" placeholder="Buscar por pedido, operador ou NF..." oninput="filtrarFat()">
           <div class="fat-filters">
             <button class="fat-filter active" onclick="setFiltroStatus('todos',this)">Todos</button>
-            <button class="fat-filter" onclick="setFiltroStatus('embalado',this)">📦 Embalado</button>
-            <button class="fat-filter fat-ok" onclick="setFiltroStatus('faturado',this)">✅ Faturado</button>
+            <button class="fat-filter" onclick="setFiltroStatus('embalado',this)">Embalado</button>
+            <button class="fat-filter fat-ok" onclick="setFiltroStatus('faturado',this)">Faturado</button>
           </div>
           <div id="fatLista"><div class="fat-spin-wrap"><div class="fat-spinner"></div><div style="margin-top:8px">Aguardando...</div></div></div>
         </section>
@@ -872,18 +944,18 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   <header class="hdr no-print">
     <div class="hdr-l">
       <button class="btn-back" onclick="voltarInicio()">←</button>
-      <div class="logo"><div class="logo-box">🔐</div>Admin</div>
+      <div class="logo"><div class="logo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>Admin</div>
     </div>
     <div class="hdr-r"><span class="clk" id="clk3">00:00</span></div>
   </header>
   <div class="screen-body">
     <div class="adm-wrap">
       <nav class="adm-tabs">
-        <button class="adm-tab active" data-t="op" onclick="admTab('op')"><span class="ic">👤</span>Operadores</button>
-        <button class="adm-tab" data-t="baia" onclick="admTab('baia')"><span class="ic">📍</span>Baias</button>
-        <button class="adm-tab" data-t="prod" onclick="admTab('prod')"><span class="ic">🏷️</span>Peças</button>
-        <button class="adm-tab" data-t="hist" onclick="admTab('hist')"><span class="ic">📋</span>Histórico</button>
-        <button class="adm-tab" data-t="config" onclick="admTab('config')"><span class="ic">⚙️</span>Configurações</button>
+        <button class="adm-tab active" data-t="op" onclick="admTab('op')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg></span>Operadores</button>
+        <button class="adm-tab" data-t="baia" onclick="admTab('baia')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M12 21s7-6.6 7-12a7 7 0 0 0-14 0c0 5.4 7 12 7 12z"/><circle cx="12" cy="9" r="2.3"/></svg></span>Baias</button>
+        <button class="adm-tab" data-t="prod" onclick="admTab('prod')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M12.5 3.5H20v7.5L11 20 3.5 12.5l9-9z"/><circle cx="16.2" cy="7.2" r="1.3" fill="currentColor" stroke="none"/></svg></span>Peças</button>
+        <button class="adm-tab" data-t="hist" onclick="admTab('hist')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6v2.5H9z" fill="currentColor" stroke="none"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg></span>Histórico</button>
+        <button class="adm-tab" data-t="config" onclick="admTab('config')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.5 12H2.3M21.7 12h-2.2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg></span>Configurações</button>
       </nav>
 
       <div class="adm-content">
@@ -893,7 +965,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <input autocomplete="off" class="adm-input" id="addOpI" placeholder="Nome do operador" onkeydown="if(event.key==='Enter')addOp()">
           <button class="adm-btn-add" onclick="addOp()">Adicionar</button>
         </div>
-        <div class="adm-hint">Salva sozinho ao adicionar ou remover.</div>
+        <div class="adm-hint" data-dica>Salva sozinho ao adicionar ou remover.</div>
         <div class="adm-list" id="listOp"></div>
       </section>
 
@@ -903,7 +975,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <input autocomplete="off" class="adm-input" id="addBaiaI" placeholder="Ex: Baia 01" onkeydown="if(event.key==='Enter')addBaia()">
           <button class="adm-btn-add" onclick="addBaia()">Adicionar</button>
         </div>
-        <div class="adm-hint">Salva sozinho ao adicionar ou remover.</div>
+        <div class="adm-hint" data-dica>Salva sozinho ao adicionar ou remover.</div>
         <div class="adm-list" id="listBaia"></div>
       </section>
 
@@ -925,43 +997,50 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       <section class="adm-panel" id="pane-hist">
         <h2 class="adm-panel-title">Histórico</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          <select class="adm-search" id="histOpSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os operadores</option></select>
-          <select class="adm-search" id="histPedSel" onchange="filtrarHist()" style="flex:1;min-width:150px;max-width:260px"><option value="">Todos os pedidos</option></select>
-          <input autocomplete="off" class="adm-search" id="histNfBusca" placeholder="🔍 Nº da NF..." oninput="filtrarHist()" style="flex:1;min-width:120px;max-width:200px">
-          <button class="adm-btn-ghost" onclick="carregarHist()" title="Recarregar">↻</button>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">De</label>
-            <input autocomplete="off" class="adm-search" id="histDataInicio" type="date" onchange="filtrarHist()" style="max-width:150px">
+        <div class="ped-filterbar">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:1;min-width:150px">
+              <span class="ped-filterbar-lbl">Operador</span>
+              <select class="adm-search" id="histOpSel" onchange="filtrarHist()"><option value="">Todos os operadores</option></select>
+            </div>
+            <div style="flex:1;min-width:150px">
+              <span class="ped-filterbar-lbl">Pedido</span>
+              <select class="adm-search" id="histPedSel" onchange="filtrarHist()"><option value="">Todos os pedidos</option></select>
+            </div>
+            <div style="flex:1;min-width:120px">
+              <span class="ped-filterbar-lbl">Nota fiscal</span>
+              <input autocomplete="off" class="adm-search" id="histNfBusca" placeholder="Nº da NF..." oninput="filtrarHist()">
+            </div>
+            <button class="adm-btn-ghost" onclick="carregarHist()" title="Recarregar" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <label style="font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Até</label>
-            <input autocomplete="off" class="adm-search" id="histDataFim" type="date" onchange="filtrarHist()" style="max-width:150px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
+            <div>
+              <span class="ped-filterbar-lbl">Data da embalagem</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input autocomplete="off" class="adm-search" id="histDataInicio" type="date" onchange="filtrarHist()" style="max-width:150px">
+                <span class="rel-dates-sep">até</span>
+                <input autocomplete="off" class="adm-search" id="histDataFim" type="date" onchange="filtrarHist()" style="max-width:150px">
+                <button class="adm-btn-ghost" onclick="document.getElementById('histDataInicio').value='';document.getElementById('histDataFim').value='';filtrarHist();" title="Limpar período"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
+              </div>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <span class="ped-filterbar-lbl">Peças</span>
+              <button class="adm-search" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="abrirFiltroPecasHist()">
+                <span>Filtrar por peças <span id="histPecasCountLabel" style="color:var(--brand2);font-weight:600"></span></span>
+                <span style="color:var(--td)">▾</span>
+              </button>
+            </div>
           </div>
-          <button class="adm-btn-ghost" onclick="document.getElementById('histDataInicio').value='';document.getElementById('histDataFim').value='';filtrarHist();" title="Limpar período">✕</button>
         </div>
-        <button class="adm-search" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:pointer" onclick="abrirFiltroPecasHist()">
-          <span>🏷️ Filtrar por peças <span id="histPecasCountLabel" style="color:var(--brand2);font-weight:600"></span></span>
-          <span style="color:var(--td)">▾</span>
-        </button>
         <div id="histLimiteAviso" style="display:none;align-items:center;gap:8px;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:9px 12px;font-size:11px;margin-bottom:10px">
-          ⚠ Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
+          Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
         </div>
         <div class="adm-list" id="histLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
       </section>
 
       <section class="adm-panel" id="pane-config">
         <h2 class="adm-panel-title">Configurações</h2>
-        <div class="dp2-panel">
-          <div class="dp2-panel-bd" style="font-size:13px;color:var(--tm);line-height:1.7">
-            Essa aba ainda não tem conteúdo definido. Candidatos possíveis: dados padrão de
-            faturamento (transportadora/cliente frequente), preferências de impressão de
-            etiqueta, texto do rodapé dos PDFs, gestão das senhas de acesso. Me diga o que
-            entra aqui e eu implemento.
-          </div>
-        </div>
+        <div id="configSec"></div>
       </section>
       </div>
     </div>
@@ -972,7 +1051,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL PESO -->
 <div class="ov hidden" id="ovPeso">
   <div class="md" style="max-width:420px">
-    <div class="md-hdr"><span class="md-title">Fechar Caixa</span><button class="md-x" onclick="cancelPeso()">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Fechar Caixa</span><button class="md-x" onclick="cancelPeso()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="peso-box">
         <div class="peso-num" id="pesoNum">Caixa 1</div>
@@ -982,7 +1061,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <div class="peso-row"><input autocomplete="off" class="peso-inp" type="number" id="pesoInp" placeholder="0.00" step="0.01" min="0.01" onkeydown="if(event.key==='Enter')okPeso()"><span class="peso-unit">kg</span></div>
           <div class="peso-err" id="pesoErr">Informe o peso da caixa (maior que 0).</div>
         </div>
-        <button class="btn-ok" id="btnOkPeso" onclick="okPeso()" style="width:100%;padding:13px;font-size:14px">📦 Fechar Caixa</button>
+        <button class="btn-ok" id="btnOkPeso" onclick="okPeso()" style="width:100%;padding:13px;font-size:14px">Fechar Caixa</button>
       </div>
     </div>
   </div>
@@ -991,10 +1070,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL SENHA -->
 <div class="ov hidden" id="ovSenha">
   <div class="md" style="max-width:400px">
-    <div class="md-hdr"><span class="md-title" id="senhaTitle">Acesso</span><button class="md-x" onclick="fecharSenhaModal()">✕</button></div>
+    <div class="md-hdr"><span class="md-title" id="senhaTitle">Acesso</span><button class="md-x" onclick="fecharSenhaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="senha-box">
-        <div class="senha-ico">🔐</div>
+        <div class="senha-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>
         <div class="senha-ttl" id="senhaTtl">Área Restrita</div>
         <div class="senha-sub">Digite a senha para continuar</div>
         <input autocomplete="one-time-code" type="password" id="senhaInp" placeholder="••••••" maxlength="20" onkeydown="if(event.key==='Enter')checkSenha()">
@@ -1008,13 +1087,13 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL QUANTIDADE MANUAL (protegido por senha admin) -->
 <div class="ov hidden" id="ovQtdManual">
   <div class="md" style="max-width:420px">
-    <div class="md-hdr"><span class="md-title">🔒 Adicionar Quantidade Manual</span><button class="md-x" onclick="fecharOv('ovQtdManual')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Adicionar Quantidade Manual</span><button class="md-x" onclick="fecharOv('ovQtdManual')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div style="font-size:11px;color:var(--td);margin-bottom:12px">Uso restrito ao admin — soma direto na caixa atual, sem bipar um por um. Confirme o código e a quantidade exata antes de adicionar.</div>
       <div class="md-row"><label class="lbl req">Código (EAN / QR)</label><input autocomplete="off" class="inp" type="text" id="qtdManualCod" placeholder="Bipe ou digite o código" onkeydown="if(event.key==='Enter')document.getElementById('qtdManualQtd').focus()"></div>
       <div class="md-row"><label class="lbl req">Quantidade</label><input autocomplete="off" class="inp" type="number" id="qtdManualQtd" placeholder="Ex: 300" min="1" step="1" onkeydown="if(event.key==='Enter')confirmarQtdManual()"></div>
       <div id="qtdManualErr" style="color:var(--rd);font-size:11px;display:none"></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovQtdManual')">Cancelar</button><button class="btn-ok" onclick="confirmarQtdManual()">✔ Adicionar</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovQtdManual')">Cancelar</button><button class="btn-ok" onclick="confirmarQtdManual()">Adicionar</button></div>
     </div>
   </div>
 </div>
@@ -1022,7 +1101,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL FINALIZAR -->
 <div class="ov hidden" id="ovFin">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">Finalizar Embalagem</span><button class="md-x" onclick="fecharOv('ovFin')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Finalizar Embalagem</span><button class="md-x" onclick="fecharOv('ovFin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="md-row">
         <label class="lbl">Pedido</label>
@@ -1038,14 +1117,14 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL IMPRESSÃO -->
 <div class="ov hidden" id="ovImpr">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">O que imprimir?</span><button class="md-x" onclick="fecharOv('ovImpr')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">O que imprimir?</span><button class="md-x" onclick="fecharOv('ovImpr')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="print-opts">
-        <button class="popt p" onclick="impRel()"><span class="popt-ico">🖨</span><span class="popt-txt"><span class="popt-t">Relatório</span><span class="popt-s">Resumo com todas as caixas</span></span></button>
-        <button class="popt g" onclick="impEtq()"><span class="popt-ico">🏷</span><span class="popt-txt"><span class="popt-t">Etiquetas</span><span class="popt-s">Uma por caixa com QR Code</span></span></button>
-        <button class="popt s" onclick="impTudo()"><span class="popt-ico">⚡</span><span class="popt-txt"><span class="popt-t">Tudo</span><span class="popt-s">Relatório + etiquetas</span></span></button>
+        <button class="popt p" onclick="impRel()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M7 8.5V3.5h10v5"/><rect x="4.5" y="8.5" width="15" height="8" rx="1.5"/><path d="M7 15h10v6H7z"/></svg></span><span class="popt-txt"><span class="popt-t">Relatório</span><span class="popt-s">Resumo com todas as caixas</span></span></button>
+        <button class="popt g" onclick="impEtq()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M12.5 3.5H20v7.5L11 20 3.5 12.5l9-9z"/><circle cx="16.2" cy="7.2" r="1.3" fill="currentColor" stroke="none"/></svg></span><span class="popt-txt"><span class="popt-t">Etiquetas</span><span class="popt-s">Uma por caixa com QR Code</span></span></button>
+        <button class="popt s" onclick="impTudo()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></span><span class="popt-txt"><span class="popt-t">Tudo</span><span class="popt-s">Relatório + etiquetas</span></span></button>
       </div>
-      <div class="md-acts" style="margin-top:12px"><button class="btn-cncl" onclick="novaEmb()">🔄 Nova embalagem</button><button class="btn-cncl" onclick="fecharOv('ovImpr')">Fechar</button></div>
+      <div class="md-acts" style="margin-top:12px"><button class="btn-cncl" onclick="novaEmb()">Nova embalagem</button><button class="btn-cncl" onclick="fecharOv('ovImpr')">Fechar</button></div>
     </div>
   </div>
 </div>
@@ -1053,7 +1132,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL FATURAR PEDIDO -->
 <div class="ov hidden" id="ovFaturar">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">💰 Faturar Pedido</span><button class="md-x" onclick="fecharOv('ovFaturar')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Faturar Pedido</span><button class="md-x" onclick="fecharOv('ovFaturar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="fat-form-section" id="fatResumoPed"></div>
       <div class="md-row"><label class="lbl req">Cliente</label><input autocomplete="off" class="inp" type="text" id="fatCliente" placeholder="Nome do cliente"><div id="fatClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
@@ -1061,7 +1140,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div class="md-row"><label class="lbl req">Número da Nota Fiscal</label><input autocomplete="off" class="inp" type="text" id="fatNF" placeholder="Ex: NF-0001234"><div id="fatNFErr" style="color:var(--rd);font-size:11px;display:none">Informe o número da NF.</div></div>
       <div class="md-row"><label class="lbl">Transportadora</label><input autocomplete="off" class="inp" type="text" id="fatTransp" placeholder="Ex: RPD"></div>
       <div class="md-row"><label class="lbl">Data de fabricação</label><input autocomplete="off" class="inp" type="text" id="fatDataFab" placeholder="Ex: 23/06/2026"></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFaturar" onclick="confirmarFaturamento()">✅ Confirmar Faturamento</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFaturar" onclick="confirmarFaturamento()">Confirmar Faturamento</button></div>
     </div>
   </div>
 </div>
@@ -1069,19 +1148,19 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL CADASTRAR PEDIDO — Faturamento registra o pedido total esperado (itens + quantidade) -->
 <div class="ov hidden" id="ovCadastrarPedido">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">📝 Cadastrar Pedido</span><button class="md-x" onclick="fecharOv('ovCadastrarPedido')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Cadastrar Pedido</span><button class="md-x" onclick="fecharOv('ovCadastrarPedido')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Número do Pedido</label><input autocomplete="off" class="inp" type="text" id="cadPedNum" placeholder="Ex: PED-2025-001"><div id="cadPedNumErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o número do pedido.</div></div>
       <div class="lbl" style="margin:12px 0 6px">Itens esperados</div>
       <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-        <button class="adm-btn-add" onclick="abrirEscolherProdutos()">🔎 Escolher Produtos</button>
-        <button class="adm-btn-add" style="background:var(--gn)" onclick="document.getElementById('cadPedExcelFile').click()">📤 Importar Excel</button>
+        <button class="adm-btn-add" onclick="abrirEscolherProdutos()">Escolher Produtos</button>
+        <button class="adm-btn-add" style="background:var(--gn)" onclick="document.getElementById('cadPedExcelFile').click()">Importar Excel</button>
         <button class="btn-cncl" onclick="baixarModeloPedidoExcel()">⬇ Baixar modelo</button>
         <input autocomplete="off" type="file" id="cadPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelPedido(this)">
       </div>
       <div id="cadPedItensList"></div>
       <div id="cadPedItensErr" style="color:var(--rd);font-size:11px;display:none">Adicione ao menos 1 item — escolha na lista, importe um Excel, ou os dois.</div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovCadastrarPedido')">Cancelar</button><button class="btn-ok green" onclick="salvarPedidoEsperado()">✔ Cadastrar Pedido</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovCadastrarPedido')">Cancelar</button><button class="btn-ok green" onclick="salvarPedidoEsperado()">Cadastrar Pedido</button></div>
     </div>
   </div>
 </div>
@@ -1089,11 +1168,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL MOTIVO DE NÃO CONCLUSÃO — obrigatório só quando finaliza pedido com saldo -->
 <div class="ov hidden" id="ovMotivoFinalizar">
   <div class="md" style="max-width:440px">
-    <div class="md-hdr"><span class="md-title">⚠ Pedido não concluído</span><button class="md-x" onclick="fecharOv('ovMotivoFinalizar')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Pedido não concluído</span><button class="md-x" onclick="fecharOv('ovMotivoFinalizar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div style="font-size:12px;color:var(--yw);margin-bottom:12px" id="motivoFinalizarInfo"></div>
       <div class="md-row"><label class="lbl req">Motivo de não ter concluído</label><textarea autocomplete="off" class="inp" id="motivoFinalizarTxt" rows="3" placeholder="Ex: cliente cancelou o restante, falta de peça em estoque..." style="resize:vertical;min-height:88px;line-height:1.4"></textarea><div id="motivoFinalizarErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o motivo.</div></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoFinalizar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFinalizarMotivo" onclick="confirmarFinalizarComMotivo()">✅ Finalizar mesmo assim</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoFinalizar')">Cancelar</button><button class="btn-ok green" id="btnConfirmFinalizarMotivo" onclick="confirmarFinalizarComMotivo()">Finalizar mesmo assim</button></div>
     </div>
   </div>
 </div>
@@ -1101,10 +1180,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL MOTIVO DE REABERTURA — obrigatório sempre que reabre um pedido fechado/finalizado -->
 <div class="ov hidden" id="ovMotivoReabrir">
   <div class="md" style="max-width:440px">
-    <div class="md-hdr"><span class="md-title">🔓 Reabrir Pedido</span><button class="md-x" onclick="fecharOv('ovMotivoReabrir')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Reabrir Pedido</span><button class="md-x" onclick="fecharOv('ovMotivoReabrir')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Motivo da reabertura</label><textarea autocomplete="off" class="inp" id="motivoReabrirTxt" rows="3" placeholder="Ex: cliente pediu mais unidades, erro ao finalizar antes da hora..." style="resize:vertical;min-height:88px;line-height:1.4"></textarea><div id="motivoReabrirErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o motivo.</div></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoReabrir')">Cancelar</button><button class="btn-ok green" id="btnConfirmReabrirMotivo" onclick="confirmarReabrirComMotivo()">✔ Reabrir</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovMotivoReabrir')">Cancelar</button><button class="btn-ok green" id="btnConfirmReabrirMotivo" onclick="confirmarReabrirComMotivo()">Reabrir</button></div>
     </div>
   </div>
 </div>
@@ -1112,9 +1191,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL ADICIONAR ITEM A PEDIDO EXISTENTE -->
 <div class="ov hidden" id="ovAdicionarItemPedido">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">+ Adicionar Produto ao Pedido</span><button class="md-x" onclick="fecharOv('ovAdicionarItemPedido')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">+ Adicionar Produto ao Pedido</span><button class="md-x" onclick="fecharOv('ovAdicionarItemPedido')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
-      <input class="adm-search" id="addItemBusca" placeholder="🔍 Buscar produto..." oninput="renderAddItemLista()" style="margin-bottom:10px" autocomplete="off">
+      <input class="adm-search" id="addItemBusca" placeholder="Buscar produto..." oninput="renderAddItemLista()" style="margin-bottom:10px" autocomplete="off">
       <div id="addItemLista" style="max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-row"><label class="lbl req">Quantidade</label><input autocomplete="off" class="inp" type="number" id="addItemQtd" min="1" value="1"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovAdicionarItemPedido')">Cancelar</button><button class="btn-ok green" id="btnConfirmAddItem" onclick="confirmarAdicionarItemPedido()">+ Adicionar</button></div>
@@ -1125,10 +1204,10 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL PENDÊNCIAS DE FATURAMENTO — quais pedidos têm produção embalada e não faturada -->
 <div class="ov hidden" id="ovPendenciasFaturamento">
   <div class="md" style="max-width:760px">
-    <div class="md-hdr"><span class="md-title">🔴 Pendências de Faturamento</span><button class="md-x" onclick="fecharOv('ovPendenciasFaturamento')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Pendências de Faturamento</span><button class="md-x" onclick="fecharOv('ovPendenciasFaturamento')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div id="pendenciasFatSec"></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovPendenciasFaturamento')">Fechar</button><button class="btn-ok green" onclick="imprimirPendenciasFaturamento()">🖨 Baixar PDF</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovPendenciasFaturamento')">Fechar</button><button class="btn-ok green" onclick="imprimirPendenciasFaturamento()">Baixar PDF</button></div>
     </div>
   </div>
 </div>
@@ -1136,7 +1215,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL DETALHE DO PEDIDO — itens, saldo, histórico de dias e ações, aberto ao tocar num pedido -->
 <div class="ov hidden" id="ovDetalhePedido">
   <div class="md">
-    <div class="md-hdr"><span class="md-title" id="detPedTitulo">Pedido</span><button class="md-x" onclick="fecharDetalhePedido()">✕</button></div>
+    <div class="md-hdr"><span class="md-title" id="detPedTitulo">Pedido</span><button class="md-x" onclick="fecharDetalhePedido()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body" id="detPedBody"></div>
   </div>
 </div>
@@ -1144,9 +1223,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL ESCOLHER PRODUTOS — multi-seleção por nome, usado no cadastro de pedido -->
 <div class="ov hidden" id="ovEscolherProdutos">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">Escolher Produtos</span><button class="md-x" onclick="fecharOv('ovEscolherProdutos')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Escolher Produtos</span><button class="md-x" onclick="fecharOv('ovEscolherProdutos')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
-      <input class="adm-search" id="escProdBusca" placeholder="🔍 Buscar por nome..." oninput="renderEscolherProdutos()" style="margin-bottom:10px" autocomplete="off">
+      <input class="adm-search" id="escProdBusca" placeholder="Buscar por nome..." oninput="renderEscolherProdutos()" style="margin-bottom:10px" autocomplete="off">
       <div id="escProdLista" style="max-height:48vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovEscolherProdutos')">Cancelar</button><button class="btn-ok green" id="btnAdicionarSelecionados" onclick="adicionarProdutosSelecionados()">Adicionar selecionados</button></div>
     </div>
@@ -1156,9 +1235,9 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL FILTRAR POR PEÇAS — usado no Histórico do Admin, multi-seleção sem quantidade (é filtro) -->
 <div class="ov hidden" id="ovFiltrarPecasHist">
   <div class="md">
-    <div class="md-hdr"><span class="md-title">Filtrar por Peças</span><button class="md-x" onclick="fecharOv('ovFiltrarPecasHist')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Filtrar por Peças</span><button class="md-x" onclick="fecharOv('ovFiltrarPecasHist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
-      <input class="adm-search" id="filtroPecasBusca" placeholder="🔍 Buscar por nome..." oninput="renderFiltroPecasHist()" style="margin-bottom:10px" autocomplete="off">
+      <input class="adm-search" id="filtroPecasBusca" placeholder="Buscar por nome..." oninput="renderFiltroPecasHist()" style="margin-bottom:10px" autocomplete="off">
       <div id="filtroPecasLista" style="max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="limparFiltroPecasHist()">Limpar seleção</button><button class="btn-ok green" onclick="aplicarFiltroPecasHist()">Aplicar</button></div>
     </div>
@@ -1168,7 +1247,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL SELECIONAR FINALIZAÇÕES — escolhe quais entram nessa NF, antes de informar NF/cliente/data -->
 <div class="ov hidden" id="ovSelecionarFinalizacoes">
   <div class="md" style="max-width:540px">
-    <div class="md-hdr"><span class="md-title">Selecionar Finalizações</span><button class="md-x" onclick="fecharOv('ovSelecionarFinalizacoes')">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Selecionar Finalizações</span><button class="md-x" onclick="fecharOv('ovSelecionarFinalizacoes')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div style="font-size:12px;color:var(--td);margin-bottom:12px">Escolha quais finalizações entram nessa nota fiscal — não precisa ser todas, nem em ordem.</div>
       <div id="selFinLista" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:14px"></div>
@@ -1180,12 +1259,12 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL FATURAR UM DIA — NF pra tudo que um pedido embalou numa data -->
 <div class="ov hidden" id="ovFaturarDia">
   <div class="md" style="max-width:440px">
-    <div class="md-hdr"><span class="md-title" id="fatDiaTitulo">Faturar dia</span><button class="md-x" onclick="fecharOv('ovFaturarDia')">✕</button></div>
+    <div class="md-hdr"><span class="md-title" id="fatDiaTitulo">Faturar dia</span><button class="md-x" onclick="fecharOv('ovFaturarDia')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="md-row"><label class="lbl req">Cliente</label><input autocomplete="off" class="inp" type="text" id="fatDiaCliente" placeholder="Nome do cliente"><div id="fatDiaClienteErr" style="color:var(--rd);font-size:11px;display:none">Informe o cliente.</div></div>
       <div class="md-row"><label class="lbl req">Número da NF</label><input autocomplete="off" class="inp" type="text" id="fatDiaNF" placeholder="Ex: NF-0001234"><div id="fatDiaNFErr" style="color:var(--rd);font-size:11px;display:none">Informe a NF.</div></div>
       <div class="md-row"><label class="lbl">Data de faturamento</label><input autocomplete="off" class="inp" type="date" id="fatDiaData"></div>
-      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturarDia')">Cancelar</button><button class="btn-ok green" id="btnConfirmFatDia" onclick="confirmarFaturarDia()">✅ Confirmar</button></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovFaturarDia')">Cancelar</button><button class="btn-ok green" id="btnConfirmFatDia" onclick="confirmarFaturarDia()">Confirmar</button></div>
     </div>
   </div>
 </div>
@@ -1195,11 +1274,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MENU DE AÇÕES DE UM PEDIDO (⋮): Excel ou Relatório -->
 <div class="ov hidden" id="ovPedAcoes">
   <div class="md">
-    <div class="md-hdr"><span class="md-title" id="pedAcoesTitulo">Pedido</span><button class="md-x" onclick="fecharPedAcoes()">✕</button></div>
+    <div class="md-hdr"><span class="md-title" id="pedAcoesTitulo">Pedido</span><button class="md-x" onclick="fecharPedAcoes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div class="print-opts">
         <button class="popt s" onclick="exportarPedidoExcel()"><span class="popt-ico">⬇</span><span class="popt-txt"><span class="popt-t">Baixar Excel</span><span class="popt-s">Só este pedido (abas Pedido e Itens)</span></span></button>
-        <button class="popt p" onclick="imprimirPedidoRel()"><span class="popt-ico">🖨</span><span class="popt-txt"><span class="popt-t">Imprimir relatório</span><span class="popt-s">Relatório deste pedido com as caixas</span></span></button>
+        <button class="popt p" onclick="imprimirPedidoRel()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M7 8.5V3.5h10v5"/><rect x="4.5" y="8.5" width="15" height="8" rx="1.5"/><path d="M7 15h10v6H7z"/></svg></span><span class="popt-txt"><span class="popt-t">Imprimir relatório</span><span class="popt-s">Relatório deste pedido com as caixas</span></span></button>
       </div>
       <div class="md-acts" style="margin-top:12px"><button class="btn-cncl" onclick="fecharPedAcoes()">Cancelar</button></div>
     </div>
@@ -1209,7 +1288,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL SELEÇÃO DE OPERADOR, BAIA, PEDIDO E LOTE — 4 passos sequenciais -->
 <div class="ov hidden" id="ovOperBaia">
   <div class="md" style="max-width:520px">
-    <div class="md-hdr"><span class="md-title">👤 Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Quem está embalando?</span><button class="md-x" onclick="fecharOperBaia()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div style="display:flex;gap:5px;margin-bottom:16px">
         <div class="step-dot" id="stepDot1"></div>
@@ -1238,7 +1317,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div id="popStepLote" style="display:none">
         <div id="avisoConcorrenciaPop" style="display:none;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:10px 12px;font-size:11px;margin-bottom:12px;line-height:1.5"></div>
         <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
-        <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">✔ Confirmar e iniciar</button>
+        <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">Confirmar e iniciar</button>
         <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(3)">← Voltar</button>
       </div>
     </div>
@@ -1248,12 +1327,12 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- MODAL ETIQUETA DA CAIXA — aparece assim que uma caixa fecha -->
 <div class="ov hidden" id="ovEtqCx">
   <div class="md" style="max-width:420px">
-    <div class="md-hdr"><span class="md-title">🏷️ Etiqueta da Caixa</span><button class="md-x" onclick="fecharEtqCxObrigatoria()">✕</button></div>
+    <div class="md-hdr"><span class="md-title">Etiqueta da Caixa</span><button class="md-x" onclick="fecharEtqCxObrigatoria()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
     <div class="md-body">
       <div style="font-size:13px;color:var(--tx);margin-bottom:16px" id="etqCxInfo"></div>
       <div class="print-opts">
-        <button class="popt g" onclick="imprimirEtiquetaCaixaAtual()"><span class="popt-ico">🏷️</span><span class="popt-txt"><span class="popt-t">Etiqueta da Caixa</span><span class="popt-s">Interna, com QR de controle</span></span></button>
-        <button class="popt p" onclick="imprimirEtiquetaClienteCaixaAtual()"><span class="popt-ico">📦</span><span class="popt-txt"><span class="popt-t">Etiqueta do Cliente</span><span class="popt-s">EAN + QR + lote, vai na caixa de saída</span></span></button>
+        <button class="popt g" onclick="imprimirEtiquetaCaixaAtual()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M12.5 3.5H20v7.5L11 20 3.5 12.5l9-9z"/><circle cx="16.2" cy="7.2" r="1.3" fill="currentColor" stroke="none"/></svg></span><span class="popt-txt"><span class="popt-t">Etiqueta da Caixa</span><span class="popt-s">Interna, com QR de controle</span></span></button>
+        <button class="popt p" onclick="imprimirEtiquetaClienteCaixaAtual()"><span class="popt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 7.5l9-4.5 9 4.5-9 4.5-9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg></span><span class="popt-txt"><span class="popt-t">Etiqueta do Cliente</span><span class="popt-s">EAN + QR + lote, vai na caixa de saída</span></span></button>
       </div>
       <div class="md-acts" style="margin-top:12px"><button class="btn-cncl" onclick="fecharEtqCxObrigatoria()" style="width:100%">Depois</button></div>
     </div>
@@ -1263,7 +1342,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- OVERLAY GRANDE — aviso de produto já bipado, fecha só com clique em OK -->
 <div class="cooldown-ov hidden" id="cooldownOv">
   <div class="cooldown-box">
-    <div class="cooldown-ico">⛔</div>
+    <div class="cooldown-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg></div>
     <div class="cooldown-title">PRODUTO JÁ BIPADO</div>
     <div class="cooldown-sub" id="cooldownSub">Aguarde para bipar novamente</div>
     <button class="cooldown-btn-ok" id="cooldownBtnOk" onclick="fecharCooldown()">OK, ENTENDI</button>
@@ -1273,7 +1352,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 <!-- OVERLAY GRANDE — código escaneado não existe no cadastro de peças -->
 <div class="cooldown-ov hidden" id="naoExisteOv">
   <div class="cooldown-box">
-    <div class="cooldown-ico">⛔</div>
+    <div class="cooldown-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg></div>
     <div class="cooldown-title" id="naoExisteTitle">ETIQUETA NÃO CADASTRADA</div>
     <div class="cooldown-sub" id="naoExisteSub">Este código não existe no cadastro de peças</div>
     <div class="cooldown-num" id="naoExisteCod">—</div>
@@ -1558,10 +1637,49 @@ const Backend={
   Object.defineProperty(window.google.script,'run',{get:makeRunner, configurable:true});
 })();
 
+const SK = 'emb_s3', FK = 'emb_f3', PK = 'emb_prod3', CFGK = 'emb_cfg1';
+
+// ═══════════════════════════════════════
+// CONFIGURAÇÕES DO SISTEMA — liga/desliga de avisos, gráficos e dicas (Admin › Configurações).
+// Fica salvo no localStorage deste aparelho — não sincroniza entre tablets diferentes. Se um
+// dia precisar valer pra todo mundo ao mesmo tempo, isso teria que ir pro Supabase em vez daqui.
+// ═══════════════════════════════════════
+var cfgPadrao={
+  avisoPendenciasFat:true,
+  avisoProntoFinalizar:true,
+  avisoLimiteHist:true,
+  avisoProgresso:true,
+  chartStatusPed:true,
+  chartClientesFat:true,
+  chartTrendFat:true,
+  chartPecasFat:true,
+  mostrarDicas:true
+};
+var cfg=Object.assign({},cfgPadrao);
+try{ var _cfgSalva=localStorage.getItem(CFGK); if(_cfgSalva) cfg=Object.assign({},cfgPadrao,JSON.parse(_cfgSalva)); }catch(e){}
+function salvarCfgSistema(){ try{ localStorage.setItem(CFGK,JSON.stringify(cfg)); }catch(e){} }
+// Mostra/esconde tudo marcado com data-dica conforme a preferência — chamado no init e sempre
+// que o switch "Mostrar dicas" muda.
+function aplicarVisibilidadeDicas(){
+  document.querySelectorAll('[data-dica]').forEach(function(el){ el.style.display=cfg.mostrarDicas?'':'none'; });
+}
+// Chamado pelo onchange de cada switch da tela de Configurações — salva e já reflete na hora
+// em qualquer painel que esteja aberto agora (banners, avisos, gráficos, dicas).
+function toggleCfgSwitch(inp){
+  var chave=inp.getAttribute('data-cfg');
+  cfg[chave]=inp.checked;
+  salvarCfgSistema();
+  if(chave==='avisoPendenciasFat') renderBannerPendenciasFat();
+  if(chave==='avisoProntoFinalizar') renderBannerProntoFinalizar();
+  if(chave==='avisoLimiteHist'){ var elh=document.getElementById('histLimiteAviso'); if(elh) elh.style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none'; }
+  if(chave==='avisoProgresso') atualizarAvisoProgresso();
+  if(chave.indexOf('chart')===0&&relatorioAtual) renderRelatorioFaturamento(relatorioAtual);
+  if(chave==='mostrarDicas') aplicarVisibilidadeDicas();
+}
+
 const SENHA_ADM = 'juntas2025';
 const SENHA_MASTER = '1234mudar'; // acesso exclusivo pra excluir — separado da senha de Admin comum
 const SENHA_FAT = 'faturamento25';
-const SK = 'emb_s3', FK = 'emb_f3', PK = 'emb_prod3';
 
 // ═══════════════════════════════════════
 // ESTADO
@@ -3133,7 +3251,7 @@ var pedidosEsperados=[];
 function carregarPedidosEsperados(){
   try{
     google.script.run
-      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); renderBannerProntoFinalizar(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); } })
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); renderBannerProntoFinalizar(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); if(document.getElementById('fpane-dashboard').classList.contains('active')) renderStatusPedidosChart(); } })
       .withFailureHandler(function(){})
       .listarPedidosEsperados();
   }catch(e){}
@@ -3163,7 +3281,7 @@ function carregarPendenciasFaturamento(){
 function renderBannerPendenciasFat(){
   var el=document.getElementById('bannerPendenciasFat'); if(!el)return;
   var n=Object.keys(pedidosPendentesFat).length;
-  if(!n){ el.innerHTML=''; el.style.display='none'; return; }
+  if(!n||!cfg.avisoPendenciasFat){ el.innerHTML=''; el.style.display='none'; return; }
   el.style.display='block';
   el.innerHTML='<button onclick="abrirPendenciasFaturamento()" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(220,38,38,.4);background:var(--rdd);color:#ffb3ab;cursor:pointer;font-family:var(--f-b);font-size:13px">'+
     '<span style="font-size:18px">🔴</span>'+
@@ -3183,7 +3301,7 @@ function listaPedidosProntosFinalizar(){
 function renderBannerProntoFinalizar(){
   var el=document.getElementById('bannerProntoFinalizar'); if(!el)return;
   var lista=listaPedidosProntosFinalizar();
-  if(!lista.length){ el.innerHTML=''; el.style.display='none'; return; }
+  if(!lista.length||!cfg.avisoProntoFinalizar){ el.innerHTML=''; el.style.display='none'; return; }
   el.style.display='block';
   el.innerHTML='<div style="width:100%;display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:10px;border:1px solid rgba(0,131,62,.4);background:var(--gnd);color:var(--gn);font-family:var(--f-b);font-size:13px">'+
     '<span style="font-size:18px">✅</span>'+
@@ -3364,7 +3482,7 @@ function carregarEventosFaturados(){
 function renderEventosFaturadosSec(){
   var el=document.getElementById('pedEsperSec'); if(!el)return;
   var lista=eventosFaturadosCache||[];
-  var textoEl=document.getElementById('pedFiltroTexto');
+  var textoEl=document.getElementById('pedFiltroBusca');
   var texto=(textoEl?textoEl.value:'').trim().toLowerCase();
   if(texto) lista=lista.filter(function(e){return String(e.pedido).toLowerCase().indexOf(texto)!==-1;});
   if(!(eventosFaturadosCache||[]).length){ el.innerHTML='<div class="fat-empty">Nenhum pedido faturado ainda.</div>'; return; }
@@ -3384,7 +3502,7 @@ function renderEventosFaturadosSec(){
 function renderPedidosEsperados(){
   if(pedFiltroStatus==='faturado'){ renderEventosFaturadosSec(); return; }
   var el=document.getElementById('pedEsperSec'); if(!el)return;
-  var lista=filtrarListaPedidos(pedidosEsperados,'pedFiltroTexto','pedFiltroData');
+  var lista=filtrarPedidosTab(pedidosEsperados);
   if(pedFiltroStatus==='aberto') lista=lista.filter(function(p){return !p.fechado;});
   if(!pedidosEsperados.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido cadastrado ainda — toque no + pra criar o primeiro.</div>'; return; }
   if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido encontrado com esse filtro.</div>'; return; }
@@ -3411,7 +3529,8 @@ function renderPedidosEsperados(){
     }).join('');
 }
 // Filtra uma lista de pedidos pelo texto (número do pedido, contém) e pela data de cadastro
-// (igualdade exata do dia) — usada tanto em Pedidos quanto em Histórico.
+// (igualdade exata do dia) — usada em Histórico (dormente, sem botão de acesso — ver comentário
+// na aba do Faturamento).
 function filtrarListaPedidos(lista,idTexto,idData){
   var elTexto=document.getElementById(idTexto), elData=document.getElementById(idData);
   var texto=(elTexto?elTexto.value:'').trim().toLowerCase();
@@ -3425,6 +3544,36 @@ function filtrarListaPedidos(lista,idTexto,idData){
     return true;
   });
 }
+// Filtro da aba Pedidos: um campo único de busca que casa contra nº do pedido, código de peça
+// ou nome de peça (os dois últimos buscam dentro dos itens do pedido) + intervalo de datas de
+// cadastro. Antes eram 3 campos separados; virou um só pra não obrigar escolher onde procurar.
+function filtrarPedidosTab(lista){
+  var busca=(document.getElementById('pedFiltroBusca').value||'').trim().toLowerCase();
+  var dataIni=document.getElementById('pedFiltroDataIni').value;
+  var dataFim=document.getElementById('pedFiltroDataFim').value;
+  return lista.filter(function(p){
+    if(busca){
+      var bateu=String(p.pedido).toLowerCase().indexOf(busca)!==-1||
+        (p.itens||[]).some(function(it){
+          return String(it.codigo||'').toLowerCase().indexOf(busca)!==-1||
+                 String(it.nome||'').toLowerCase().indexOf(busca)!==-1;
+        });
+      if(!bateu) return false;
+    }
+    if(dataIni||dataFim){
+      var d=p.criadoEm?String(p.criadoEm).substring(0,10):'';
+      if(dataIni&&d<dataIni) return false;
+      if(dataFim&&d>dataFim) return false;
+    }
+    return true;
+  });
+}
+function limparFiltrosPedidos(){
+  document.getElementById('pedFiltroBusca').value='';
+  document.getElementById('pedFiltroDataIni').value='';
+  document.getElementById('pedFiltroDataFim').value='';
+  renderPedidosEsperados();
+}
 // Troca de aba do Faturamento (Pedidos / Histórico / Embalagens antigo). O botão + só faz
 // sentido na aba Pedidos, então some nas outras duas.
 function fatTab(t){
@@ -3435,7 +3584,10 @@ function fatTab(t){
   if(fab) fab.style.display=(t==='pedidos')?'flex':'none';
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
-  if(t==='dashboard'&&!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
+  if(t==='dashboard'){
+    renderStatusPedidosChart();
+    if(!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
+  }
 }
 // Aba Histórico: lista todos os pedidos (qualquer estado) — clicar abre o mesmo modal de
 // detalhe da aba Pedidos, que já mostra a tabela de itens e as finalizações.
@@ -3858,45 +4010,92 @@ function carregarRelatorioFaturamento(){
     google.script.run
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){ relatorioAtual=d; renderRelatorioFaturamento(d); }
-        else{ el.innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar')+'</div>'; }
+        else{ el.innerHTML=renderDashError((d&&d.msg)||'Não consegui carregar os dados desse período.'); }
       })
-      .withFailureHandler(function(e){ el.innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
+      .withFailureHandler(function(e){ el.innerHTML=renderDashError('Sem conexão com o servidor'+(e&&e.message?': '+e.message:'.')); })
       .buscarRelatorioFaturamento(ini,fim);
-  }catch(e){ el.innerHTML='<div class="fat-empty">📡 '+e.message+'</div>'; }
+  }catch(e){ el.innerHTML=renderDashError(e.message); }
+}
+// Estado de erro/indisponibilidade — ícone + mensagem + ação de tentar de novo. Reutilizável
+// em qualquer painel: retryFn é o nome (string) da função a chamar quando clicar "Tentar de novo".
+function renderDashError(msg,retryFn){
+  return '<div class="dash-state"><div class="dash-state-ico">'+ICO_WARN+'</div>'+
+    '<div class="dash-state-txt">'+escAttr(msg)+'</div>'+
+    '<button class="btn-reload" onclick="'+(retryFn||'carregarRelatorioFaturamento')+'()">Tentar de novo</button></div>';
 }
 // Instâncias Chart.js do dashboard — precisam ser destruídas antes de redesenhar (trocar
 // período/reabrir a aba), senão o canvas acumula gráficos fantasmas por baixo.
-var dashChartTrend=null, dashChartPecas=null;
+var dashChartTrend=null, dashChartPecas=null, dashChartStatus=null, dashChartClientes=null;
+var PALETA_DASH=['#16A34A','#2563EB','#FBBF24','#c1502f','#00833E','#6B6B6B'];
 // Nomes históricos (esta função alimentava a antiga aba "Relatório"; agora alimenta o
 // Dashboard) — mantidos para não precisar tocar em todos os pontos que já chamam
 // carregarRelatorioFaturamento()/setPeriodoRelatorio() pelo nome antigo.
 function renderRelatorioFaturamento(d){
   var el=document.getElementById('relFatSec');
   var nPend=Object.keys(pedidosPendentesFat).length;
+  var comCliente=d.registros.filter(function(r){return r.cliente&&String(r.cliente).trim();});
+  var porCliente=agruparPorCampo(comCliente,'cliente');
+  var porPedido=agruparPorCampo(d.registros,'pedido');
+  var ticketMedio=d.totalNFs>0?Math.round(d.totalUnidades/d.totalNFs):0;
+
   el.innerHTML=
-    '<div class="ped-kpis" style="margin-bottom:16px">'+
-      '<div class="ped-kpi bl"><div class="ped-kpiv">'+d.totalNFs+'</div><div class="ped-kpil">NFs</div></div>'+
-      '<div class="ped-kpi gn"><div class="ped-kpiv">'+d.totalCaixas+'</div><div class="ped-kpil">Caixas</div></div>'+
-      '<div class="ped-kpi yw"><div class="ped-kpiv">'+d.totalUnidades+'</div><div class="ped-kpil">Unidades</div></div>'+
-      '<div class="ped-kpi" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="ped-kpiv" style="color:'+(nPend?'var(--rd)':'var(--td)')+'">'+nPend+'</div><div class="ped-kpil">Pendentes</div></div>'+
+    '<div class="dash-kpis">'+
+      '<div class="dash-kpi bl"><div class="dash-kpiv">'+d.totalNFs+'</div><div class="dash-kpil">Notas Fiscais</div></div>'+
+      '<div class="dash-kpi gn"><div class="dash-kpiv">'+d.totalCaixas+'</div><div class="dash-kpil">Caixas</div></div>'+
+      '<div class="dash-kpi yw"><div class="dash-kpiv">'+d.totalUnidades+'</div><div class="dash-kpil">Unidades</div></div>'+
+      '<div class="dash-kpi bl"><div class="dash-kpiv">'+porCliente.length+'</div><div class="dash-kpil">Clientes</div></div>'+
+      '<div class="dash-kpi"><div class="dash-kpiv">'+ticketMedio+'</div><div class="dash-kpil">Média por NF</div></div>'+
+      '<div class="dash-kpi'+(nPend?' rd':'')+'" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="dash-kpiv">'+nPend+'</div><div class="dash-kpil">Pendentes</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:10px">'+
+      (cfg.chartStatusPed?(
+        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Status dos pedidos</span><span id="statusPedTotal" style="font-size:9.5px;color:var(--td)"></span></div>'+
+        '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartStatusPed"></canvas></div></div>'
+      ):'')+
+      (porCliente.length&&cfg.chartClientesFat?(
+        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades por cliente</span></div>'+
+        '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartClientesFat"></canvas></div></div>'
+      ):'')+
     '</div>'+
     (d.registros.length?(
-      '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades faturadas no período</span></div>'+
-      '<div class="dp2-panel-bd"><canvas id="chartTrendFat"></canvas></div></div>'+
-      (d.pecas&&d.pecas.length?(
+      (cfg.chartTrendFat?(
+        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades faturadas no período</span></div>'+
+        '<div class="dp2-panel-bd" style="height:220px"><canvas id="chartTrendFat"></canvas></div></div>'
+      ):'')+
+      (d.pecas&&d.pecas.length&&cfg.chartPecasFat?(
         '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Peças mais faturadas</span></div>'+
         '<div class="dp2-panel-bd"><canvas id="chartPecasFat"></canvas></div></div>'
-      ):'')
+      ):'')+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">'+
+        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 clientes</span></div>'+
+        '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porCliente,d.totalUnidades)+'</div></div>'+
+        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 pedidos</span></div>'+
+        '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porPedido,d.totalUnidades)+'</div></div>'+
+      '</div>'
     ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
 
-  if(dashChartTrend){ dashChartTrend.destroy(); dashChartTrend=null; }
-  if(dashChartPecas){ dashChartPecas.destroy(); dashChartPecas=null; }
+  [dashChartTrend,dashChartPecas,dashChartClientes].forEach(function(c){ if(c) c.destroy(); });
+  dashChartTrend=null; dashChartPecas=null; dashChartClientes=null;
+
+  renderStatusPedidosChart();
+
+  if(porCliente.length){
+    var topCli=construirTop5MaisOutros(porCliente);
+    var ctxC=document.getElementById('chartClientesFat');
+    if(ctxC){
+      dashChartClientes=new Chart(ctxC,{
+        type:'pie',
+        data:{labels:topCli.labels,datasets:[{data:topCli.dados,backgroundColor:PALETA_DASH,borderColor:'#1a1a1a',borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}}}}
+      });
+    }
+  }
+
   if(!d.registros.length) return;
 
   var buckets=agruparRegistrosPorPeriodo(d.registros);
   var ctxT=document.getElementById('chartTrendFat');
   if(ctxT&&buckets.length){
-    ctxT.parentElement.style.height=Math.max(200,220)+'px';
     dashChartTrend=new Chart(ctxT,{
       type:'bar',
       data:{labels:buckets.map(function(b){return b.label;}),datasets:[{label:'Unidades',data:buckets.map(function(b){return b.unidades;}),backgroundColor:'#16A34A',borderRadius:4,maxBarThickness:46}]},
@@ -3906,15 +4105,85 @@ function renderRelatorioFaturamento(d){
   }
   var ctxP=document.getElementById('chartPecasFat');
   if(ctxP&&d.pecas&&d.pecas.length){
-    var top=d.pecas.slice(0,10);
-    ctxP.parentElement.style.height=Math.max(200,top.length*34)+'px';
+    var topPecas=d.pecas.slice(0,10);
+    ctxP.parentElement.style.height=Math.max(200,topPecas.length*34)+'px';
     dashChartPecas=new Chart(ctxP,{
       type:'bar',
-      data:{labels:top.map(function(p){return p.nome.length>28?p.nome.slice(0,26)+'…':p.nome;}),datasets:[{label:'Unidades',data:top.map(function(p){return p.unidades;}),backgroundColor:'#00833E',borderRadius:4}]},
+      data:{labels:topPecas.map(function(p){return p.nome.length>28?p.nome.slice(0,26)+'…':p.nome;}),datasets:[{label:'Unidades',data:topPecas.map(function(p){return p.unidades;}),backgroundColor:'#00833E',borderRadius:4}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
         scales:{x:{beginAtZero:true,grid:{color:'#2b2b2b'},ticks:{color:'#B9B9B9'}},y:{grid:{display:false},ticks:{color:'#F5F5F5'}}}}
     });
   }
+}
+// Doughnut de status (Aberto/Fechado/Finalizado) — não depende do período do dashboard, é
+// foto do estado atual de pedidosEsperados. Chamada tanto ao trocar pra aba Dashboard quanto
+// sempre que pedidosEsperados é recarregado (ver carregarPedidosEsperados), pra não ficar
+// com dado velho se a lista mudar enquanto o usuário está em outra aba.
+function renderStatusPedidosChart(){
+  var ctx=document.getElementById('chartStatusPed');
+  if(!ctx) return;
+  var aberto=0,fechado=0,finalizado=0;
+  pedidosEsperados.forEach(function(p){
+    if(p.finalizado) finalizado++;
+    else if(p.fechado) fechado++;
+    else aberto++;
+  });
+  if(dashChartStatus){ dashChartStatus.destroy(); dashChartStatus=null; }
+  var total=aberto+fechado+finalizado;
+  var elTot=document.getElementById('statusPedTotal');
+  if(elTot) elTot.textContent=total+' no total';
+  if(!total) return;
+  dashChartStatus=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:['Aberto','Fechado','Finalizado'],datasets:[{data:[aberto,fechado,finalizado],backgroundColor:['#6B6B6B','#c1502f','#2563EB'],borderColor:'#1a1a1a',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#B9B9B9',padding:10,font:{size:10.5},boxWidth:11}}}}
+  });
+}
+// Agrupa registros faturados por um campo (cliente ou pedido), somando unidades, contando
+// eventos e coletando os números de NF de verdade (não só a contagem) — base dos gráficos de
+// pizza "por cliente" e dos cards de Top 5.
+function agruparPorCampo(registros,campo){
+  var mapa={}, ordem=[];
+  registros.forEach(function(r){
+    var chave=String(r[campo]||'').trim()||'—';
+    if(!mapa[chave]){ mapa[chave]={nome:chave,unidades:0,eventos:0,nfs:[]}; ordem.push(chave); }
+    mapa[chave].unidades+=Number(r.unidades)||0;
+    mapa[chave].eventos++;
+    if(r.nf&&mapa[chave].nfs.indexOf(r.nf)===-1) mapa[chave].nfs.push(r.nf);
+  });
+  return ordem.map(function(k){return mapa[k];}).sort(function(a,b){return b.unidades-a.unidades;});
+}
+// Recorta os 5 primeiros de uma lista já ordenada (desc) e agrupa o resto em "Outros" — usado
+// pro gráfico de pizza de clientes, pra não virar uma pizza com 40 fatias minúsculas.
+function construirTop5MaisOutros(lista){
+  var top=lista.slice(0,5);
+  var outrosUnid=lista.slice(5).reduce(function(s,x){return s+x.unidades;},0);
+  var labels=top.map(function(x){return x.nome;});
+  var dados=top.map(function(x){return x.unidades;});
+  if(outrosUnid>0){ labels.push('Outros'); dados.push(outrosUnid); }
+  return {labels:labels,dados:dados};
+}
+// Renderiza os cards de Top 5 (clientes ou pedidos) — posição, nome, NF(s) de verdade, barra
+// de proporção em relação ao 1º colocado e unidades em destaque. Reaproveitado pelos dois
+// painéis de Top 5 do dashboard.
+function renderTop5CardsHtml(lista,totalUnidades){
+  if(!lista.length) return '<div class="dp2-empty">Sem dados no período.</div>';
+  var top=lista.slice(0,5);
+  var maxUnid=top[0]?top[0].unidades:1;
+  return top.map(function(x,i){
+    var pct=totalUnidades>0?Math.round(x.unidades/totalUnidades*100):0;
+    var pctBarra=maxUnid>0?Math.round(x.unidades/maxUnid*100):0;
+    var nfsTxt=x.nfs.length?('NF '+x.nfs.slice(0,2).map(escAttr).join(', ')+(x.nfs.length>2?' +'+(x.nfs.length-2):'')):(x.eventos+' NF(s)');
+    return '<div class="dash-top5-row">'+
+      '<div class="dash-top5-rank'+(i===0?' r1':'')+'">'+(i+1)+'</div>'+
+      '<div class="dash-top5-body">'+
+        '<div class="dash-top5-nome">'+escAttr(x.nome)+'</div>'+
+        '<div class="dash-top5-meta">'+nfsTxt+' · '+pct+'% do total</div>'+
+        '<div class="dash-top5-bar"><div class="dash-top5-bar-fill" style="width:'+pctBarra+'%"></div></div>'+
+      '</div>'+
+      '<div class="dash-top5-val">'+x.unidades+'<small>un.</small></div>'+
+    '</div>';
+  }).join('');
 }
 // Agrupa os registros faturados em baldes de tempo pro gráfico de tendência — por dia se o
 // período é curto (≤31 dias), por semana se médio (≤120 dias), por mês se mais longo. Sem
@@ -4208,14 +4477,8 @@ function exportarPedidoDetalheExcel(){
       cx.itens.forEach(function(it){ caixasLinhas.push([f.numero,cx.num,it.nome,it.codigo,it.qty]); });
     });
   });
-  // 4ª aba: rastreabilidade — mesma timeline unificada mostrada na tela (coletarRastreabilidade),
-  // uma linha por evento, mais recente primeiro.
-  var rastreabLinhas=[['Quando','Evento','Detalhe']];
-  coletarRastreabilidade(p).forEach(function(it){
-    rastreabLinhas.push([formatarQuandoTimeline(it.quandoISO,true),it.titulo,String(it.sub||'')]);
-  });
   var nomeArq='pedido_'+String(p.pedido).replace(/[^a-zA-Z0-9]/g,'_')+'.xlsx';
-  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,caixas:caixasLinhas,rastreab:rastreabLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
+  var payload=JSON.stringify({itens:itensLinhas,fin:finLinhas,caixas:caixasLinhas,nomeArq:nomeArq}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando...</title>'+
@@ -4227,7 +4490,6 @@ function exportarPedidoDetalheExcel(){
     'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:14},{wch:10},{wch:10},{wch:10}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
     'var s2=XLSX.utils.aoa_to_sheet(D.fin);s2["!cols"]=[{wch:5},{wch:12},{wch:8},{wch:16},{wch:14},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20},{wch:14}];XLSX.utils.book_append_sheet(wb,s2,"Finalizações");'+
     'var s3=XLSX.utils.aoa_to_sheet(D.caixas);s3["!cols"]=[{wch:12},{wch:8},{wch:32},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,s3,"Caixas");'+
-    'var s4=XLSX.utils.aoa_to_sheet(D.rastreab);s4["!cols"]=[{wch:19},{wch:28},{wch:44}];XLSX.utils.book_append_sheet(wb,s4,"Rastreabilidade");'+
     'XLSX.writeFile(wb,D.nomeArq);document.getElementById("msg").textContent="Pronto!";}catch(e){document.getElementById("msg").textContent="Falha: "+e.message;}<\/script></body></html>';
   w.document.write(h);w.document.close();
 }
@@ -4242,9 +4504,6 @@ function imprimirPedidoPDF(){
   var linhasItens=p.itens.map(function(it){
     var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
     return '<tr><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+esp+'</td><td style="text-align:right">'+emb+'</td><td style="text-align:right">'+sld+'</td></tr>';
-  }).join('');
-  var linhasRastreab=coletarRastreabilidade(p).map(function(it){
-    return '<tr><td style="font-family:monospace;font-size:9.5px;white-space:nowrap">'+formatarQuandoTimeline(it.quandoISO,true)+'</td><td>'+it.titulo+'</td><td style="color:#555">'+(it.sub||'')+'</td></tr>';
   }).join('');
   var linhasFin=finLista.map(function(f){
     return '<tr><td>'+f.numero+'</td><td>'+f.dataBR+(f.hora?' '+String(f.hora).substring(0,5):'')+'</td><td>'+escAttr(f.operador||'—')+'</td><td>'+escAttr(f.lote||'—')+'</td><td style="text-align:right">'+f.caixas+'</td><td style="text-align:right">'+f.unidades+'</td><td>'+(f.faturado?('NF '+escAttr(f.nf)):'—')+'</td></tr>';
@@ -4295,10 +4554,6 @@ function imprimirPedidoPDF(){
     '</div>'+
     '<div class="sec-ttl">Itens do pedido</div>'+
     '<table><thead><tr><th>Produto</th><th style="text-align:right">Original</th><th style="text-align:right">Embalado</th><th style="text-align:right">Saldo</th></tr></thead><tbody>'+linhasItens+'</tbody></table>'+
-    (linhasRastreab?(
-      '<div class="sec-ttl">Rastreabilidade</div>'+
-      '<table><thead><tr><th style="width:110px">Quando</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody>'+linhasRastreab+'</tbody></table>'
-    ):'')+
     (finLista.length?(
       '<div class="sec-ttl">Histórico — Finalizações</div>'+
       '<table><thead><tr><th>#</th><th>Data</th><th>Operador</th><th>Lote</th><th style="text-align:right">Caixas</th><th style="text-align:right">Unidades</th><th>Faturamento</th></tr></thead><tbody>'+linhasFin+'</tbody></table>'+
@@ -4337,6 +4592,35 @@ function admTab(t){
   var p=document.getElementById('pane-'+t); if(p)p.classList.add('active');
   if(t==='prod') carregarProdutosAdmin();
   if(t==='hist') carregarHist();
+  if(t==='config') renderConfigPanel();
+}
+// Renderiza os switches de liga/desliga — via JS (não HTML fixo) porque precisa refletir o
+// que já está salvo no localStorage deste aparelho, não sempre aparecer "tudo ligado".
+function renderConfigPanel(){
+  var el=document.getElementById('configSec'); if(!el)return;
+  function linha(chave,titulo,sub){
+    var marcado=cfg[chave]?'checked':'';
+    return '<label class="cfg-toggle-row">'+
+      '<div class="cfg-toggle-txt"><div class="cfg-toggle-title">'+titulo+'</div><div class="cfg-toggle-sub">'+sub+'</div></div>'+
+      '<span class="cfg-switch"><input type="checkbox" data-cfg="'+chave+'" onchange="toggleCfgSwitch(this)" '+marcado+'>'+
+      '<span class="cfg-switch-track"></span><span class="cfg-switch-thumb"></span></span>'+
+    '</label>';
+  }
+  el.innerHTML=
+    '<div class="dp2-panel"><div class="dp2-panel-bd">'+
+      '<div class="cfg-group-ttl">Avisos</div>'+
+      linha('avisoPendenciasFat','Pendências de faturamento','Aviso vermelho na aba Pedidos quando há produção sem faturar')+
+      linha('avisoProntoFinalizar','Pronto para finalizar','Aviso verde quando um pedido bateu 100% e já pode ser encerrado')+
+      linha('avisoProgresso','Progresso não carregado','Alerta na Bipagem quando o saldo do pedido não pôde ser validado')+
+      linha('avisoLimiteHist','Limite de 200 no Histórico','Aviso de que a lista está cortada nas 200 finalizações mais recentes')+
+      '<div class="cfg-group-ttl">Gráficos do Dashboard</div>'+
+      linha('chartStatusPed','Status dos pedidos','Pizza com Aberto / Fechado / Finalizado')+
+      linha('chartClientesFat','Unidades por cliente','Pizza com os 5 maiores clientes do período')+
+      linha('chartTrendFat','Unidades faturadas no período','Barras — evolução por dia, semana ou mês')+
+      linha('chartPecasFat','Peças mais faturadas','Barras horizontais com o top 10')+
+      '<div class="cfg-group-ttl">Dicas</div>'+
+      linha('mostrarDicas','Textos de ajuda','Frases curtas como "atualiza sozinho" e instruções abaixo de listas')+
+    '</div></div>';
 }
 
 // Renderiza a lista de operadores ou baias (linhas grandes com botão remover)
@@ -4344,6 +4628,7 @@ var editCfgKind=null, editCfgIdx=null; // linha de operador/baia em edição
 // Ícones outline (substituem emoji ✎/✕ nos botões de ação do Admin — consistente entre aparelhos, currentColor herda a cor do botão)
 var ICO_EDIT='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M13.8 3.3l2.9 2.9L6.4 16.5l-4 1 1-4L13.8 3.3z"/></svg>';
 var ICO_X='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="14" height="14"><path d="M5 5l10 10M15 5L5 15"/></svg>';
+var ICO_WARN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M12 3.5l10 17.5H2z"/><path d="M12 10v4.2"/><circle cx="12" cy="17.3" r="0.9" fill="currentColor" stroke="none"/></svg>';
 
 function renderCfg(id,arr,kind){
   var el=document.getElementById(id);if(!el)return;
@@ -4539,7 +4824,7 @@ function confirmarOperBaia(){
 function atualizarAvisoProgresso(){
   var warn=document.getElementById('semProgressoWarn');
   if(!warn)return;
-  var precisa=sess.ped && !sess.pedidoProgresso;
+  var precisa=cfg.avisoProgresso && sess.ped && !sess.pedidoProgresso;
   warn.style.display=precisa?'flex':'none';
 }
 function recarregarProgressoPedido(){
@@ -4713,16 +4998,16 @@ function carregarHist(){
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
           histTodas=d.embalagens||[];
-          document.getElementById('histLimiteAviso').style.display=(histTodas.length>=200)?'flex':'none';
+          document.getElementById('histLimiteAviso').style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none';
           popularHistFiltros();
           filtrarHist();
         }else{
-          el.innerHTML='<div class="adm-empty">⚠ '+(d&&d.msg||'Erro ao carregar')+'</div>';
+          el.innerHTML=renderDashError((d&&d.msg)||'Não consegui carregar o histórico.','carregarHist');
         }
       })
-      .withFailureHandler(function(e){ el.innerHTML='<div class="adm-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
+      .withFailureHandler(function(e){ el.innerHTML=renderDashError('Sem conexão com o servidor'+(e&&e.message?': '+e.message:'.'),'carregarHist'); })
       .listarEmbalagens();
-  }catch(e){ el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>'; }
+  }catch(e){ el.innerHTML=renderDashError(e.message,'carregarHist'); }
 }
 function popularHistFiltros(){
   var opsSet=[], pedsSet=[];
@@ -5192,6 +5477,7 @@ function toast(msg){
 // INIT — retoma sessão de bipagem em andamento, se houver (localStorage já carregado no topo)
 // ═══════════════════════════════════════
 (function init(){
+  aplicarVisibilidadeDicas();
   renderCxFech();
   renderTabela(null);
   renderStats();
