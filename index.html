@@ -604,6 +604,24 @@ tr.nw td{animation:fl 1s ease-out}
 .dash-top5-val{font-family:var(--f-d);font-size:23px;color:var(--brand2);flex-shrink:0;text-align:right;line-height:1}
 .dash-top5-val small{display:block;font-family:var(--f-b);font-size:8.5px;color:var(--td);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
 
+/* Hero — o número que mais importa na página (faturado), tratamento distinto de tudo o
+   resto: é o único lugar do dashboard com fundo em gradiente, reservado pra não virar rotina */
+.dash-hero-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:24px}
+.dash-hero{background:linear-gradient(155deg,var(--s2) 0%,var(--s1) 100%);border:1px solid var(--bd);border-radius:14px;padding:20px 22px;position:relative;overflow:hidden}
+.dash-hero::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--hero-c,var(--gn))}
+.dash-hero.sem{--hero-c:#3a4a42}
+.dash-hero-lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--td)}
+.dash-hero-val{font-family:var(--f-d);font-size:40px;line-height:1;color:var(--hero-c,var(--gn));margin-top:9px;letter-spacing:.005em}
+.dash-hero-val .cifrao{font-size:18px;opacity:.6;margin-right:5px;font-family:var(--f-b);font-weight:600}
+
+/* Seções — agrupam painéis relacionados sob um título com cor própria, pra parar de ser uma
+   pilha indiferenciada de blocos iguais */
+.dash-section{margin:30px 0 14px}
+.dash-section:first-child{margin-top:0}
+.dash-section-ttl{font-family:var(--f-d);font-size:19px;letter-spacing:.02em;color:var(--tx);
+  padding-left:12px;border-left:3px solid var(--sec-c,var(--ac));margin-bottom:12px;display:flex;align-items:baseline;gap:9px}
+.dash-section-ttl .sub{font-size:10px;color:var(--td);font-family:var(--f-b);font-weight:400;letter-spacing:.02em;text-transform:none}
+
 .ped-filterbar{background-color:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin-bottom:14px;
   background-image:
     linear-gradient(var(--bd2) 2px,transparent 2px),
@@ -4106,40 +4124,44 @@ function renderRelatorioFaturamento(d){
   var ticketMedio=d.totalNFs>0?Math.round(d.totalUnidades/d.totalNFs):0;
 
   el.innerHTML=
-    '<div class="dash-kpis">'+
-      '<div class="dash-kpi bl"><div class="dash-kpiv">'+d.totalNFs+'</div><div class="dash-kpil">Notas Fiscais</div></div>'+
-      '<div class="dash-kpi gn"><div class="dash-kpiv">'+d.totalCaixas+'</div><div class="dash-kpil">Caixas</div></div>'+
-      '<div class="dash-kpi yw"><div class="dash-kpiv">'+d.totalUnidades+'</div><div class="dash-kpil">Unidades</div>'+badgeVariacao(variacaoPct(d.totalUnidades,d.anterior,'totalUnidades'))+'</div>'+
-      '<div class="dash-kpi bl"><div class="dash-kpiv">'+porCliente.length+'</div><div class="dash-kpil">Clientes</div></div>'+
-      '<div class="dash-kpi"><div class="dash-kpiv">'+ticketMedio+'</div><div class="dash-kpil">Média por NF</div></div>'+
-      '<div class="dash-kpi'+(nPend?' rd':'')+'" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="dash-kpiv">'+nPend+'</div><div class="dash-kpil">Pendentes</div></div>'+
-      '<div class="dash-kpi gn"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="dash-kpil">Faturado c/ imposto</div>'+badgeVariacao(variacaoPct(d.totalValorComImposto||0,d.anterior,'totalValorComImposto'))+'</div>'+
-      '<div class="dash-kpi"><div class="dash-kpiv" style="font-size:26px">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="dash-kpil">Faturado s/ imposto</div></div>'+
+    '<div class="dash-hero-row">'+
+      '<div class="dash-hero"><div class="dash-hero-lbl">Faturado com imposto</div>'+
+      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorComImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'+
+      badgeVariacao(variacaoPct(d.totalValorComImposto||0,d.anterior,'totalValorComImposto'))+'</div>'+
+      '<div class="dash-hero sem"><div class="dash-hero-lbl">Faturado sem imposto</div>'+
+      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorSemImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'+
     '</div>'+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:10px">'+
-      (cfg.chartStatusPed?(
-        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Status dos pedidos</span><span id="statusPedTotal" style="font-size:9.5px;color:var(--td)"></span></div>'+
-        '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartStatusPed"></canvas></div></div>'
-      ):'')+
-      (porCliente.length&&cfg.chartClientesFat?(
-        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades por cliente</span></div>'+
-        '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartClientesFat"></canvas></div></div>'
-      ):'')+
-    '</div>'+
-    (d.registros.length?(
-      (cfg.chartTrendFat?(
+
+    '<div class="dash-section" style="--sec-c:var(--ac)"><div class="dash-section-ttl">Visão geral<span class="sub">contagens do período selecionado</span></div>'+
+      '<div class="dash-kpis">'+
+        '<div class="dash-kpi bl"><div class="dash-kpiv">'+d.totalNFs+'</div><div class="dash-kpil">Notas Fiscais</div></div>'+
+        '<div class="dash-kpi gn"><div class="dash-kpiv">'+d.totalCaixas+'</div><div class="dash-kpil">Caixas</div></div>'+
+        '<div class="dash-kpi yw"><div class="dash-kpiv">'+d.totalUnidades+'</div><div class="dash-kpil">Unidades</div>'+badgeVariacao(variacaoPct(d.totalUnidades,d.anterior,'totalUnidades'))+'</div>'+
+        '<div class="dash-kpi bl"><div class="dash-kpiv">'+porCliente.length+'</div><div class="dash-kpil">Clientes</div></div>'+
+        '<div class="dash-kpi"><div class="dash-kpiv">'+ticketMedio+'</div><div class="dash-kpil">Média por NF</div></div>'+
+        '<div class="dash-kpi'+(nPend?' rd':'')+'" style="'+(nPend?'cursor:pointer':'')+'"'+(nPend?' onclick="abrirPendenciasFaturamento()"':'')+'><div class="dash-kpiv">'+nPend+'</div><div class="dash-kpil">Pendentes</div></div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,340px));gap:10px">'+
+        (cfg.chartStatusPed?(
+          '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Status dos pedidos</span><span id="statusPedTotal" style="font-size:9.5px;color:var(--td)"></span></div>'+
+          '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartStatusPed"></canvas></div></div>'
+        ):'')+
+      '</div>'+
+      (d.registros.length&&cfg.chartTrendFat?(
         '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades faturadas no período</span></div>'+
         '<div class="dp2-panel-bd" style="height:220px"><canvas id="chartTrendFat"></canvas></div></div>'
       ):'')+
-      (d.pecas&&d.pecas.length&&cfg.chartPecasFat?(
-        '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Peças mais faturadas</span></div>'+
-        '<div class="dp2-panel-bd"><canvas id="chartPecasFat"></canvas></div></div>'
-      ):'')+
+    '</div>'+
+
+    (porCliente.length?(
+      '<div class="dash-section" style="--sec-c:var(--pu)"><div class="dash-section-ttl">Clientes<span class="sub">quem compra, quanto, e quem sumiu</span></div>'+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">'+
+        (cfg.chartClientesFat?(
+          '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Unidades por cliente</span></div>'+
+          '<div class="dp2-panel-bd" style="height:230px"><canvas id="chartClientesFat"></canvas></div></div>'
+        ):'')+
         '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 clientes</span></div>'+
         '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porCliente,d.totalUnidades)+'</div></div>'+
-        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 pedidos</span></div>'+
-        '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porPedido,d.totalUnidades)+'</div></div>'+
       '</div>'+
       (clientesComValor.length?(
         '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Faturamento por cliente</span>'+
@@ -4175,6 +4197,19 @@ function renderRelatorioFaturamento(d){
         }).join('')+
         '</tbody></table></div></div>'
       ):'')+
+      '</div>'
+    ):'')+
+
+    (porPedido.length||(d.pecas&&d.pecas.length)||porTransportadora.length?(
+      '<div class="dash-section" style="--sec-c:var(--yw)"><div class="dash-section-ttl">Pedidos, produtos &amp; transporte<span class="sub">o que foi faturado e como saiu</span></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">'+
+        '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Top 5 pedidos</span></div>'+
+        '<div class="dp2-panel-bd">'+renderTop5CardsHtml(porPedido,d.totalUnidades)+'</div></div>'+
+        (d.pecas&&d.pecas.length&&cfg.chartPecasFat?(
+          '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Peças mais faturadas</span></div>'+
+          '<div class="dp2-panel-bd"><canvas id="chartPecasFat"></canvas></div></div>'
+        ):'')+
+      '</div>'+
       (porTransportadora.length?(
         '<div class="dp2-panel"><div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Por transportadora</span><span style="font-size:9.5px;color:var(--td)">quantidade — sem preço por peça, não dá pra abrir em R$</span></div>'+
         '<div class="dp2-panel-bd" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
@@ -4189,8 +4224,11 @@ function renderRelatorioFaturamento(d){
             '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2)">'+t.unidades+'</td></tr>';
         }).join('')+
         '</tbody></table></div></div>'
-      ):'')
-    ):'<div class="fat-empty">Nenhum faturamento nesse período.</div>');
+      ):'')+
+      '</div>'
+    ):'')+
+
+    (!d.registros.length?'<div class="fat-empty">Nenhum faturamento nesse período.</div>':'');
 
   [dashChartTrend,dashChartPecas,dashChartClientes].forEach(function(c){ if(c) c.destroy(); });
   dashChartTrend=null; dashChartPecas=null; dashChartClientes=null;
