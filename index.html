@@ -1376,6 +1376,20 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     </div>
   </div>
 </div>
+<!-- MODAL DADOS DA ETIQUETA DO CLIENTE — volume/peso, transportadora, data de fabricação.
+     Campos que o sistema não rastreia sozinho; sempre foram pra digitar na hora de imprimir. -->
+<div class="ov hidden" id="ovEtqClienteInfo">
+  <div class="md" style="max-width:420px">
+    <div class="md-hdr"><span class="md-title">Dados da Etiqueta</span><button class="md-x" onclick="cancelarFormEtqCliente()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
+    <div class="md-body">
+      <div style="font-size:11px;color:var(--td);margin-bottom:12px">Pode deixar em branco o que não tiver agora — a etiqueta sai só com "—" no campo.</div>
+      <div class="md-row"><label class="lbl">Volume/Peso</label><input autocomplete="off" class="inp" type="text" id="etqCliVolPeso" placeholder="Ex: 38 VOL / 665 KG"></div>
+      <div class="md-row"><label class="lbl">Transportadora</label><input autocomplete="off" class="inp" type="text" id="etqCliTransp" placeholder="Ex: RPD"></div>
+      <div class="md-row"><label class="lbl">Data de fabricação</label><input autocomplete="off" class="inp" type="text" id="etqCliData" placeholder="Ex: 23/06/2026"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="cancelarFormEtqCliente()">Cancelar</button><button class="btn-ok green" onclick="confirmarFormEtqCliente()">Gerar Etiqueta</button></div>
+    </div>
+  </div>
+</div>
 
 <!-- OVERLAY GRANDE — aviso de produto já bipado, fecha só com clique em OK -->
 <div class="cooldown-ov hidden" id="cooldownOv">
@@ -2549,15 +2563,42 @@ function imprimirEtiquetaCaixaAtual(){
 }
 // Imprime a etiqueta DO CLIENTE (EAN+QR+lote) direto da bipagem, pra só essa caixa —
 // usa o lote que foi travado no início da sessão (popup "Quem está embalando?").
+// Formulário rápido de Volume/Peso, Transportadora e Data de fabricação — campos que o
+// sistema não rastreia sozinho, sempre foram pra digitar na hora de imprimir a etiqueta do
+// cliente. Guarda o que falta (caixas/pedido/sessão/lote) em etqClienteCtxPendente até
+// confirmar, e chama aoConfirmar() depois de imprimir pra quem chamou terminar sua limpeza.
+var etqClienteCtxPendente=null;
+function abrirFormEtqCliente(caixas,pedido,sessaoId,lote,aoConfirmar){
+  etqClienteCtxPendente={caixas:caixas,pedido:pedido,sessaoId:sessaoId,lote:lote,aoConfirmar:aoConfirmar};
+  document.getElementById('etqCliVolPeso').value='';
+  document.getElementById('etqCliTransp').value='';
+  document.getElementById('etqCliData').value=new Date().toLocaleDateString('pt-BR');
+  document.getElementById('ovEtqClienteInfo').classList.remove('hidden');
+  setTimeout(function(){document.getElementById('etqCliVolPeso').focus();},150);
+}
+function cancelarFormEtqCliente(){ etqClienteCtxPendente=null; fecharOv('ovEtqClienteInfo'); }
+function confirmarFormEtqCliente(){
+  if(!etqClienteCtxPendente)return;
+  var volPeso=document.getElementById('etqCliVolPeso').value.trim();
+  var transp=document.getElementById('etqCliTransp').value.trim();
+  var dataFab=document.getElementById('etqCliData').value.trim();
+  var ctx=etqClienteCtxPendente;
+  etqClienteCtxPendente=null;
+  fecharOv('ovEtqClienteInfo');
+  montarImprimirEtqCliente(ctx.caixas,ctx.pedido,ctx.sessaoId,ctx.lote,transp,dataFab,volPeso,null);
+  if(ctx.aoConfirmar) ctx.aoConfirmar();
+}
 function imprimirEtiquetaClienteCaixaAtual(){
   if(!caixaAguardandoEtq)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  montarImprimirEtqCliente([caixaAguardandoEtq], sess.ped, sess.id, sess.lote, '', '', null);
-  caixaAguardandoEtq.etqImpressa=true;
-  caixaAguardandoEtq=null;
-  salvarSess();renderCxFech();atualizarBtnFin();
+  var cxRef=caixaAguardandoEtq;
   fecharOv('ovEtqCx');
-  focusScan();
+  abrirFormEtqCliente([cxRef], sess.ped, sess.id, sess.lote, function(){
+    cxRef.etqImpressa=true;
+    caixaAguardandoEtq=null;
+    salvarSess();renderCxFech();atualizarBtnFin();
+    focusScan();
+  });
 }
 // Reimprimir uma caixa específica direto da lista (caso o "Depois" tenha sido usado, ou a impressão falhe)
 function imprimirEtiquetaCaixaIdx(idx){
@@ -2571,9 +2612,10 @@ function imprimirEtiquetaCaixaIdx(idx){
 function imprimirEtiquetaClienteCaixaIdx(idx){
   var cx=cxFech[idx]; if(!cx)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  montarImprimirEtqCliente([cx], sess.ped, sess.id, sess.lote, '', '', null);
-  cx.etqImpressa=true;
-  salvarSess();renderCxFech();atualizarBtnFin();
+  abrirFormEtqCliente([cx], sess.ped, sess.id, sess.lote, function(){
+    cx.etqImpressa=true;
+    salvarSess();renderCxFech();atualizarBtnFin();
+  });
 }
 // Monta e imprime a etiqueta de UMA caixa. Sem "/total" porque nesse momento ainda pode
 // faltar fechar outras caixas — o total certo só existe no Relatório final.
@@ -5618,14 +5660,14 @@ function rCli(sessao){
   var e=histTodas.find(function(x){return x.sessao===sessao;});
   if(!e){toast('Sessão não encontrada');return;}
   if(!e.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliTransp||'', e.cliData||'', (e.caixas||[]).length);
+  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliTransp||'', e.cliData||'', '', (e.caixas||[]).length);
 }
 // Mesmo que rCli, mas a partir da lista de pedidos do Faturamento (índice em todosPed).
 function imprimirEtqClienteFat(idx){
   var p=todosPed[idx];
   if(!p){toast('Pedido não encontrado');return;}
   if(!p.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliTransp||'', p.cliData||'', (p.caixas||[]).length);
+  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliTransp||'', p.cliData||'', '', (p.caixas||[]).length);
 }
 
 // ═══════════════════════════════════════
@@ -5748,40 +5790,63 @@ function montarQRGS1(cx,pedido,sessaoId,lote){
 // Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
 // quando fornecido, mostra "Caixa N/Total"; senão mostra só "Caixa N".
 function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalCaixas:(arr?arr.length:null); }
-function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,totalCaixasParam){
+function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,volPeso,totalCaixasParam){
   if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
-  var totalCx=totalCaixasKnownOrArr(totalCaixasParam,caixas);
   var labels=caixas.map(function(cx,idx){
-    // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1 antigo, que só
-    // olhava o primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa
-    // inteira. Tipo é sempre resolvido pelo codigo (chave única no cadastro).
+    // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1, que só olha o
+    // primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa inteira.
     var primeiroCod=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
     var primeiroNome=(cx.itens&&cx.itens[0])?cx.itens[0].nome:'';
     var ehComponente=tipoProdutoPorCodigo(primeiroCod)==='componente';
-    var itensResumo=(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ');
-    // Componente: QR com o Código Sabó (nome), texto grande legível embaixo, cabeçalho avisando
-    // que não é o padrão comum. Acabado: sem QR — código de barras (EAN) com os dígitos embaixo,
-    // do jeito clássico. Isso substitui o QR GS1 (SSCC+lote+qtd) que existia só pro acabado —
-    // esse dado deixa de estar codificado em qualquer lugar da etiqueta, fica só o EAN.
-    var qrBoxHtml=ehComponente
-      ? '<div class="qrcode-lbl">CÓDIGO SABÓ / COMPONENTES</div><div class="qr_x" data-idx="'+idx+'"></div><div class="qrcode-txt">'+escAttr(primeiroNome||'')+'</div>'
-      : '<svg class="barcode_x" data-idx="'+idx+'"></svg>';
-    var qrBoxStyle=ehComponente?'':' style="width:34mm"';
-    return {ean:primeiroCod,qr:primeiroNome,ehComponente:ehComponente,html:'<div class="label">'+
-      '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+escAttr(pedido)+'</div></div>'+
-      '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+(totalCx?('/'+totalCx):'')+'</div></div></div>'+
-      '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+(cx.totalUnid||0)+'</span></div>'+
-      '<div class="st"><span class="stk">LOTE</span><span class="stv" style="font-size:18px">'+escAttr(lote)+'</span></div></div>'+
-      '<div class="meta">'+(transp?('Transp: '+escAttr(transp)+' · '):'')+(dataFab?('Fab: '+escAttr(dataFab)):'')+'</div>'+
-      '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div><div class="item" style="white-space:normal;line-height:1.3">'+escAttr(itensResumo)+'</div></div>'+
-      '<div class="qrbox"'+qrBoxStyle+'>'+qrBoxHtml+'</div></div>'+
+    // QR de baixo é sempre o GS1 (SSCC+produto+lote+qtd) — isso não muda por tipo de peça.
+    var qrGS1=montarQRGS1(cx,pedido,sessaoId,lote);
+    // Canto superior direito: acabado mostra MADE IN BRAZIL + código de barras EAN (com
+    // fallback CODE128). Componente troca só essa área — vira um 2º QR com o Código Sabó
+    // (nome), já que EAN não tem como carregar um nome, só números.
+    var codeBoxHtml=ehComponente
+      ? '<div class="ac-mib">CÓDIGO SABÓ</div><div class="qr_x2" data-idx="'+idx+'"></div>'
+      : '<div class="ac-mib">MADE IN BRAZIL</div><svg class="barcode_x" data-idx="'+idx+'"></svg>';
+    return {ean:primeiroCod,qrGS1:qrGS1,qrNome:primeiroNome,ehComponente:ehComponente,html:'<div class="label-ac">'+
+      '<div class="ac-row1">'+
+        '<div class="ac-col-l">'+
+          '<div class="ac-k">CÓDIGO SABÓ</div><div class="ac-v">'+escAttr(primeiroNome||'—')+'</div>'+
+          '<div class="ac-k" style="margin-top:6px">QUANTIDADE</div><div class="ac-v">'+(cx.totalUnid||0)+'</div>'+
+        '</div>'+
+        '<div class="ac-col-r">'+codeBoxHtml+'</div>'+
+      '</div>'+
+      '<div class="ac-row2">'+
+        '<div class="ac-qr"><div class="qr_x" data-idx="'+idx+'"></div></div>'+
+        '<div class="ac-info">'+
+          '<div><span class="fk">LOTE FABRICAÇÃO:</span> '+escAttr(lote||'—')+'</div>'+
+          '<div><span class="fk">VOL/PESO:</span> '+escAttr(volPeso||'—')+'</div>'+
+          '<div><span class="fk">TRANSP.:</span> '+escAttr(transp||'—')+'</div>'+
+          '<div><span class="fk">DATA FABR.:</span> '+escAttr(dataFab||'—')+'</div>'+
+        '</div>'+
+      '</div>'+
     '</div>'};
   });
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.qrcode-lbl{font-size:7px;font-weight:800;letter-spacing:.03em;color:#111;text-align:center;line-height:1.15;margin-bottom:3px}.qrcode-txt{font-size:14px;font-weight:800;color:#111;margin-top:4px;text-align:center;font-family:"Courier New",monospace;word-break:break-all}.barcode_x{width:100%;height:16mm}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}'+
+    '.label-ac{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always;box-sizing:border-box;padding:4mm 4.5mm;gap:3mm}'+
+    '.ac-row1{display:flex;justify-content:space-between;align-items:flex-start;gap:4mm}'+
+    '.ac-col-l{flex:1;min-width:0}'+
+    '.ac-k{font-size:10px;font-weight:800;letter-spacing:.04em;color:#333}'+
+    '.ac-v{font-size:24px;font-weight:900;color:#111;line-height:1.15;word-break:break-word}'+
+    '.ac-col-r{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px}'+
+    '.ac-mib{font-size:9px;font-weight:800;letter-spacing:.06em;color:#111;white-space:nowrap}'+
+    '.barcode_x{width:38mm;height:14mm}'+
+    '.qr_x2{width:20mm;height:20mm}'+
+    '.ac-row2{display:flex;align-items:center;gap:4mm;flex:1;border-top:1px solid #ddd;padding-top:3mm;min-height:0}'+
+    '.ac-qr{flex-shrink:0;display:flex;align-items:center;justify-content:center}'+
+    '.qr_x{width:22mm;height:22mm}'+
+    '.ac-info{flex:1;min-width:0;font-size:11px;line-height:1.75;color:#111}'+
+    '.ac-info .fk{font-weight:800;color:#333}'+
+    '@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label-ac{border:none;margin:0}}'+
+    '</style></head><body>'+
     labels.map(function(l){return l.html;}).join('')+
-    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return {ean:l.ean,qr:l.qr,comp:l.ehComponente};}))+';window.onload=function(){'+
+    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return {ean:l.ean,qrGS1:l.qrGS1,qrNome:l.qrNome,comp:l.ehComponente};}))+';window.onload=function(){'+
     'LBLS.forEach(function(l,i){'+
-    'if(l.comp){ var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCode(elQ,{text:l.qr,width:96,height:96,correctLevel:QRCode.CorrectLevel.M}); }'+
+    'var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCode(elQ,{text:l.qrGS1,width:80,height:80,correctLevel:QRCode.CorrectLevel.M});'+
+    'if(l.comp){ var elQ2=document.querySelector(\'.qr_x2[data-idx="\'+i+\'"]\'); if(elQ2) new QRCode(elQ2,{text:l.qrNome,width:74,height:74,correctLevel:QRCode.CorrectLevel.M}); }'+
     'else{ var elB=document.querySelector(\'.barcode_x[data-idx="\'+i+\'"]\'); if(elB){ try{ JsBarcode(elB,l.ean,{format:"EAN13",width:1.5,height:42,margin:0,fontSize:11,displayValue:true}); }catch(e1){ try{ JsBarcode(elB,l.ean,{format:"CODE128",width:1.3,height:42,margin:0,fontSize:10,displayValue:true}); }catch(e2){} } }'+
     '}});'+
     'setTimeout(function(){window.print();},800);};<\/script>'+
@@ -5791,9 +5856,10 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,tot
   w.document.write(h);w.document.close();
 }
 // Wrapper usado pelo Admin/Faturamento quando já se tem o array completo (mesma assinatura,
-// nome mais claro no contexto de "reimprimir com todos os dados que já tenho").
+// nome mais claro no contexto de "reimprimir com todos os dados que já tenho"). Reimpressão
+// não tem Volume/Peso salvo em lugar nenhum ainda — sai em branco ("—") até isso existir.
 function imprimirEtqClienteCom(caixas,pedido,sessaoId,lote,transp,dataFab){
-  montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,caixas?caixas.length:null);
+  montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,'',caixas?caixas.length:null);
 }
 
 // ═══════════════════════════════════════
