@@ -1753,7 +1753,7 @@ let produtosCache=null;
 let produtosAdmin=[]; // lista [{codigo,nome,tipo}] usada na tela Admin
 // {codigo: 'acabado'|'componente'} — cache separado do produtosCache (que é só {codigo:nome}
 // e é lido pesado na validação de bipagem) pra não arriscar mexer naquele formato. Usado só
-// pra decidir qual etiqueta do cliente imprimir (ver imprimirEtiquetaClienteRoteada).
+// pra decidir qual etiqueta do cliente imprimir (ver tipoProdutoPorCodigo/montarImprimirEtqCliente).
 let produtosTipoCache={};
 try{const _pc=localStorage.getItem(PK);if(_pc)produtosCache=JSON.parse(_pc);}catch{}
 
@@ -2552,7 +2552,7 @@ function imprimirEtiquetaCaixaAtual(){
 function imprimirEtiquetaClienteCaixaAtual(){
   if(!caixaAguardandoEtq)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  imprimirEtiquetaClienteRoteada([caixaAguardandoEtq], sess.ped, sess.id, sess.lote, '', '', null);
+  montarImprimirEtqCliente([caixaAguardandoEtq], sess.ped, sess.id, sess.lote, '', '', null);
   caixaAguardandoEtq.etqImpressa=true;
   caixaAguardandoEtq=null;
   salvarSess();renderCxFech();atualizarBtnFin();
@@ -2571,7 +2571,7 @@ function imprimirEtiquetaCaixaIdx(idx){
 function imprimirEtiquetaClienteCaixaIdx(idx){
   var cx=cxFech[idx]; if(!cx)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  imprimirEtiquetaClienteRoteada([cx], sess.ped, sess.id, sess.lote, '', '', null);
+  montarImprimirEtqCliente([cx], sess.ped, sess.id, sess.lote, '', '', null);
   cx.etqImpressa=true;
   salvarSess();renderCxFech();atualizarBtnFin();
 }
@@ -5618,14 +5618,14 @@ function rCli(sessao){
   var e=histTodas.find(function(x){return x.sessao===sessao;});
   if(!e){toast('Sessão não encontrada');return;}
   if(!e.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  imprimirEtiquetaClienteRoteada(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliTransp||'', e.cliData||'', (e.caixas||[]).length);
+  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliTransp||'', e.cliData||'', (e.caixas||[]).length);
 }
 // Mesmo que rCli, mas a partir da lista de pedidos do Faturamento (índice em todosPed).
 function imprimirEtqClienteFat(idx){
   var p=todosPed[idx];
   if(!p){toast('Pedido não encontrado');return;}
   if(!p.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  imprimirEtiquetaClienteRoteada(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliTransp||'', p.cliData||'', (p.caixas||[]).length);
+  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliTransp||'', p.cliData||'', (p.caixas||[]).length);
 }
 
 // ═══════════════════════════════════════
@@ -5737,51 +5737,8 @@ function gerarSSCCCaixa(cx,sessaoId){
   var dv=(10-(soma%10))%10;
   return corpo+dv;
 }
-// ── ROTEAMENTO POR TIPO DE PEÇA (componente vs acabado) ─────────────────────
-// Acabado continua com a etiqueta GS1 completa de sempre (montarImprimirEtqCliente, intocada).
-// Componente vira uma etiqueta simples: só um QR com o nome da peça, nada mais.
-// Verifica se TODOS os itens de uma caixa são componente — se a caixa tiver qualquer item
-// acabado (ou sem cadastro de tipo carregado ainda), cai no padrão seguro: etiqueta GS1 cheia.
-function caixaEhSomenteComponente(cx){
-  if(!cx||!cx.itens||!cx.itens.length) return false;
-  return cx.itens.every(function(it){ return produtosTipoCache[it.codigo]==='componente'; });
-}
-// Etiqueta simplificada pra peça componente — só QR code, dado = nome da peça (junta os nomes
-// distintos da caixa se houver mais de um). Sem SSCC, sem GS1, sem lote: só isso, como pedido.
-function montarImprimirEtqComponente(caixas,pedido){
-  if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
-  var labels=caixas.map(function(cx){
-    var nomes=[];
-    (cx.itens||[]).forEach(function(it){ if(nomes.indexOf(it.nome)===-1) nomes.push(it.nome); });
-    var nomeQr=nomes.join(', ')||'(sem itens)';
-    return {qr:nomeQr,html:
-      '<div class="label-simples">'+
-        '<div class="ls-nome">'+escAttr(nomeQr)+'</div>'+
-        '<div class="ls-qrbox"><div class="qr_x"></div></div>'+
-      '</div>'};
-  });
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Componente — '+escAttr(pedido||'')+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}'+
-    '.label-simples{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#111;page-break-after:always}'+
-    '.ls-nome{font-size:22px;font-weight:800;text-align:center;padding:0 10mm;line-height:1.25;word-break:break-word}'+
-    '.ls-qrbox{display:flex;align-items:center;justify-content:center}'+
-    '@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label-simples{border:none;margin:0}}'+
-    '</style></head><body>'+
-    labels.map(function(l){return l.html;}).join('')+
-    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return l.qr;}))+';window.onload=function(){var boxes=document.querySelectorAll(".qr_x");boxes.forEach(function(el,i){new QRCode(el,{text:LBLS[i],width:130,height:130,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},700);};<\/script>'+
-    '</body></html>';
-  var w=window.open('','_blank');
-  if(!w){toast('Libere pop-ups para imprimir');return;}
-  w.document.write(h);w.document.close();
-}
-// Ponto único de decisão: chame esta função em vez de montarImprimirEtqCliente diretamente.
-// Só usa a etiqueta simples quando TODAS as caixas do lote são só-componente; qualquer mistura
-// ou incerteza cai no comportamento de sempre (GS1 completa) — errar pro lado de mais dado.
-function imprimirEtiquetaClienteRoteada(caixas,pedido,sessaoId,lote,transp,dataFab,totalCaixasParam){
-  var lista=caixas||[];
-  var todasComponente=lista.length>0 && lista.every(caixaEhSomenteComponente);
-  if(todasComponente){ montarImprimirEtqComponente(lista,pedido); return; }
-  montarImprimirEtqCliente(lista,pedido,sessaoId,lote,transp,dataFab,totalCaixasParam);
-}
+// Resolve se uma peça é 'componente' ou 'acabado' pelo código (chave única no cadastro).
+function tipoProdutoPorCodigo(codigo){ return produtosTipoCache[codigo]==='componente'?'componente':'acabado'; }
 function montarQRGS1(cx,pedido,sessaoId,lote){
   var sscc=gerarSSCCCaixa(cx,sessaoId);
   var codProduto=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
@@ -5794,22 +5751,40 @@ function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalC
 function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,totalCaixasParam){
   if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
   var totalCx=totalCaixasKnownOrArr(totalCaixasParam,caixas);
-  var labels=caixas.map(function(cx){
-    var qrTexto=montarQRGS1(cx,pedido,sessaoId,lote);
+  var labels=caixas.map(function(cx,idx){
+    // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1 antigo, que só
+    // olhava o primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa
+    // inteira. Tipo é sempre resolvido pelo codigo (chave única no cadastro).
+    var primeiroCod=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
+    var primeiroNome=(cx.itens&&cx.itens[0])?cx.itens[0].nome:'';
+    var ehComponente=tipoProdutoPorCodigo(primeiroCod)==='componente';
     var itensResumo=(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ');
-    return {qr:qrTexto,html:'<div class="label">'+
+    // Componente: QR com o Código Sabó (nome), texto grande legível embaixo, cabeçalho avisando
+    // que não é o padrão comum. Acabado: sem QR — código de barras (EAN) com os dígitos embaixo,
+    // do jeito clássico. Isso substitui o QR GS1 (SSCC+lote+qtd) que existia só pro acabado —
+    // esse dado deixa de estar codificado em qualquer lugar da etiqueta, fica só o EAN.
+    var qrBoxHtml=ehComponente
+      ? '<div class="qrcode-lbl">CÓDIGO SABÓ / COMPONENTES</div><div class="qr_x" data-idx="'+idx+'"></div><div class="qrcode-txt">'+escAttr(primeiroNome||'')+'</div>'
+      : '<svg class="barcode_x" data-idx="'+idx+'"></svg>';
+    var qrBoxStyle=ehComponente?'':' style="width:34mm"';
+    return {ean:primeiroCod,qr:primeiroNome,ehComponente:ehComponente,html:'<div class="label">'+
       '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+escAttr(pedido)+'</div></div>'+
       '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+(totalCx?('/'+totalCx):'')+'</div></div></div>'+
       '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+(cx.totalUnid||0)+'</span></div>'+
       '<div class="st"><span class="stk">LOTE</span><span class="stv" style="font-size:18px">'+escAttr(lote)+'</span></div></div>'+
       '<div class="meta">'+(transp?('Transp: '+escAttr(transp)+' · '):'')+(dataFab?('Fab: '+escAttr(dataFab)):'')+'</div>'+
       '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div><div class="item" style="white-space:normal;line-height:1.3">'+escAttr(itensResumo)+'</div></div>'+
-      '<div class="qrbox"><div class="qr_x"></div><div class="sess" style="font-size:8px;word-break:break-all">'+escAttr(qrTexto)+'</div></div></div>'+
+      '<div class="qrbox"'+qrBoxStyle+'>'+qrBoxHtml+'</div></div>'+
     '</div>'};
   });
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.qrcode-lbl{font-size:7px;font-weight:800;letter-spacing:.03em;color:#111;text-align:center;line-height:1.15;margin-bottom:3px}.qrcode-txt{font-size:14px;font-weight:800;color:#111;margin-top:4px;text-align:center;font-family:"Courier New",monospace;word-break:break-all}.barcode_x{width:100%;height:16mm}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
     labels.map(function(l){return l.html;}).join('')+
-    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return l.qr;}))+';window.onload=function(){var boxes=document.querySelectorAll(".qr_x");boxes.forEach(function(el,i){new QRCode(el,{text:LBLS[i],width:96,height:96,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},800);};<\/script>'+
+    '<script>var LBLS='+JSON.stringify(labels.map(function(l){return {ean:l.ean,qr:l.qr,comp:l.ehComponente};}))+';window.onload=function(){'+
+    'LBLS.forEach(function(l,i){'+
+    'if(l.comp){ var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCode(elQ,{text:l.qr,width:96,height:96,correctLevel:QRCode.CorrectLevel.M}); }'+
+    'else{ var elB=document.querySelector(\'.barcode_x[data-idx="\'+i+\'"]\'); if(elB){ try{ JsBarcode(elB,l.ean,{format:"EAN13",width:1.5,height:42,margin:0,fontSize:11,displayValue:true}); }catch(e1){ try{ JsBarcode(elB,l.ean,{format:"CODE128",width:1.3,height:42,margin:0,fontSize:10,displayValue:true}); }catch(e2){} } }'+
+    '}});'+
+    'setTimeout(function(){window.print();},800);};<\/script>'+
     '</body></html>';
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para imprimir');return;}
@@ -5818,7 +5793,7 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,tot
 // Wrapper usado pelo Admin/Faturamento quando já se tem o array completo (mesma assinatura,
 // nome mais claro no contexto de "reimprimir com todos os dados que já tenho").
 function imprimirEtqClienteCom(caixas,pedido,sessaoId,lote,transp,dataFab){
-  imprimirEtiquetaClienteRoteada(caixas,pedido,sessaoId,lote,transp,dataFab,caixas?caixas.length:null);
+  montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,caixas?caixas.length:null);
 }
 
 // ═══════════════════════════════════════
