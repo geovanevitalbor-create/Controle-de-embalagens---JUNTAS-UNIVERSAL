@@ -5780,15 +5780,19 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,tot
   var labels=caixas.map(function(cx){
     // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1 hoje, que só olha
     // o primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa inteira.
+    // O tipo é sempre resolvido pelo codigo (chave única no cadastro) — mas o DADO que entra
+    // no QR do componente é o nome (Código Sabó), não o codigo. É dado que já existe no
+    // cadastro de toda peça, acabado ou componente; não precisou de campo novo nenhum.
     var primeiroCod=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
+    var primeiroNome=(cx.itens&&cx.itens[0])?cx.itens[0].nome:'';
     var ehComponente=tipoProdutoPorCodigo(primeiroCod)==='componente';
-    var qrTexto=ehComponente?String(primeiroCod||''):montarQRGS1(cx,pedido,sessaoId,lote);
+    var qrTexto=ehComponente?String(primeiroNome||''):montarQRGS1(cx,pedido,sessaoId,lote);
     var itensResumo=(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ');
     var codLbl='CÓDIGO SABÓ'+(ehComponente?' / COMPONENTES':'');
-    // Componente: QR simples (só o código) pede um texto de apoio maior e legível embaixo —
+    // Componente: QR simples (só o Código Sabó) pede um texto de apoio maior e legível embaixo —
     // GS1 continua com o dump pequeno de sempre (é string longa, não cabe maior).
     var qrSubHtml=ehComponente
-      ? '<div class="qrcode-txt">'+escAttr(primeiroCod||'')+'</div>'
+      ? '<div class="qrcode-txt">'+escAttr(primeiroNome||'')+'</div>'
       : '<div class="sess" style="font-size:8px;word-break:break-all">'+escAttr(qrTexto)+'</div>';
     return {qr:qrTexto,html:'<div class="label">'+
       '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+escAttr(pedido)+'</div></div>'+
