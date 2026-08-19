@@ -433,6 +433,7 @@ tr.nw td{animation:fl 1s ease-out}
 .prod-item-nome{font-family:var(--mo);color:var(--tx);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod-item-acts{display:flex;gap:6px;flex-shrink:0}
 .prod-count{font-weight:400;text-transform:none;letter-spacing:0;font-size:9px;color:var(--td)}
+.prod-item-tipo-badge{font-size:8.5px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:20px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35);flex-shrink:0;white-space:nowrap}
 
 /* MODAIS */
 .ov{position:fixed;inset:0;background:rgba(4,10,6,.88);z-index:600;
@@ -1000,7 +1001,14 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <section class="adm-panel" id="pane-prod">
         <h2 class="adm-panel-title">Peças</h2>
         <div class="adm-addcard">
-          <div class="adm-field"><label class="adm-field-lbl">Código de barras (EAN)</label><input autocomplete="off" class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
+          <div class="adm-field" style="flex:1 1 100%;min-width:100%">
+            <label class="adm-field-lbl">Tipo de peça</label>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="fat-filter active" id="btnTipoAcabado" onclick="setAddProdTipo('acabado')" style="flex:1;padding:11px;font-size:12px;border-radius:8px">Acabado</button>
+              <button type="button" class="fat-filter" id="btnTipoComponente" onclick="setAddProdTipo('componente')" style="flex:1;padding:11px;font-size:12px;border-radius:8px">Componente</button>
+            </div>
+          </div>
+          <div class="adm-field"><label class="adm-field-lbl" id="addProdCodLbl">Código de barras (EAN)</label><input autocomplete="off" class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
           <div class="adm-field"><label class="adm-field-lbl">Código Sabó</label><input autocomplete="off" class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
           <button class="adm-btn-add wide" onclick="addProd()">Adicionar peça</button>
           <div id="addProdErr" class="adm-err"></div>
@@ -1418,7 +1426,7 @@ function _dataBR(i){ if(!i)return ''; var p=String(i).split('-'); if(p.length!==
 const Backend={
   async testarConexao(){ try{ await sbFetch('GET','/operadores?select=id&limit=1',null); return {status:'ok',planilha:'Supabase'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarProduto(codigo){ try{ var c=encodeURIComponent(String(codigo).trim()); var r=await sbFetch('GET','/produtos?codigo=eq.'+c+'&select=nome&limit=1',null); if(r&&r.length>0)return {nome:r[0].nome,codigo:codigo,encontrado:true}; return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; }catch(e){ return {nome:'Produto '+codigo,codigo:codigo,encontrado:false}; } },
-  async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async listarProdutos(){ try{ var r=await sbFetch('GET','/produtos?select=codigo,nome,tipo',null); return {status:'ok',produtos:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarScanApp(p){ try{ await sbFetch('POST','/scans',{sessao:p.sessaoId,codigo_produto:p.codigo,nome_produto:p.nome,quantidade:p.qty,operador:p.operador,baia:p.baia,ts:p.ts}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async registrarFinalizacaoApp(dados){ try{ var s=dados.session; var tu=dados.caixas.reduce(function(a,cx){return a+(Number(cx.totalUnid)||0);},0); var pt=dados.caixas.reduce(function(a,cx){return a+(parseFloat(cx.peso)||0);},0); await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(dados.dataEmbalagem),hora_embalagem:_hora(dados.horaEmbalagem),operador:s.operador,baia:s.baia,total_caixas:dados.caixas.length,total_unidades:tu,peso_total:Number(pt.toFixed(2)),cliente_lote:s.lote||null},{'Prefer':'return=representation'}); var caixaIds=[]; for(var i=0;i<dados.caixas.length;i++){ var cx=dados.caixas[i]; var cr=await sbFetch('POST','/caixas',{sessao:s.id,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; caixaIds.push(cid||null); if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } } return {status:'ok',caixaIds:caixaIds}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Antes: 1 consulta por embalagem (caixas) + 1 por caixa (itens) — com 200 embalagens e
@@ -1625,7 +1633,7 @@ const Backend={
     return {status:'ok',pendencias:Object.values(porPedido),pecas:pecas};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async salvarProduto(codigo,nome){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async salvarProduto(codigo,nome,tipo){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); var tp=(tipo==='componente')?'componente':'acabado'; if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm,tipo:tp},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async atualizarCaixaAdmin(caixaId,peso,itens){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; var totalUnid=(itens||[]).reduce(function(s,it){return s+(Number(it.qty)||0);},0); await sbFetch('PATCH','/caixas?id=eq.'+caixaId,{peso:parseFloat(peso)||0,total_unidades:totalUnid}); await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); if(itens&&itens.length){ await sbFetch('POST','/itens_caixa',itens.map(function(it){return {caixa_id:caixaId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1743,7 +1751,12 @@ let bipCamStream=null, bipCamInterval=null;
 // Cache do cadastro de peças: { codigo: nome }. null = ainda não carregado.
 // Serve para validar as leituras na hora (e offline) sem consultar o banco a cada bipada.
 let produtosCache=null;
-let produtosAdmin=[]; // lista [{codigo,nome}] usada na tela Admin
+// { codigo: 'acabado'|'componente' } — cache paralelo ao produtosCache, usado só na hora de
+// montar a etiqueta do cliente (decide QR simples do componente vs. QR GS1 do acabado).
+// Deliberadamente separado do produtosCache (que é {codigo:nome} e é lido em dezenas de
+// lugares da bipagem/validação) pra não arriscar quebrar nada que já funciona.
+let produtosTipoCache={};
+let produtosAdmin=[]; // lista [{codigo,nome,tipo}] usada na tela Admin
 try{const _pc=localStorage.getItem(PK);if(_pc)produtosCache=JSON.parse(_pc);}catch{}
 
 // Trava anti-duplo-clique (essencial: resolve duplicação de NF)
@@ -1893,8 +1906,9 @@ function carregarProdutos(){
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
           produtosCache={};
-          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
-          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
+          produtosTipoCache={};
+          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome,tipo:p.tipo==='componente'?'componente':'acabado'};});
+          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome; produtosTipoCache[p.codigo]=p.tipo;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           // se a tela Admin estiver aberta, atualiza a lista
           if(document.getElementById('scr-adm').classList.contains('active')) renderProdList();
@@ -5197,6 +5211,34 @@ function delBaia(idx){
 // ═══════════════════════════════════════
 function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 var editandoCod=null; // código da peça em edição inline
+// Tipo selecionado no formulário de CADASTRO (novo produto) — 'acabado' é o padrão, casa com
+// o que o banco assume quando a coluna não é enviada (ver Backend.salvarProduto).
+var addProdTipo='acabado';
+// Tipo em edição, quando um produto já existente está sendo editado inline — inicializado a
+// partir do produto real em editProd(), pra não resetar sem querer o tipo de quem só editou o nome.
+var editProdTipo='acabado';
+function setAddProdTipo(tipo){
+  addProdTipo=(tipo==='componente')?'componente':'acabado';
+  var bA=document.getElementById('btnTipoAcabado'), bC=document.getElementById('btnTipoComponente');
+  if(bA) bA.classList.toggle('active',addProdTipo==='acabado');
+  if(bC) bC.classList.toggle('active',addProdTipo==='componente');
+  var lbl=document.getElementById('addProdCodLbl'), inp=document.getElementById('addProdCod');
+  if(lbl&&inp){
+    if(addProdTipo==='componente'){
+      lbl.textContent='Código do Componente';
+      inp.placeholder='Ex: 123456489 (não precisa ser EAN)';
+    }else{
+      lbl.textContent='Código de barras (EAN)';
+      inp.placeholder='Ex: 7891234567890';
+    }
+  }
+}
+function setEditProdTipo(tipo){
+  editProdTipo=(tipo==='componente')?'componente':'acabado';
+  var bA=document.getElementById('editTipoAcabado'), bC=document.getElementById('editTipoComponente');
+  if(bA) bA.classList.toggle('active',editProdTipo==='acabado');
+  if(bC) bC.classList.toggle('active',editProdTipo==='componente');
+}
 function carregarProdutosAdmin(){
   var el=document.getElementById('prodList');
   el.innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>';
@@ -5204,9 +5246,10 @@ function carregarProdutosAdmin(){
     google.script.run
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
-          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome};});
+          produtosAdmin=(d.produtos||[]).map(function(p){return {codigo:String(p.codigo).trim(),nome:p.nome,tipo:p.tipo==='componente'?'componente':'acabado'};});
           produtosCache={};
-          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome;});
+          produtosTipoCache={};
+          produtosAdmin.forEach(function(p){produtosCache[p.codigo]=p.nome; produtosTipoCache[p.codigo]=p.tipo;});
           try{localStorage.setItem(PK,JSON.stringify(produtosCache));}catch{}
           renderProdList();
         }else{
@@ -5235,14 +5278,19 @@ function renderProdList(){
     if(editandoCod===p.codigo){
       var codEsc2=p.codigo.replace(/'/g,"\\'");
       return '<div class="prod-item full" style="flex-direction:column;align-items:stretch;gap:8px">'+
+        '<div style="display:flex;gap:8px">'+
+          '<button type="button" class="fat-filter'+(editProdTipo==='acabado'?' active':'')+'" id="editTipoAcabado" onclick="setEditProdTipo(\'acabado\')" style="flex:1;padding:9px;font-size:11px;border-radius:8px">Acabado</button>'+
+          '<button type="button" class="fat-filter'+(editProdTipo==='componente'?' active':'')+'" id="editTipoComponente" onclick="setEditProdTipo(\'componente\')" style="flex:1;padding:9px;font-size:11px;border-radius:8px">Componente</button>'+
+        '</div>'+
         '<input autocomplete="off" class="adm-input" id="editProdNomeInp" value="'+escAttr(p.nome)+'" style="padding:10px 12px" onkeydown="if(event.key===\'Enter\')saveProdEdit(\''+codEsc2+'\')">'+
         '<div style="display:flex;gap:6px"><button class="adm-btn-add" style="flex:1" onclick="saveProdEdit(\''+codEsc2+'\')">Salvar</button><button class="adm-icon-btn cancel" onclick="cancelProdEdit()" title="Cancelar">'+ICO_X+'</button></div>'+
       '</div>';
     }
     var codEsc=p.codigo.replace(/'/g,"\\'");
+    var tipoBadge=(p.tipo==='componente')?'<span class="prod-item-tipo-badge">COMPONENTE</span>':'';
     return '<div class="prod-item">'+
       '<div class="prod-item-info">'+
-        '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+escAttr(p.codigo)+'</span></div>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+escAttr(p.codigo)+'</span>'+tipoBadge+'</div>'+
         '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span></div>'+
       '</div>'+
       '<div class="prod-item-acts">'+
@@ -5258,8 +5306,8 @@ function addProd(){
   var nome=document.getElementById('addProdNome').value.trim();
   var errEl=document.getElementById('addProdErr');
   errEl.style.display='none';
-  if(!cod||!nome){errEl.textContent='Preencha o código EAN e o Código Sabó.';errEl.style.display='block';return;}
-  if(produtosAdmin.some(function(p){return p.codigo===cod;})){errEl.textContent='Já existe uma peça com esse código EAN.';errEl.style.display='block';return;}
+  if(!cod||!nome){errEl.textContent='Preencha o código e o Código Sabó.';errEl.style.display='block';return;}
+  if(produtosAdmin.some(function(p){return p.codigo===cod;})){errEl.textContent='Já existe uma peça com esse código.';errEl.style.display='block';return;}
   try{
     google.script.run
       .withSuccessHandler(function(r){
@@ -5267,11 +5315,12 @@ function addProd(){
           toast('✔ Peça adicionada');
           document.getElementById('addProdCod').value='';
           document.getElementById('addProdNome').value='';
+          setAddProdTipo('acabado');
           carregarProdutosAdmin();
         }else{ errEl.textContent='Erro: '+(r&&r.msg?r.msg:'tente de novo'); errEl.style.display='block'; }
       })
       .withFailureHandler(function(e){ errEl.textContent='Sem conexão: '+(e&&e.message?e.message:''); errEl.style.display='block'; })
-      .salvarProduto(cod,nome);
+      .salvarProduto(cod,nome,addProdTipo);
   }catch(e){ errEl.textContent='Sem conexão: '+e.message; errEl.style.display='block'; }
 }
 function delProd(cod){
@@ -5282,8 +5331,13 @@ function delProd(cod){
     }catch(e){toast('⚠ Sem conexão');}
   });
 }
-function editProd(cod){ editandoCod=cod; renderProdList(); }
-function cancelProdEdit(){ editandoCod=null; renderProdList(); }
+function editProd(cod){
+  editandoCod=cod;
+  var p=produtosAdmin.find(function(x){return x.codigo===cod;});
+  editProdTipo=(p&&p.tipo==='componente')?'componente':'acabado';
+  renderProdList();
+}
+function cancelProdEdit(){ editandoCod=null; editProdTipo='acabado'; renderProdList(); }
 function saveProdEdit(cod){
   var inp=document.getElementById('editProdNomeInp'); if(!inp)return;
   var novoNome=inp.value.trim();
@@ -5292,7 +5346,7 @@ function saveProdEdit(cod){
     google.script.run.withSuccessHandler(function(r){
       if(r&&r.status==='ok'){ editandoCod=null; toast('✔ Peça atualizada'); carregarProdutosAdmin(); }
       else{ toast('⚠ Não salvou — tente de novo'); }
-    }).withFailureHandler(function(){ toast('⚠ Sem conexão'); }).salvarProduto(cod,novoNome);
+    }).withFailureHandler(function(){ toast('⚠ Sem conexão'); }).salvarProduto(cod,novoNome,editProdTipo);
   }catch(e){ toast('⚠ Sem conexão'); }
 }
 
@@ -5709,6 +5763,14 @@ function montarQRGS1(cx,pedido,sessaoId,lote){
   var qtd=cx.totalUnid||0;
   return '(00)'+sscc+'(02)'+codProduto+'(11)'+lote+'(37)'+qtd;
 }
+// Componente vs. Acabado (Admin › Peças) — decide se a etiqueta do cliente usa o QR GS1
+// completo (acabado, comportamento de sempre) ou um QR simples só com o código do componente
+// (Sabó pediu isso pra peças que não têm EAN de verdade). Olha produtosTipoCache; sem entrada
+// pro código (cache ainda não populado, ou código não cadastrado), assume 'acabado' — não
+// muda nada do que já funciona se essa informação faltar por algum motivo.
+function tipoProdutoPorCodigo(codigo){
+  return (produtosTipoCache && produtosTipoCache[codigo]==='componente') ? 'componente' : 'acabado';
+}
 // Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
 // quando fornecido, mostra "Caixa N/Total"; senão mostra só "Caixa N".
 function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalCaixas:(arr?arr.length:null); }
@@ -5716,8 +5778,18 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,tot
   if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
   var totalCx=totalCaixasKnownOrArr(totalCaixasParam,caixas);
   var labels=caixas.map(function(cx){
-    var qrTexto=montarQRGS1(cx,pedido,sessaoId,lote);
+    // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1 hoje, que só olha
+    // o primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa inteira.
+    var primeiroCod=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
+    var ehComponente=tipoProdutoPorCodigo(primeiroCod)==='componente';
+    var qrTexto=ehComponente?String(primeiroCod||''):montarQRGS1(cx,pedido,sessaoId,lote);
     var itensResumo=(cx.itens||[]).map(function(it){return it.nome+' × '+it.qty;}).join(', ');
+    var codLbl='CÓDIGO SABÓ'+(ehComponente?' / COMPONENTES':'');
+    // Componente: QR simples (só o código) pede um texto de apoio maior e legível embaixo —
+    // GS1 continua com o dump pequeno de sempre (é string longa, não cabe maior).
+    var qrSubHtml=ehComponente
+      ? '<div class="qrcode-txt">'+escAttr(primeiroCod||'')+'</div>'
+      : '<div class="sess" style="font-size:8px;word-break:break-all">'+escAttr(qrTexto)+'</div>';
     return {qr:qrTexto,html:'<div class="label">'+
       '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+escAttr(pedido)+'</div></div>'+
       '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+(totalCx?('/'+totalCx):'')+'</div></div></div>'+
@@ -5725,10 +5797,10 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,transp,dataFab,tot
       '<div class="st"><span class="stk">LOTE</span><span class="stv" style="font-size:18px">'+escAttr(lote)+'</span></div></div>'+
       '<div class="meta">'+(transp?('Transp: '+escAttr(transp)+' · '):'')+(dataFab?('Fab: '+escAttr(dataFab)):'')+'</div>'+
       '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div><div class="item" style="white-space:normal;line-height:1.3">'+escAttr(itensResumo)+'</div></div>'+
-      '<div class="qrbox"><div class="qr_x"></div><div class="sess" style="font-size:8px;word-break:break-all">'+escAttr(qrTexto)+'</div></div></div>'+
+      '<div class="qrbox"><div class="qrcode-lbl">'+codLbl+'</div><div class="qr_x"></div>'+qrSubHtml+'</div></div>'+
     '</div>'};
   });
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta Cliente — '+escAttr(pedido)+'</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;background:#e5e5e5;padding:10px}.label{width:95mm;height:76mm;background:#fff;border:1px solid #ccc;margin:0 auto 8px;display:flex;flex-direction:column;overflow:hidden;color:#111;page-break-after:always}.hd{background:#00833E;color:#fff;padding:2.6mm 3.5mm;display:flex;justify-content:space-between;align-items:center;gap:8px}.hdl{min-width:0}.hk{font-size:9px;font-weight:800;letter-spacing:.16em;opacity:.9}.ped{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.01em;max-width:53mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cxbadge{background:#fff;color:#00833E;border-radius:7px;padding:3px 11px 4px;text-align:center;flex-shrink:0}.cxbadge .hk{color:#00833E;opacity:.65}.cxv{font-size:22px;font-weight:900;line-height:1}.stats{display:flex;border-bottom:2.5px solid #111}.st{flex:1;padding:2.2mm 3.5mm;display:flex;align-items:baseline;gap:7px;border-right:1px solid #e0e0e0}.st:last-child{border-right:none}.stk{font-size:10px;font-weight:800;letter-spacing:.05em;color:#999}.stv{font-size:22px;font-weight:900;color:#111;line-height:1}.meta{font-size:10px;font-weight:700;color:#333;padding:1.8mm 3.5mm 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}.mid{flex:1;display:flex;gap:2.5mm;padding:2mm 3.5mm 3mm;min-height:0}.items{flex:1;overflow:hidden;min-width:0}.itt{font-size:12px;font-weight:800;letter-spacing:.08em;color:#111;margin-bottom:5px}.item{font-size:13px;font-weight:600;color:#000}.qrbox{width:24mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center}.qrcode-lbl{font-size:7px;font-weight:800;letter-spacing:.03em;color:#111;text-align:center;line-height:1.15;margin-bottom:3px}.qrcode-txt{font-size:14px;font-weight:800;color:#111;margin-top:4px;text-align:center;font-family:"Courier New",monospace;word-break:break-all}.sess{margin-top:3px;text-align:center;line-height:1.2}@page{size:95mm 76mm;margin:0}@media print{body{background:#fff;padding:0}.label{border:none;margin:0}}<\/style></head><body>'+
     labels.map(function(l){return l.html;}).join('')+
     '<script>var LBLS='+JSON.stringify(labels.map(function(l){return l.qr;}))+';window.onload=function(){var boxes=document.querySelectorAll(".qr_x");boxes.forEach(function(el,i){new QRCode(el,{text:LBLS[i],width:96,height:96,correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},800);};<\/script>'+
     '</body></html>';
