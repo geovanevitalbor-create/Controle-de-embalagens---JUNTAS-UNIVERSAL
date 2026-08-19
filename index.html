@@ -5785,6 +5785,7 @@ function montarQRGS1(cx,pedido,sessaoId,lote){
 // Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
 // quando fornecido, mostra "Caixa N/Total"; senão mostra só "Caixa N".
 function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalCaixas:(arr?arr.length:null); }
+
 function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixasParam){
   if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
   var labels=caixas.map(function(cx,idx){
@@ -5799,7 +5800,7 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     // fallback CODE128). Componente troca só essa área — vira um 2º QR com o Código Sabó
     // (nome), já que EAN não tem como carregar um nome, só números.
     var codeBoxHtml=ehComponente
-      ? '<div class="ac-mib">CÓDIGO SABÓ</div><div class="qr_x2" data-idx="'+idx+'"></div>'
+      ? '<div class="ac-mib ac-mib-comp">CÓDIGO SABÓ / COMPONENTE</div><div class="qr_x2" data-idx="'+idx+'"></div>'
       : '<div class="ac-mib">MADE IN BRAZIL</div><svg class="barcode_x" data-idx="'+idx+'"></svg>';
     // Peso já foi digitado ao fechar a caixa (okPeso) — reaproveita cx.peso em vez de pedir
     // de novo na hora de imprimir a etiqueta.
@@ -5830,6 +5831,7 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     '.ac-v{font-size:24px;font-weight:900;color:#111;line-height:1.15;word-break:break-word}'+
     '.ac-col-r{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px}'+
     '.ac-mib{font-size:9px;font-weight:800;letter-spacing:.06em;color:#111;white-space:nowrap}'+
+    '.ac-mib-comp{white-space:normal;text-align:center;max-width:20mm;line-height:1.3;margin-bottom:1px}'+
     '.barcode_x{width:38mm;height:14mm}'+
     '.bc-fallback{font-family:"Courier New",monospace;font-size:13px;font-weight:700;color:#111;letter-spacing:.04em}'+
     '.qr_x2{width:20mm;height:20mm}'+
