@@ -674,7 +674,7 @@ tr.nw td{animation:fl 1s ease-out}
 .adm-err{color:var(--rd);font-size:12px;display:none}
 .adm-hint{font-size:11px;color:var(--td);margin:0 0 14px 2px}
 .adm-searchrow{display:flex;gap:8px;margin-bottom:8px}
-.adm-search{flex:1;background-color:var(--s2);border:1px solid var(--bd);color:var(--tx);
+.adm-search{flex:1;width:100%;box-sizing:border-box;background-color:var(--s2);border:1px solid var(--bd);color:var(--tx);
   padding:13px 15px;border-radius:10px;font-size:14px;outline:none;font-family:var(--f-b)}
 .adm-search::placeholder{color:var(--td)}
 .adm-search:focus{border-color:var(--ac)}
@@ -5808,7 +5808,7 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     return {ean:primeiroCod,qrGS1:qrGS1,qrNome:primeiroNome,ehComponente:ehComponente,html:'<div class="label-ac">'+
       '<div class="ac-row1">'+
         '<div class="ac-col-l">'+
-          '<div class="ac-k">CÓDIGO SABÓ</div><div class="ac-v">'+escAttr(primeiroNome||'—')+'</div>'+
+          '<div class="ac-k">CÓDIGO SABÓ'+(ehComponente?' / COMPONENTE':'')+'</div><div class="ac-v">'+escAttr(primeiroNome||'—')+'</div>'+
           '<div class="ac-k" style="margin-top:6px">QUANTIDADE</div><div class="ac-v">'+(cx.totalUnid||0)+'</div>'+
         '</div>'+
         '<div class="ac-col-r">'+codeBoxHtml+'</div>'+
