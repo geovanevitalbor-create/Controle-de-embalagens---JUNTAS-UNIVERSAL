@@ -2560,7 +2560,7 @@ function imprimirEtiquetaCaixaAtual(){
 }
 // Imprime a etiqueta DO CLIENTE (EAN+QR+lote) direto da bipagem, pra só essa caixa —
 // usa o lote que foi travado no início da sessão (popup "Quem está embalando?").
-// Formulário rápido de Volume/Peso, Transportadora e Data de fabricação — campos que o
+// Formulário rápido de Data de fabricação — único campo que o sistema não rastreia sozinho.
 // sistema não rastreia sozinho, sempre foram pra digitar na hora de imprimir a etiqueta do
 // cliente. Guarda o que falta (caixas/pedido/sessão/lote) em etqClienteCtxPendente até
 // confirmar, e chama aoConfirmar() depois de imprimir pra quem chamou terminar sua limpeza.
@@ -5841,16 +5841,19 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     labels.map(function(l){return l.html;}).join('')+
     '<script>var LBLS='+JSON.stringify(labels.map(function(l){return {ean:l.ean,qrGS1:l.qrGS1,qrNome:l.qrNome,comp:l.ehComponente};}))+';window.onload=function(){'+
     'LBLS.forEach(function(l,i){'+
-    'var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCode(elQ,{text:l.qrGS1,width:80,height:80,correctLevel:QRCode.CorrectLevel.M});'+
-    'if(l.comp){ var elQ2=document.querySelector(\'.qr_x2[data-idx="\'+i+\'"]\'); if(elQ2) new QRCode(elQ2,{text:l.qrNome,width:74,height:74,correctLevel:QRCode.CorrectLevel.M}); }'+
-    'else{ var elB=document.querySelector(\'.barcode_x[data-idx="\'+i+\'"]\'); if(elB){'+
+    'try{ var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCode(elQ,{text:l.qrGS1,width:80,height:80,correctLevel:QRCode.CorrectLevel.M}); }'+
+    'catch(eq){ console.error("QR (GS1) falhou:",eq); var elQf=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQf) elQf.textContent="QR indisponível"; }'+
+    'if(l.comp){'+
+      'try{ var elQ2=document.querySelector(\'.qr_x2[data-idx="\'+i+\'"]\'); if(elQ2) new QRCode(elQ2,{text:l.qrNome,width:74,height:74,correctLevel:QRCode.CorrectLevel.M}); }'+
+      'catch(eq2){ console.error("QR (nome) falhou:",eq2); }'+
+    '}else{ var elB=document.querySelector(\'.barcode_x[data-idx="\'+i+\'"]\'); if(elB){'+
       'try{ JsBarcode(elB,l.ean,{format:"EAN13",width:1.5,height:42,margin:0,fontSize:11,displayValue:true}); }'+
       'catch(e1){ try{ JsBarcode(elB,l.ean,{format:"CODE128",width:1.3,height:42,margin:0,fontSize:10,displayValue:true}); }'+
       // Se nem CODE128 (que aceita quase qualquer texto) conseguir, ao menos mostra o código
       // cru em texto — nunca deixa a etiqueta sair sem nenhum jeito de identificar a peça.
       'catch(e2){ var t=document.createElementNS("http://www.w3.org/2000/svg","text"); t.setAttribute("x","2"); t.setAttribute("y","24"); t.setAttribute("class","bc-fallback"); t.textContent=l.ean||"(sem código)"; elB.appendChild(t); console.error("Código de barras falhou pros dois formatos:",l.ean,e1,e2); } }'+
     '} }'+
-    '}});'+
+    '});'+
     'setTimeout(function(){window.print();},800);};<\/script>'+
     '</body></html>';
   var w=window.open('','_blank');
