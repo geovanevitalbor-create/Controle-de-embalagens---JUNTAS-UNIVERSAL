@@ -370,8 +370,7 @@ tr.nw td{animation:fl 1s ease-out}
 .dp2-btn-export.gn{background:var(--gnd);color:var(--gn);border-color:rgba(22,163,74,.35)}
 .dp2-btn-export.bl{background:var(--acd);color:var(--brand2);border-color:rgba(0,131,62,.35)}
 .dp2-btn-export:active{transform:scale(.97)}
-.dp2-foot-row{display:flex;gap:8px}
-.dp2-btn-action{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;
+.dp2-btn-action{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
   padding:13px 16px;border-radius:9px;font-family:var(--f-b);font-size:13px;font-weight:600;
   cursor:pointer;white-space:nowrap;border:1.5px solid var(--bd2);background:transparent;color:var(--tm)}
 .dp2-btn-action:active{transform:scale(.97)}
@@ -1502,6 +1501,21 @@ const Backend={
   async carregarConfiguracoes(){ try{ var ops=await sbFetch('GET','/operadores?select=nome&order=nome.asc',null); var bs=await sbFetch('GET','/baias?select=nome&order=nome.asc',null); return {status:'ok',operadores:(ops||[]).map(function(o){return o.nome;}),baias:(bs||[]).map(function(b){return b.nome;})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } if(item.tipo==='iniciarSessao'){ await Backend.iniciarSessaoEmbalagem(item.dados); n++; } if(item.tipo==='fecharCaixa'){ await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); n++; } if(item.tipo==='finalizarSimples'){ await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Apaga uma sessão de bipagem travada "em andamento" que nunca foi finalizada — junto com
+  // qualquer caixa/item que ela já tivesse fechado antes de ser abandonada (aba fechada no
+  // meio, conexão caiu, tablet travou etc). Diferente de excluirCaixaAdmin: essa apaga a
+  // SESSÃO inteira (a linha embalagens), não só uma caixa isolada de uma sessão já finalizada.
+  async cancelarSessaoAbandonada(sessaoId){ try{
+    var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'};
+    var cxs=await sbFetch('GET','/caixas?sessao=eq.'+s+'&select=id',null);
+    var caixaIds=(cxs||[]).map(function(c){return c.id;});
+    if(caixaIds.length){
+      await sbFetch('DELETE','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')',null);
+      await sbFetch('DELETE','/caixas?sessao=eq.'+s,null);
+    }
+    await sbFetch('DELETE','/embalagens?sessao=eq.'+s,null);
+    return {status:'ok'};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // ── FATURAMENTO PARCIAL — a unidade é (pedido + data de embalagem): "fatura o que o
   // pedido X embalou no dia Y". Tabela: faturamentos_parciais (ver SQL no chat).
   // Lista os dias em que um pedido teve embalagem, com total de unidades/caixas do dia e,
@@ -3966,14 +3980,16 @@ function renderDetalhePedido(){
   '</div>';
 
   // ── Rodapé de ações ──
+  var ICO_LOCK_OPEN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7-2.6"/></svg>';
+  var ICO_LOCK_CLOSED='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>';
   var acoes;
   if(p.finalizado){
-    acoes='<button class="dp2-btn-action" onclick="pedirReabrirPedido('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg> Reabrir</button>';
+    acoes='<button class="dp2-btn-action" onclick="pedirReabrirPedido('+p.id+')">'+ICO_LOCK_OPEN+' Reabrir pedido</button>';
   }else if(p.fechado){
-    acoes='<button class="dp2-btn-action" onclick="pedirReabrirPedido('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg> Reabrir</button>'+
+    acoes='<button class="dp2-btn-action" onclick="pedirReabrirPedido('+p.id+')">'+ICO_LOCK_OPEN+' Reabrir pedido</button>'+
           '<button class="dp2-btn-action primary" onclick="finalizarPedEsper('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M4 12.5l5.5 5.5L20 6"/></svg> Finalizar</button>';
   }else{
-    acoes='<button class="dp2-btn-action" onclick="fecharPedEsper('+p.id+')">Fechar Pedido</button>'+
+    acoes='<button class="dp2-btn-action" onclick="fecharPedEsper('+p.id+')">'+ICO_LOCK_CLOSED+' Fechar pedido</button>'+
           '<button class="dp2-btn-action primary" onclick="finalizarPedEsper('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M4 12.5l5.5 5.5L20 6"/></svg> Finalizar</button>';
   }
   // Faturar é ação do pedido, ao lado de Fechar/Finalizar/Reabrir/Excluir. Rótulo muda
@@ -3985,7 +4001,7 @@ function renderDetalhePedido(){
     var labelFaturar=saldoZerado?'Faturar':'Faturar Parcial';
     acoes+='<button class="dp2-btn-action money" onclick="abrirSelecaoFinalizacoes(\''+String(p.pedido).replace(/'/g,"\\'")+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M6 2.5h8.5L19 7v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M14.5 2.5V7H19"/><path d="M8.5 12.5h7M8.5 16h4.5"/></svg> '+labelFaturar+'</button>';
   }
-  var foot='<div class="dp2-foot"><div class="dp2-foot-row">'+acoes+'</div>'+
+  var foot='<div class="dp2-foot">'+acoes+
     '<button class="dp2-btn-danger" onclick="excluirPedEsper('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13.5h10L18 7"/><path d="M10 11v6M14 11v6"/></svg> Excluir pedido</button></div>';
 
   body.innerHTML=
@@ -4005,6 +4021,23 @@ function renderDetalhePedido(){
 // por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
 var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas de uma finalização
 function togFinCaixas(sessao){ finCaixasOpenSet[sessao]=!finCaixasOpenSet[sessao]; if(detPedAtual!==null) renderDetalhePedido(); }
+// Cancela uma sessão travada "em andamento" (finalizada:false) que nunca foi concluída — ex:
+// fechou a aba no meio da bipagem, queda de conexão, tablet travou. Some do histórico de vez
+// (e apaga qualquer caixa que já tivesse sido fechada nela); exige senha master, é destrutivo.
+function cancelarSessaoAbandonada(sessao,pedidoNome){
+  exigirSenhaMaster(function(){
+    if(!confirm('Cancelar esta sessão em andamento? Se ela já tiver caixas fechadas, elas também são apagadas. Isso não pode ser desfeito.'))return;
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.status==='ok'){ toast('🗑 Sessão cancelada'); carregarFinalizacoesPedido(pedidoNome); carregarPedidosEsperados(); }
+          else{ toast('⚠ Não cancelou — tente de novo'); }
+        })
+        .withFailureHandler(function(){ toast('⚠ Sem conexão'); })
+        .cancelarSessaoAbandonada(sessao);
+    }catch(e){ toast('⚠ Sem conexão'); }
+  });
+}
 // PDF de uma finalização específica — usa o mesmo detalheCaixas já carregado pra tela, sem
 // precisar de nova consulta ao servidor.
 function imprimirFinalizacaoPDF(pedido,sessao){
@@ -4085,7 +4118,10 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
         '</div>'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">'+
           (temCaixas?('<span style="font-size:10px;color:var(--brand2);display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</span>'):'<span></span>')+
-          '<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none;flex-shrink:0" onclick="event.stopPropagation();imprimirFinalizacaoPDF(\''+String(pedidoNome).replace(/'/g,"\\'")+'\',\''+fz.sessao+'\')">🖨 PDF</button>'+
+          '<div style="display:flex;gap:6px;flex-shrink:0">'+
+            (fz.finalizada?'':'<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--rd);border-color:rgba(220,38,38,.3)" onclick="event.stopPropagation();cancelarSessaoAbandonada(\''+fz.sessao+'\',\''+String(pedidoNome).replace(/'/g,"\\'")+'\')" title="Sessão travada em andamento — abandonada por fechar a aba, queda de conexão etc."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13.5h10L18 7"/><path d="M10 11v6M14 11v6"/></svg> Cancelar sessão</button>')+
+            '<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none" onclick="event.stopPropagation();imprimirFinalizacaoPDF(\''+String(pedidoNome).replace(/'/g,"\\'")+'\',\''+fz.sessao+'\')">🖨 PDF</button>'+
+          '</div>'+
         '</div>'+
         (aberto&&temCaixas?(
           '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px" onclick="event.stopPropagation()">'+
