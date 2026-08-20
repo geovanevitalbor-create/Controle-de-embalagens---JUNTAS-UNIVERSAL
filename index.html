@@ -1878,6 +1878,14 @@ function exigirSenhaMaster(acao){
   acaoPendenteMaster=acao;
   abrirSenha('master','🔒 Acesso Master (exclusão)');
 }
+var acaoPendenteFat=null;
+// Mesmo padrão do exigirSenhaMaster, mas pra ações que só precisam da senha de Faturamento —
+// quem já entrou na tela de Faturamento (fatOk) não precisa digitar de novo.
+function exigirSenhaFaturamento(acao){
+  if(fatOk){ acao(); return; }
+  acaoPendenteFat=acao;
+  abrirSenha('fatAcao','Senha de Faturamento');
+}
 
 // ═══════════════════════════════════════
 // SENHA MODAL
@@ -1899,7 +1907,7 @@ function abrirSenha(dest,titulo){
 function fecharSenhaModal(){fecharOv('ovSenha');}
 function checkSenha(){
   const v=document.getElementById('senhaInp').value;
-  const ok=(senhaDestino==='fat'&&v===SENHA_FAT)||(senhaDestino==='adm'&&v===SENHA_ADM)||(senhaDestino==='qtdmanual'&&v===SENHA_ADM)||(senhaDestino==='master'&&v===SENHA_MASTER);
+  const ok=(senhaDestino==='fat'&&v===SENHA_FAT)||(senhaDestino==='adm'&&v===SENHA_ADM)||(senhaDestino==='qtdmanual'&&v===SENHA_ADM)||(senhaDestino==='master'&&v===SENHA_MASTER)||(senhaDestino==='fatAcao'&&v===SENHA_FAT);
   if(ok){
     fecharOv('ovSenha');
     if(senhaDestino==='adm'){admOk=true;irPara('adm');}
@@ -1911,6 +1919,11 @@ function checkSenha(){
       masterOk=true;
       var acao=acaoPendenteMaster; acaoPendenteMaster=null;
       if(acao) acao();
+    }
+    if(senhaDestino==='fatAcao'){
+      fatOk=true;
+      var acaoFat=acaoPendenteFat; acaoPendenteFat=null;
+      if(acaoFat) acaoFat();
     }
   } else {
     const el=document.getElementById('senhaInp');
@@ -4852,11 +4865,11 @@ function reabrirPedEsper(id,motivo,aoTerminarCb){
     }).withFailureHandler(function(e){ if(aoTerminarCb)aoTerminarCb(); alert('Sem conexão: '+(e&&e.message?e.message:'')); }).reabrirPedidoEsperado(id,motivo);
   }catch(e){ if(aoTerminarCb)aoTerminarCb(); toast('⚠ Sem conexão'); }
 }
-// Reabrir exige senha master (mesma trava das exclusões) + motivo — reabertura desfaz uma
-// decisão de "está pronto/encerrado", então merece a mesma seriedade.
+// Reabrir exige a senha de Faturamento (não mais a master) + motivo — quem já está na tela
+// de Faturamento não precisa digitar de novo, já provou que tem acesso.
 var reabrirPedIdCtx=null;
 function pedirReabrirPedido(id){
-  exigirSenhaMaster(function(){
+  exigirSenhaFaturamento(function(){
     reabrirPedIdCtx=id;
     document.getElementById('motivoReabrirTxt').value='';
     document.getElementById('motivoReabrirErr').style.display='none';
@@ -4991,7 +5004,7 @@ function imprimirPedidoPDF(){
   w.document.write(h);w.document.close();
 }
 function excluirPedEsper(id){
-  exigirSenhaMaster(function(){
+  exigirSenhaFaturamento(function(){
     if(!confirm('Excluir este pedido cadastrado e todos os itens esperados dele? Isso não pode ser desfeito.'))return;
     try{
       google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){toast('🗑 Pedido excluído');fecharDetalhePedido();carregarPedidosEsperados();}else{toast('⚠ Não excluiu — tente de novo');}}).withFailureHandler(function(){toast('⚠ Sem conexão');}).excluirPedidoEsperado(id);
