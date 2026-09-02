@@ -2475,8 +2475,8 @@ function renderCxFech(){
   if(!cxFech.length){w.innerHTML='';return;}
   w.innerHTML=cxFech.map(function(cx,idx){
     var etqBtn = (cx.etqImpressa?'<span class="cx-etq-ok">✓ etiqueta impressa</span>':'')
-      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ '+(cx.etqImpressa?'reimprimir':'da caixa')+'</button>'
-      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 '+(cx.etqImpressa?'reimprimir':'do cliente')+'</button>';
+      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ da caixa</button>'
+      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 do cliente</button>';
     return '<div class="cx-item">'+
       '<div class="cx-item-top"><span class="cx-n">📦 Cx '+cx.num+'</span>'+
       '<span class="cx-its">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span>'+
