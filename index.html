@@ -1466,8 +1466,9 @@ const Backend={
   // Antes: 1 consulta por embalagem (caixas) + 1 por caixa (itens) — com 200 embalagens e
   // ~3 caixas cada, isso passava de 800 idas ao Supabase. Agora: 4 consultas fixas, sempre,
   // não importa quantas embalagens existam — busca tudo em lote e monta no navegador.
-  async listarEmbalagens(){ try{
-    var emb=await sbFetch('GET','/embalagens?select=*&finalizada=eq.true&order=id.desc&limit=200',null);
+  async listarEmbalagens(incluirEmAndamento){ try{
+    var filtroFin=incluirEmAndamento?'':'&finalizada=eq.true';
+    var emb=await sbFetch('GET','/embalagens?select=*'+filtroFin+'&order=id.desc&limit=200',null);
     if(!emb||!emb.length) return {status:'ok',embalagens:[]};
     var fatMapSessao={}, fatMapDia={};
     try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,sessao,nf,cliente',null); (fats||[]).forEach(function(f){ if(f.sessao) fatMapSessao[f.sessao]=f; else fatMapDia[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
@@ -1488,7 +1489,7 @@ const Backend={
     }
     var res=emb.map(function(e){
       var fat=(e.sessao&&fatMapSessao[e.sessao])?fatMapSessao[e.sessao]:fatMapDia[e.pedido+'|'+e.data_embalagem];
-      return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixasPorSessao[e.sessao]||[]};
+      return {sessao:e.sessao,pedido:e.pedido,data:_dataBR(e.data_embalagem),hora:e.hora_embalagem||'',operador:e.operador||'',baia:e.baia||'',totalCaixas:e.total_caixas||0,totalUnid:e.total_unidades||0,peso:String(e.peso_total||0),cliLote:e.cliente_lote||'',cliTransp:e.cliente_transp||'',cliData:e.cliente_data_fab||'',finalizada:e.finalizada!==false,nf:fat?(fat.nf||''):'',cliente:fat?(fat.cliente||''):'',caixas:caixasPorSessao[e.sessao]||[]};
     });
     return {status:'ok',embalagens:res};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1685,6 +1686,11 @@ const Backend={
   async salvarProduto(codigo,nome,tipo){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; var tp=(tipo==='componente')?'componente':'acabado'; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm,tipo:tp},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Grava só a data de fabricação — usada no momento da bipagem (confirmarFormEtqCliente),
+  // onde ainda não existe transportadora (isso só é preenchido depois, no Faturamento).
+  // Separada de salvarInfoCliente de propósito: chamar aquela aqui apagaria a transportadora
+  // já salva, sobrescrevendo com null toda vez que alguém reimprime a etiqueta na bipagem.
+  async salvarDataFabCliente(sessao,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async atualizarCaixaAdmin(caixaId,peso,itens){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; var totalUnid=(itens||[]).reduce(function(s,it){return s+(Number(it.qty)||0);},0); await sbFetch('PATCH','/caixas?id=eq.'+caixaId,{peso:parseFloat(peso)||0,total_unidades:totalUnid}); await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); if(itens&&itens.length){ await sbFetch('POST','/itens_caixa',itens.map(function(it){return {caixa_id:caixaId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirCaixaAdmin(caixaId){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); await sbFetch('DELETE','/caixas?id=eq.'+caixaId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async atualizarPedidoEmbalagem(sessao,novoPedido){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{pedido:novoPedido}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -2468,9 +2474,9 @@ function renderCxFech(){
   var w=document.getElementById('cxList');
   if(!cxFech.length){w.innerHTML='';return;}
   w.innerHTML=cxFech.map(function(cx,idx){
-    var etqBtn = cx.etqImpressa
-      ? '<span class="cx-etq-ok">✓ etiqueta impressa</span>'
-      : '<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ da caixa</button><button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 do cliente</button>';
+    var etqBtn = (cx.etqImpressa?'<span class="cx-etq-ok">✓ etiqueta impressa</span>':'')
+      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ '+(cx.etqImpressa?'reimprimir':'da caixa')+'</button>'
+      +'<button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 '+(cx.etqImpressa?'reimprimir':'do cliente')+'</button>';
     return '<div class="cx-item">'+
       '<div class="cx-item-top"><span class="cx-n">📦 Cx '+cx.num+'</span>'+
       '<span class="cx-its">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span>'+
@@ -2631,6 +2637,12 @@ function confirmarFormEtqCliente(){
   etqClienteCtxPendente=null;
   fecharOv('ovEtqClienteInfo');
   montarImprimirEtqCliente(ctx.caixas,ctx.pedido,ctx.sessaoId,ctx.lote,dataFab,null);
+  // Salva no servidor pra não se perder — sem isso, reimprimir depois (Admin > Histórico,
+  // ou Faturamento antes de faturar) saía com "DATA FABR." em branco, porque esse valor só
+  // existia localmente, pro print da hora, e nunca tinha ido pro banco.
+  if(ctx.sessaoId&&dataFab){
+    try{ google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).salvarDataFabCliente(ctx.sessaoId,dataFab); }catch(e){}
+  }
   if(ctx.aoConfirmar) ctx.aoConfirmar();
 }
 function imprimirEtiquetaClienteCaixaAtual(){
@@ -5472,7 +5484,7 @@ function carregarHist(){
         }
       })
       .withFailureHandler(function(e){ el.innerHTML=renderDashError('Sem conexão com o servidor'+(e&&e.message?': '+e.message:'.'),'carregarHist'); })
-      .listarEmbalagens();
+      .listarEmbalagens(true);
   }catch(e){ el.innerHTML=renderDashError(e.message,'carregarHist'); }
 }
 function popularHistFiltros(){
@@ -5545,7 +5557,7 @@ function renderHistBody(sessoes){
       var sessEsc=String(e.sessao).replace(/'/g,"\\'");
       return '<div class="cx-detalhe" style="padding:0;overflow:hidden">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer" onclick="togHistPed(\''+sessEsc+'\')">'+
-          '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+'</div>'+
+          '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+(e.finalizada===false?' <span style="color:var(--yw);font-size:9px;font-family:var(--f-b);letter-spacing:0;font-weight:600">· em andamento</span>':'')+'</div>'+
           '<div style="font-size:10px;color:var(--td);margin-top:2px">'+(e.operador||'—')+' · '+(e.baia||'—')+' · '+(e.totalCaixas||0)+' cx · '+(e.totalUnid||0)+' un.'+(e.nf?(' · NF '+escAttr(e.nf)):'')+'</div></div>'+
           '<span style="font-size:16px;color:var(--td);transition:transform .15s;transform:rotate('+(abertoSess?'90':'0')+'deg)">›</span>'+
         '</div>'+
@@ -5738,14 +5750,14 @@ function rCli(sessao){
   var e=histTodas.find(function(x){return x.sessao===sessao;});
   if(!e){toast('Sessão não encontrada');return;}
   if(!e.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliData||'', (e.caixas||[]).length);
+  montarImprimirEtqCliente(e.caixas||[], e.pedido, e.sessao, e.cliLote, e.cliData||e.data||'', (e.caixas||[]).length);
 }
 // Mesmo que rCli, mas a partir da lista de pedidos do Faturamento (índice em todosPed).
 function imprimirEtqClienteFat(idx){
   var p=todosPed[idx];
   if(!p){toast('Pedido não encontrado');return;}
   if(!p.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
-  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliData||'', (p.caixas||[]).length);
+  montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliData||p.data||'', (p.caixas||[]).length);
 }
 
 // ═══════════════════════════════════════
