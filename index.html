@@ -5829,7 +5829,7 @@ function impEtq(){
       '<div class="hd"><div class="hdl"><div class="hk">PEDIDO</div><div class="ped">'+s.pedido+'</div></div>'+
       '<div class="cxbadge"><div class="hk">CAIXA</div><div class="cxv">'+cx.num+'</div></div></div>'+
       '<div class="stats"><div class="st"><span class="stk">UNID.</span><span class="stv">'+cx.totalUnid+'</span></div>'+
-      '<div class="st"><span class="stk">PESO</span><span class="stv">'+(cx.peso||0).toFixed?((cx.peso||0).toFixed(2)):(cx.peso||0)+'<i> kg</i></span></div></div>'+
+      '<div class="st"><span class="stk">PESO</span><span class="stv">'+(Number(cx.peso)||0).toFixed(2)+'<i> kg</i></span></div></div>'+
       '<div class="meta">'+dadosFin.dataEmbalagem+' · '+s.operador+' · '+s.baia+'</div>'+
       '<div class="mid"><div class="items"><div class="itt">CONTEÚDO</div>'+(cx.itens||[]).map(function(it){return '<div class="item"><span class="in">'+it.nome+'</span> <b>×'+it.qty+'</b></div>';}).join('')+'</div>'+
       '<div class="qrbox"><div class="qr_x"></div><div class="sess">'+s.id+'</div></div></div>'+
