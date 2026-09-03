@@ -3807,7 +3807,7 @@ function renderHistoricoFatSec(){
 // expandir inline: card só mostra o resumo, o clique abre a janela com tudo.
 var detPedAtual=null;
 var modoEdicaoPedido=null; // null | 'escolha' | 'editar' | 'adicionar'
-var abaDetalhePedido='finalizacoes'; // 'finalizacoes' | 'rastreabilidade' — sub-abas do histórico
+var abaDetalhePedido='itens'; // 'itens' | 'finalizacoes' | 'rastreabilidade' — abas do painel único
 var filtroItensPedido=''; // busca por peça, vale tanto pro modo editar quanto pro modo leitura
 var exportMenuAberto=false; // menu suspenso do ícone único de Excel/PDF
 var pedEventosCache={}; // {pedidoId: [eventos] | 'erro' | undefined}
@@ -4069,7 +4069,7 @@ function abrirDetalhePedido(id){
   detPedAtual=id;
   editandoItensPedido=false;
   modoEdicaoPedido=null;
-  abaDetalhePedido='finalizacoes';
+  abaDetalhePedido='itens';
   filtroItensPedido='';
   paginaItensPedido=1;
   exportMenuAberto=false;
@@ -4146,22 +4146,18 @@ function renderDetalhePedido(){
       (p.itens.length?'<input autocomplete="off" class="adm-search" id="filtroItensPedidoInp" placeholder="Filtrar por peça..." value="'+escAttr(filtroItensPedido)+'" oninput="setFiltroItensPedido(this.value)" style="margin-bottom:10px">':'')+
       '<div id="itensPedidoListaWrap"></div>';
   }
-  var itensPanel='<div class="dp2-panel">'+
-    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Itens do pedido</span>'+
-      (podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none;margin:0" onclick="setModoEdicaoPedido('+(modoEdicaoPedido?'null':"'escolha'")+')">'+(modoEdicaoPedido?'✔ Concluir':'✎ Editar')+'</button>'):'')+
-    '</div>'+
-    '<div class="dp2-panel-bd">'+itensBodyHtml+'</div>'+
-  '</div>';
-
-  // ── Painel: Histórico — Finalizações e Rastreabilidade viraram sub-abas do mesmo painel,
-  // Rastreabilidade por último (é a visão mais "de auditoria", Finalizações é a mais usada
-  // no dia a dia — cada finalização mostra também quanto % do pedido total ela representa).
+  // ── Painel único: Itens / Finalizações / Rastreabilidade como abas — Rastreabilidade
+  // por último (visão de auditoria), Itens primeiro (o que mais se consulta no dia a dia).
+  // O botão Editar/Concluir só aparece quando a aba Itens está ativa, já que é uma ação
+  // específica dela.
   var abaBtnHtml=function(id,label){ return '<button class="fat-filter'+(abaDetalhePedido===id?' active':'')+'" onclick="setAbaDetalhePedido(\''+id+'\')">'+label+'</button>'; };
-  var histPanel='<div class="dp2-panel">'+
-    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Histórico</span></div>'+
+  var painelUnico='<div class="dp2-panel">'+
+    '<div class="dp2-panel-hd" style="flex-wrap:wrap;gap:8px">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+abaBtnHtml('itens','Itens')+abaBtnHtml('finalizacoes','Finalizações')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
+      (abaDetalhePedido==='itens'&&podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none;margin:0" onclick="setModoEdicaoPedido('+(modoEdicaoPedido?'null':"'escolha'")+')">'+(modoEdicaoPedido?'✔ Concluir':'✎ Editar')+'</button>'):'')+
+    '</div>'+
     '<div class="dp2-panel-bd">'+
-      '<div style="display:flex;gap:6px;margin-bottom:12px">'+abaBtnHtml('finalizacoes','Finalizações')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
-      (abaDetalhePedido==='rastreabilidade'?renderRastreabilidadeHtml(p):renderFinalizacoesPedidoHtml(p.pedido,totEsp))+
+      (abaDetalhePedido==='itens'?itensBodyHtml:(abaDetalhePedido==='rastreabilidade'?renderRastreabilidadeHtml(p):renderFinalizacoesPedidoHtml(p.pedido,totEsp)))+
     '</div>'+
   '</div>';
 
@@ -4207,8 +4203,7 @@ function renderDetalhePedido(){
     head+
     motivoBox+
     motivoReabBox+
-    histPanel+
-    itensPanel+
+    painelUnico+
     foot;
   renderItensPedidoListaConteudo();
 }
