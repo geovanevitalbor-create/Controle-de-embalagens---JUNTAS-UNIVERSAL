@@ -349,6 +349,8 @@ tr.nw td{animation:fl 1s ease-out}
 .dp2-head-bar{background:var(--s2);border-radius:20px;height:6px;overflow:hidden;margin-top:12px}
 .dp2-head-bar-fill{background:var(--ac);height:100%}
 .dp2-panel{background:var(--s2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+#svgBrasilTransp path{transition:stroke .12s,stroke-width .12s}
+#svgBrasilTransp path:hover{stroke:#f5f5f5;stroke-width:2.5}
 .dp2-panel-hd{padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--bd);
   display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dp2-panel-hd-t{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--td)}
@@ -1711,7 +1713,7 @@ const Backend={
   async salvarProduto(codigo,nome,tipo){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; var tp=(tipo==='componente')?'componente':'acabado'; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm,tipo:tp},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarTransportadoras(){ try{ var r=await sbFetch('GET','/transportadoras?select=*&order=nome.asc',null); return {status:'ok',transportadoras:r||[]}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async salvarTransportadora(id,nome,cor,estados){ try{ var body={nome:nome,cor:cor,estados:estados||[]}; if(id){ await sbFetch('PATCH','/transportadoras?id=eq.'+id,body); } else { await sbFetch('POST','/transportadoras',body); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async salvarTransportadora(id,nome,cor,estados,cidadesPorEstado){ try{ var body={nome:nome,cor:cor,estados:estados||[],cidades_por_estado:cidadesPorEstado||{}}; if(id){ await sbFetch('PATCH','/transportadoras?id=eq.'+id,body); } else { await sbFetch('POST','/transportadoras',body); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirTransportadora(id){ try{ if(!id)return {status:'erro',msg:'Id vazio.'}; await sbFetch('DELETE','/transportadoras?id=eq.'+id,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarInfoCliente(sessao,lote,transp,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote||null,cliente_transp:transp||null,cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Grava só a data de fabricação — usada no momento da bipagem (confirmarFormEtqCliente),
@@ -3864,6 +3866,7 @@ var BR_REGIOES=[
 var transportadorasCache=[];
 var transpCtxId=null; // id em edição, ou null pra nova
 var transpEstadosSel=[]; // ufs marcados no formulário aberto no momento
+var transpCidadesSel={}; // {uf: [cidade,...]} — opcional, vazio = atende o estado inteiro
 
 function carregarTransportadoras(){
   var wrap=document.getElementById('transportadorasSec');
@@ -3934,8 +3937,11 @@ function mostrarInfoEstadoMapa(uf){
     return;
   }
   el.innerHTML='<div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(nome)+'</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px">'+
-      achadas.map(function(t){return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 10px;font-size:11px"><span style="width:9px;height:9px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+'</span>';}).join('')+
+    '<div style="display:flex;flex-direction:column;gap:5px;align-items:center;margin-top:6px">'+
+      achadas.map(function(t){
+        var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+        return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 10px;font-size:11px"><span style="width:9px;height:9px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+(cids.length?(' · '+cids.map(escAttr).join(', ')):' · estado inteiro')+'</span>';
+      }).join('')+
     '</div>';
 }
 // ── Formulário (novo/editar) ──
@@ -3943,6 +3949,7 @@ function abrirTransportadora(id){
   var t=id?transportadorasCache.find(function(x){return x.id===id;}):null;
   transpCtxId=id||null;
   transpEstadosSel=t?(t.estados||[]).slice():[];
+  transpCidadesSel=t&&t.cidades_por_estado?JSON.parse(JSON.stringify(t.cidades_por_estado)):{};
   document.getElementById('transpNome').value=t?t.nome:'';
   document.getElementById('transpCor').value=t?t.cor:'#00833E';
   document.getElementById('transpTitulo').textContent=t?'Editar Transportadora':'Nova Transportadora';
@@ -3954,7 +3961,7 @@ function abrirTransportadora(id){
 function renderChecklistEstadosTransp(){
   var el=document.getElementById('transpEstadosGrid');
   if(!el)return;
-  el.innerHTML=BR_REGIOES.map(function(reg){
+  var gradeHtml=BR_REGIOES.map(function(reg){
     return '<div style="margin-bottom:10px"><div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">'+reg.nome+'</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
         reg.ufs.map(function(uf){
@@ -3965,10 +3972,31 @@ function renderChecklistEstadosTransp(){
         }).join('')+
       '</div></div>';
   }).join('');
+  // Cidades são opcionais: só aparece o campo pros estados já marcados acima. Vazio = atende
+  // o estado inteiro; se listar cidades, só essas contam (mostrado depois no mapa).
+  var cidadesHtml=transpEstadosSel.length?(
+    '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd)">'+
+      '<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Cidades por estado (opcional — em branco = estado inteiro)</div>'+
+      transpEstadosSel.map(function(uf){
+        var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
+        var nome=e?e[1]:uf.toUpperCase();
+        var val=(transpCidadesSel[uf]||[]).join(', ');
+        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+          '<span style="font-size:9px;color:var(--tm);width:30px;flex-shrink:0;font-family:var(--mo)" title="'+escAttr(nome)+'">'+uf.toUpperCase()+'</span>'+
+          '<input autocomplete="off" class="inp" style="flex:1;padding:7px 9px;font-size:11px" placeholder="Cidades separadas por vírgula, ou deixe em branco" value="'+escAttr(val)+'" onchange="setCidadesTransp(\''+uf+'\',this.value)">'+
+        '</div>';
+      }).join('')+
+    '</div>'
+  ):'';
+  el.innerHTML=gradeHtml+cidadesHtml;
+}
+function setCidadesTransp(uf,valor){
+  var lista=valor.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(lista.length) transpCidadesSel[uf]=lista; else delete transpCidadesSel[uf];
 }
 function toggleEstadoTransp(uf){
   var i=transpEstadosSel.indexOf(uf);
-  if(i===-1) transpEstadosSel.push(uf); else transpEstadosSel.splice(i,1);
+  if(i===-1) transpEstadosSel.push(uf); else{ transpEstadosSel.splice(i,1); delete transpCidadesSel[uf]; }
   renderChecklistEstadosTransp();
 }
 async function salvarTransportadoraForm(){
@@ -3979,7 +4007,7 @@ async function salvarTransportadoraForm(){
   var btn=document.getElementById('btnSalvarTransp');
   btn.disabled=true; btn.textContent='Salvando...';
   try{
-    var r=await Backend.salvarTransportadora(transpCtxId,nome,cor,transpEstadosSel);
+    var r=await Backend.salvarTransportadora(transpCtxId,nome,cor,transpEstadosSel,transpCidadesSel);
     btn.disabled=false; btn.textContent='💾 Salvar';
     if(r&&r.status==='ok'){ toast('✔ Transportadora salva'); fecharOv('ovTransportadora'); carregarTransportadoras(); }
     else{ alert('Não salvou.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em "row-level security" ou "policy", é a tabela transportadoras com RLS ligado — roda de novo o SQL (agora com o disable no final).'); }
@@ -6348,7 +6376,10 @@ function gerarSSCCCaixa(cx,sessaoId){
 function tipoProdutoPorCodigo(codigo){ return produtosTipoCache[codigo]==='componente'?'componente':'acabado'; }
 function montarQRGS1(cx,pedido,sessaoId,lote){
   var sscc=gerarSSCCCaixa(cx,sessaoId);
-  var codProduto=(cx.itens&&cx.itens[0])?cx.itens[0].codigo:'';
+  // (02) carrega o Código Sabó (nome), não o EAN — decisão explícita do Thiago, mesmo
+  // sabendo que isso não é o que o GS1 define pra esse AI (que é pra GTIN). O EAN já
+  // aparece como código de barras separado, em cima na etiqueta.
+  var codProduto=(cx.itens&&cx.itens[0])?cx.itens[0].nome:'';
   var qtd=cx.totalUnid||0;
   return '(00)'+sscc+'(02)'+codProduto+'(11)'+lote+'(37)'+qtd;
 }
