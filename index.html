@@ -3927,6 +3927,64 @@ function confirmarAdicionarItemPedido(){
     }).withFailureHandler(function(){ restaurar(); toast('⚠ Sem conexão'); }).adicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd);
   }catch(e){ restaurar(); toast('⚠ Sem conexão'); }
 }
+// Importar Excel dentro da EDIÇÃO de um pedido já existente — mesmo modelo (Produto | Quantidade)
+// do cadastro novo, mas aqui cada linha reconhecida vira uma chamada real ao servidor
+// (adicionarItemPedido), uma de cada vez, porque o pedido já existe e os itens precisam
+// ficar salvos na hora — diferente do cadastro novo, que só salva tudo junto no final.
+function handleImportExcelItemPedido(fileInput,pedidoId){
+  var file=fileInput.files&&fileInput.files[0];
+  fileInput.value='';
+  if(!file)return;
+  if(!produtosCache){toast('Cadastro de peças ainda não carregou — aguarde a conexão e tente de novo');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var sheet=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      processarImportExcelItemPedido(rows,pedidoId);
+    }catch(err){
+      alert('Não consegui ler esse arquivo: '+err.message);
+    }
+  };
+  reader.onerror=function(){ alert('Falha ao ler o arquivo.'); };
+  reader.readAsArrayBuffer(file);
+}
+async function processarImportExcelItemPedido(rows,pedidoId){
+  var porNome={};
+  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
+  var paraAdicionar=[], naoAchados=[];
+  (rows||[]).forEach(function(r){
+    var nomeRaw=String(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')).trim();
+    var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
+    if(!nomeRaw||!qtd||qtd<=0)return;
+    var cod=porNome[nomeRaw.toLowerCase()];
+    if(!cod){ naoAchados.push(nomeRaw); return; }
+    paraAdicionar.push({codigo:cod,nome:produtosCache[cod],qtd:qtd});
+  });
+  if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
+  if(!paraAdicionar.length){
+    alert('Nenhum item reconhecido.\n\nNão encontrado(s) no cadastro de Peças (nome tem que ser idêntico) — '+naoAchados.length+':\n'+naoAchados.slice(0,15).join('\n')+(naoAchados.length>15?'\n...':''));
+    return;
+  }
+  toast('⏳ Adicionando '+paraAdicionar.length+' item(ns)...');
+  var okCount=0, falhas=[];
+  for(var i=0;i<paraAdicionar.length;i++){
+    var it=paraAdicionar[i];
+    try{
+      var r=await Backend.adicionarItemPedido(pedidoId,it.codigo,it.nome,it.qtd);
+      if(r&&r.status==='ok') okCount++; else falhas.push(it.nome);
+    }catch(e){ falhas.push(it.nome); }
+  }
+  carregarPedidosEsperados();
+  var msg='✔ '+okCount+' item(ns) adicionado(s) ao pedido';
+  if(falhas.length) msg+=' — '+falhas.length+' falharam';
+  toast(msg);
+  if(naoAchados.length||falhas.length){
+    alert((falhas.length?('Falharam ao salvar: '+falhas.join(', ')+'\n\n'):'')+(naoAchados.length?('Não encontrado(s) no cadastro de Peças (nome tem que ser idêntico) — '+naoAchados.length+':\n'+naoAchados.slice(0,15).join('\n')+(naoAchados.length>15?'\n...':'')):''));
+  }
+}
 function abrirDetalhePedido(id){
   var p=pedidosEsperados.find(function(x){return x.id===id;});
   if(!p)return;
@@ -3983,7 +4041,12 @@ function renderDetalhePedido(){
         '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
       '</div>';
     }).join(''):'<div class="dp2-empty">Sem itens ainda.</div>')+
-    '<button class="adm-btn-add" style="width:100%;margin-top:10px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)" onclick="abrirAdicionarItemPedido('+p.id+')">+ Adicionar produto</button>';
+    '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'+
+      '<button class="adm-btn-add" style="flex:1;min-width:150px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)" onclick="abrirAdicionarItemPedido('+p.id+')">+ Adicionar produto</button>'+
+      '<button class="adm-btn-add" style="background:var(--gn)" onclick="document.getElementById(\'editPedExcelFile\').click()">Importar Excel</button>'+
+      '<button class="btn-cncl" onclick="baixarModeloPedidoExcel()">⬇ Baixar modelo</button>'+
+      '<input autocomplete="off" type="file" id="editPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelItemPedido(this,'+p.id+')">'+
+    '</div>';
   }else{
     itensBodyHtml=p.itens.length?p.itens.map(function(it){
       var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
