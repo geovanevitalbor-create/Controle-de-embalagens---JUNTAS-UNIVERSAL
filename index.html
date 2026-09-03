@@ -354,7 +354,7 @@ tr.nw td{animation:fl 1s ease-out}
 .dp2-panel-hd-t{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--td)}
 .dp2-panel-bd{padding:12px 14px}
 .dp2-empty{font-size:11px;color:var(--td);padding:4px 0}
-.dp2-foot{position:sticky;bottom:0;margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);
+.dp2-foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);
   background:var(--s1);display:flex;flex-direction:column;gap:8px}
 
 /* Botões de ação do detalhe de pedido — centralização explícita (display:flex+align+justify)
@@ -5701,6 +5701,7 @@ function saveProdEdit(cod){
 // ═══════════════════════════════════════
 var histTodas=[]; // cache bruto de todas as embalagens vindas do servidor
 var histOpenSet={}, histPedOpenSet={}; // {pedido: bool} grupo aberto / {sessao: bool} sessão aberta
+var histAcoesMenuAberto=null; // sessao (string) com o menu Relatório/Etiquetas/Cliente aberto, ou null
 var histPecasFiltro=[]; // códigos selecionados no filtro por peças
 function carregarHist(){
   var el=document.getElementById('histLista');
@@ -5735,6 +5736,8 @@ function popularHistFiltros(){
 }
 function togHist(pedido){ histOpenSet[pedido]=!histOpenSet[pedido]; filtrarHist(); }
 function togHistPed(sessao){ histPedOpenSet[sessao]=!histPedOpenSet[sessao]; filtrarHist(); }
+function toggleHistAcoesMenu(sessao){ histAcoesMenuAberto=(histAcoesMenuAberto===sessao)?null:sessao; filtrarHist(); }
+function fecharHistAcoesMenu(){ histAcoesMenuAberto=null; filtrarHist(); }
 function filtrarHist(){
   var op=document.getElementById('histOpSel').value;
   var ped=document.getElementById('histPedSel').value;
@@ -5797,11 +5800,15 @@ function renderHistBody(sessoes){
         '</div>'+
         (abertoSess?(
           '<div style="padding:0 12px 12px;border-top:1px dashed var(--bd)">'+
-          '<div class="hist-btns" style="margin:10px 0">'+
-            '<button class="btn-rp rel" onclick="rRel(\''+sessEsc+'\')">🖨 Relatório</button>'+
-            '<button class="btn-rp etq" onclick="rEtq(\''+sessEsc+'\')">🏷 Etiquetas</button>'+
-            (e.cliLote?'<button class="btn-rp cli" onclick="rCli(\''+sessEsc+'\')">📦 Etq. Cliente</button>':'')+
-            '<button class="btn-rp all" onclick="rTudo(\''+sessEsc+'\')" title="Relatório + etiquetas">⚡</button>'+
+          '<div style="position:relative;margin:10px 0">'+
+            '<button style="width:100%;padding:11px;border-radius:8px;background:var(--acd);border:1px solid var(--ac);color:var(--brand2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--f-b);font-size:12px;font-weight:600" onclick="event.stopPropagation();toggleHistAcoesMenu(\''+sessEsc+'\')">📄 Relatório / Etiquetas '+(histAcoesMenuAberto===e.sessao?'▴':'▾')+'</button>'+
+            (histAcoesMenuAberto===e.sessao?(
+              '<div style="position:absolute;top:46px;left:0;right:0;background:var(--s2);border:1px solid var(--bd);border-radius:9px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:8;overflow:hidden" onclick="event.stopPropagation()">'+
+                '<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;color:var(--brand2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="rRel(\''+sessEsc+'\');fecharHistAcoesMenu()">🖨 Relatório</button>'+
+                '<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;border-top:1px solid var(--bd);color:var(--gn);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="rEtq(\''+sessEsc+'\');fecharHistAcoesMenu()">🏷 Etiquetas — todas as caixas</button>'+
+                (e.cliLote?('<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;border-top:1px solid var(--bd);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="rCli(\''+sessEsc+'\');fecharHistAcoesMenu()">📦 Etq. Cliente — todas as caixas</button>'):'')+
+              '</div>'
+            ):'')+
           '</div>'+
           (e.caixas&&e.caixas.length?e.caixas.map(function(cx){ return renderCaixaEditCard(e,cx); }).join(''):'<div style="font-size:11px;color:var(--td)">Sem caixas registradas.</div>')+
           '</div>'
@@ -5819,9 +5826,11 @@ function renderCaixaEditCard(e,cx){
     return '<div class="cx-detalhe">'+
       '<div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
       (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
-      '<div style="display:flex;gap:6px;margin-top:8px">'+
+      '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'+
         '<button class="btn-gh" style="width:auto;padding:6px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="abrirEdicaoCaixaHist('+cx.id+')">✎ Editar</button>'+
         '<button class="btn-rm" style="padding:6px 10px" onclick="pedirExcluirCaixaHist('+cx.id+',\''+String(e.sessao).replace(/'/g,"\\'")+'\')">🗑 Excluir</button>'+
+        '<button class="btn-gh" style="width:auto;padding:6px 12px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--brand2);border-color:rgba(0,131,62,.35)" onclick="rEtqCaixaUnica(\''+String(e.sessao).replace(/'/g,"\\'")+'\','+cx.id+')" title="Etiqueta interna, só desta caixa">🏷 Etiqueta</button>'+
+        (e.cliLote?('<button class="btn-gh" style="width:auto;padding:6px 12px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--gn);border-color:rgba(22,163,74,.35)" onclick="rCliCaixaUnica(\''+String(e.sessao).replace(/'/g,"\\'")+'\','+cx.id+')" title="Etiqueta do cliente, só desta caixa">📦 Cliente</button>'):'')+
       '</div>'+
     '</div>';
   }
@@ -5992,6 +6001,31 @@ function imprimirEtqClienteFat(idx){
   if(!p){toast('Pedido não encontrado');return;}
   if(!p.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
   montarImprimirEtqCliente(p.caixas||[], p.pedido, p.sessao, p.cliLote, p.cliData||p.data||'', (p.caixas||[]).length);
+}
+// Etiqueta interna (QR de controle) de UMA caixa específica, a partir do Histórico do Admin —
+// reaproveita impEtq() montando um dadosFin com uma caixa só, em vez de reimplementar a
+// impressão do zero.
+function rEtqCaixaUnica(sessao,caixaId){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  var cx=(e.caixas||[]).find(function(c){return c.id===caixaId;});
+  if(!cx){toast('Caixa não encontrada');return;}
+  dadosFin={
+    session:{id:e.sessao,pedido:e.pedido,peso:parseFloat(cx.peso)||0,operador:e.operador,baia:e.baia,lote:e.cliLote||''},
+    caixas:[Object.assign({},cx,{etqImpressa:true})],
+    dataEmbalagem:e.data,
+    horaEmbalagem:e.hora||''
+  };
+  impEtq();
+}
+// Mesma ideia pra etiqueta do cliente (GS1-like) de uma caixa só.
+function rCliCaixaUnica(sessao,caixaId){
+  var e=histTodas.find(function(x){return x.sessao===sessao;});
+  if(!e){toast('Sessão não encontrada');return;}
+  if(!e.cliLote){toast('⚠ Essa embalagem não tem lote registrado — etiqueta do cliente indisponível');return;}
+  var cx=(e.caixas||[]).find(function(c){return c.id===caixaId;});
+  if(!cx){toast('Caixa não encontrada');return;}
+  montarImprimirEtqCliente([cx], e.pedido, e.sessao, e.cliLote, e.cliData||e.data||'', 1);
 }
 
 // ═══════════════════════════════════════
