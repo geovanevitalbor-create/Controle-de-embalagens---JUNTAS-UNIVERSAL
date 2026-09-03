@@ -3890,14 +3890,14 @@ function corDoEstadoMapa(uf){
 function renderTransportadorasSec(){
   var wrap=document.getElementById('transportadorasSec');
   if(!wrap)return;
-  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:400px;display:block;margin:0 auto" id="svgBrasilTransp">'+
+  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:640px;display:block;margin:0 auto" id="svgBrasilTransp">'+
     BR_ESTADOS_RAW.map(function(e){
       var uf=e[0], nome=e[1], path=e[2];
       var cor=corDoEstadoMapa(uf)||'#262b27';
       return '<path d="'+path+'" data-uf="'+uf+'" fill="'+cor+'" stroke="#0a0e0c" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarInfoEstadoMapa(\''+uf+'\')" onclick="mostrarInfoEstadoMapa(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
     }).join('')+
   '</svg>';
-  var infoHtml='<div id="mapaInfoEstado" style="margin-top:14px;text-align:center;min-height:48px">'+
+  var infoHtml='<div id="mapaInfoEstado" style="margin-top:16px;text-align:center;min-height:48px">'+
     '<div style="font-size:11px;color:var(--td)">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
   var legendaHtml=transportadorasCache.length?(
     '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px">'+
@@ -3913,11 +3913,10 @@ function renderTransportadorasSec(){
     '</div>';
   }).join(''):'<div class="dp2-empty">Nenhuma transportadora cadastrada ainda.</div>';
   wrap.innerHTML=
-    '<div style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(230px,1fr);gap:24px;align-items:start">'+
-      '<div>'+mapaHtml+infoHtml+legendaHtml+'</div>'+
-      '<div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
-          '<span style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em">Cadastradas ('+transportadorasCache.length+')</span>'+
+    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+legendaHtml+'</div>'+
+    '<div style="max-width:680px;margin:0 auto">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+        '<span style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em">Cadastradas ('+transportadorasCache.length+')</span>'+
           '<button class="adm-btn-add" style="width:auto;padding:8px 14px" onclick="abrirTransportadora(null)">+ Nova</button>'+
         '</div>'+
         listaHtml+
@@ -3983,8 +3982,8 @@ async function salvarTransportadoraForm(){
     var r=await Backend.salvarTransportadora(transpCtxId,nome,cor,transpEstadosSel);
     btn.disabled=false; btn.textContent='💾 Salvar';
     if(r&&r.status==='ok'){ toast('✔ Transportadora salva'); fecharOv('ovTransportadora'); carregarTransportadoras(); }
-    else{ toast('⚠ Não salvou — tente de novo'); }
-  }catch(e){ btn.disabled=false; btn.textContent='💾 Salvar'; toast('⚠ Sem conexão'); }
+    else{ alert('Não salvou.\n\nErro do servidor: '+(r&&r.msg?r.msg:'desconhecido')+'\n\nSe falar em "row-level security" ou "policy", é a tabela transportadoras com RLS ligado — roda de novo o SQL (agora com o disable no final).'); }
+  }catch(e){ btn.disabled=false; btn.textContent='💾 Salvar'; alert('Sem conexão: '+(e&&e.message?e.message:'')); }
 }
 function excluirTransportadoraForm(){
   if(!transpCtxId)return;
