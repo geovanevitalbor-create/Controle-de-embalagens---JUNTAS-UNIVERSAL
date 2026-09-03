@@ -3897,30 +3897,42 @@ function renderRastreabilidadeHtml(p){
 }
 function toggleEditarItensPedido(){ editandoItensPedido=!editandoItensPedido; renderDetalhePedido(); }
 function setModoEdicaoPedido(modo){ modoEdicaoPedido=modo; renderDetalhePedido(); }
-function salvarQtdItemPedido(itemId,jaEmbalado){
-  var input=document.getElementById('itQtd-'+itemId);
+async function salvarQtdItemPedido(idsCsv,jaEmbalado){
+  var ids=String(idsCsv).split(',').map(function(s){return parseInt(s,10);}).filter(function(n){return !isNaN(n);});
+  if(!ids.length)return;
+  var input=document.getElementById('itQtd-'+ids[0]);
   var novaQtd=parseInt(input.value,10);
   if(isNaN(novaQtd)||novaQtd<0){toast('⚠ Quantidade inválida');return;}
   if(novaQtd<jaEmbalado){
     if(!confirm('Essa quantidade ('+novaQtd+') é menor que o que já foi embalado ('+jaEmbalado+' un). Confirma mesmo assim?'))return;
   }
   try{
-    google.script.run.withSuccessHandler(function(r){
-      if(r&&r.status==='ok'){toast('✔ Quantidade atualizada');carregarPedidosEsperados();}
-      else{toast('⚠ Não salvou — tente de novo');}
-    }).withFailureHandler(function(){toast('⚠ Sem conexão');}).atualizarItemPedido(itemId,novaQtd);
-  }catch(e){toast('⚠ Sem conexão');}
+    var r=await Backend.atualizarItemPedido(ids[0],novaQtd);
+    if(r&&r.status==='ok'){
+      // Peça que tinha 2+ linhas duplicadas com o mesmo código: o total novo já foi todo
+      // pra primeira linha, então as outras ficam sobrando — apaga elas aqui, consolidando
+      // de vez (não precisa mais de SQL manual pra unificar).
+      for(var i=1;i<ids.length;i++){ try{ await Backend.removerItemPedido(ids[i]); }catch(e2){} }
+      toast(ids.length>1?'✔ Atualizado e '+(ids.length-1)+' linha(s) duplicada(s) unificada(s)':'✔ Quantidade atualizada');
+      carregarPedidosEsperados();
+    }else{ toast('⚠ Não salvou — tente de novo'); }
+  }catch(e){ toast('⚠ Sem conexão'); }
 }
 // Remover item de pedido é destrutivo — mesma trava de senha master das outras exclusões.
-function pedirRemoverItemPedido(itemId){
+// Aceita uma lista de ids: se a peça tinha linhas duplicadas do mesmo código, remove todas.
+function pedirRemoverItemPedido(idsCsv){
+  var ids=String(idsCsv).split(',').map(function(s){return parseInt(s,10);}).filter(function(n){return !isNaN(n);});
+  if(!ids.length)return;
   exigirSenhaMaster(function(){
     if(!confirm('Remover esse produto do pedido? Isso não pode ser desfeito.'))return;
-    try{
-      google.script.run.withSuccessHandler(function(r){
-        if(r&&r.status==='ok'){toast('🗑 Produto removido');carregarPedidosEsperados();}
-        else{toast('⚠ Não removeu — tente de novo');}
-      }).withFailureHandler(function(){toast('⚠ Sem conexão');}).removerItemPedido(itemId);
-    }catch(e){toast('⚠ Sem conexão');}
+    (async function(){
+      var falhou=false;
+      for(var i=0;i<ids.length;i++){
+        try{ var r=await Backend.removerItemPedido(ids[i]); if(!r||r.status!=='ok') falhou=true; }catch(e){ falhou=true; }
+      }
+      toast(falhou?'⚠ Não removeu tudo — tente de novo':'🗑 Produto removido');
+      carregarPedidosEsperados();
+    })();
   });
 }
 // Se o código já existe no pedido, soma a quantidade na linha existente em vez de criar uma
@@ -4059,6 +4071,7 @@ function abrirDetalhePedido(id){
   modoEdicaoPedido=null;
   abaDetalhePedido='finalizacoes';
   filtroItensPedido='';
+  paginaItensPedido=1;
   exportMenuAberto=false;
   document.getElementById('detPedTitulo').textContent=p.pedido;
   renderDetalhePedido();
@@ -4120,7 +4133,7 @@ function renderDetalhePedido(){
     itensBodyHtml=
       '<button class="btn-gh" style="width:auto;padding:5px 10px;font-size:10px;letter-spacing:0;text-transform:none;margin-bottom:10px" onclick="setModoEdicaoPedido(\'escolha\')">← voltar</button><br>'+
       (p.itens.length?('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin:4px 0 8px">Itens já no pedido</div>'+
-        p.itens.map(function(it){return '<div class="it-cons"><span class="it-cons-n">'+escAttr(it.nome)+'</span><span class="it-cons-q">'+(Number(it.qtdEsperada)||0)+' un.</span></div>';}).join('')
+        agruparItensPorCodigo(p.itens).map(function(it){return '<div class="it-cons"><span class="it-cons-n">'+escAttr(it.nome)+'</span><span class="it-cons-q">'+(Number(it.qtdEsperada)||0)+' un.</span></div>';}).join('')
       ):'')+
       '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'+
         '<button class="adm-btn-add" style="flex:1;min-width:150px;background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)" onclick="abrirAdicionarItemPedido('+p.id+')">+ Manual (1 produto)</button>'+
@@ -4180,7 +4193,7 @@ function renderDetalhePedido(){
   // ── Ícone único de exportação (canto direito), abre um menu com Excel/PDF em vez de dois
   // botões grandes disputando espaço no topo ──
   var exportBloco='<div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative">'+
-    '<button class="btn-gh" style="width:auto;padding:8px 11px;margin:0" onclick="toggleExportMenuPedido()" title="Baixar relatório deste pedido"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-0.2em"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v4a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-4"/></svg></button>'+
+    '<button style="width:auto;padding:9px 13px;margin:0;border-radius:8px;background:var(--acd);border:1px solid var(--ac);color:var(--brand2);cursor:pointer;display:flex;align-items:center;gap:7px;font-family:var(--f-b);font-size:11.5px;font-weight:600" onclick="toggleExportMenuPedido()" title="Baixar relatório deste pedido"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v4a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-4"/></svg>Baixar</button>'+
     (exportMenuAberto?(
       '<div style="position:absolute;top:42px;right:0;background:var(--s2);border:1px solid var(--bd);border-radius:9px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:8;overflow:hidden;min-width:150px">'+
         '<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;color:var(--gn);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="exportarPedidoDetalheExcel();setExportMenuPedido(false)">⬇ Excel</button>'+
@@ -4194,45 +4207,82 @@ function renderDetalhePedido(){
     head+
     motivoBox+
     motivoReabBox+
-    itensPanel+
     histPanel+
+    itensPanel+
     foot;
   renderItensPedidoListaConteudo();
 }
 // Preenche só a lista de itens (não o modal inteiro) — chamada tanto pelo render completo
 // quanto pelo campo de busca a cada letra digitada. Isso é o que permite filtrar sem perder
 // o foco do campo: o <input> em si nunca é recriado, só o conteúdo da div abaixo dele.
+// Agrupa por código — se o pedido tem 2+ linhas duplicadas da mesma peça (bug antigo,
+// já corrigido na entrada, mas pode ter sobrado dado velho), mostra como uma linha só com
+// a soma. Guarda TODOS os ids originais em .ids pra salvar/remover consolidar de vez.
+function agruparItensPorCodigo(itens){
+  var mapa={}, ordem=[];
+  (itens||[]).forEach(function(it){
+    var cod=it.codigo;
+    if(!mapa[cod]){ mapa[cod]={codigo:cod,nome:it.nome,qtdEsperada:0,embalado:0,ids:[]}; ordem.push(cod); }
+    mapa[cod].qtdEsperada+=Number(it.qtdEsperada)||0;
+    mapa[cod].embalado+=Number(it.embalado)||0;
+    mapa[cod].ids.push(it.id);
+  });
+  return ordem.map(function(cod){
+    var g=mapa[cod];
+    g.saldo=Math.max(0,g.qtdEsperada-g.embalado);
+    return g;
+  });
+}
+var ITENS_POR_PAGINA_PEDIDO=20;
+var paginaItensPedido=1;
 function renderItensPedidoListaConteudo(){
   var p=pedidosEsperados.find(function(x){return x.id===detPedAtual;});
   var el=document.getElementById('itensPedidoListaWrap');
   if(!p||!el)return;
   var termo=(filtroItensPedido||'').trim().toLowerCase();
-  var itensFiltrados=(p.itens||[]).filter(function(it){
+  var agrupados=agruparItensPorCodigo(p.itens);
+  var itensFiltrados=agrupados.filter(function(it){
     return !termo||String(it.nome||'').toLowerCase().indexOf(termo)!==-1||String(it.codigo||'').toLowerCase().indexOf(termo)!==-1;
   });
   var semResultado=termo?('<div class="dp2-empty">Nenhuma peça bate com "'+escAttr(filtroItensPedido)+'".</div>'):'<div class="dp2-empty">Sem itens ainda.</div>';
+  var totalPaginas=Math.max(1,Math.ceil(itensFiltrados.length/ITENS_POR_PAGINA_PEDIDO));
+  if(paginaItensPedido>totalPaginas) paginaItensPedido=totalPaginas;
+  if(paginaItensPedido<1) paginaItensPedido=1;
+  var inicioPag=(paginaItensPedido-1)*ITENS_POR_PAGINA_PEDIDO;
+  var itensPagina=itensFiltrados.slice(inicioPag,inicioPag+ITENS_POR_PAGINA_PEDIDO);
+  var paginacaoHtml='';
+  if(totalPaginas>1){
+    var prevOff=paginaItensPedido<=1, nextOff=paginaItensPedido>=totalPaginas;
+    paginacaoHtml='<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">'+
+      '<button class="adm-btn-ghost" style="width:38px;opacity:'+(prevOff?'.35':'1')+'" onclick="mudarPaginaItensPedido(-1)"'+(prevOff?' disabled':'')+'>‹</button>'+
+      '<span style="font-size:11px;color:var(--td);font-family:var(--mo)">'+paginaItensPedido+' / '+totalPaginas+' · '+itensFiltrados.length+' peça(s)</span>'+
+      '<button class="adm-btn-ghost" style="width:38px;opacity:'+(nextOff?'.35':'1')+'" onclick="mudarPaginaItensPedido(1)"'+(nextOff?' disabled':'')+'>›</button>'+
+    '</div>';
+  }
   if(modoEdicaoPedido==='editar'){
-    el.innerHTML=itensFiltrados.length?itensFiltrados.map(function(it){
+    el.innerHTML=(itensPagina.length?itensPagina.map(function(it){
       var emb=it.embalado||0;
+      var idsCsv=it.ids.join(',');
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">'+
-        '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
-        '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.id+'">'+
-        '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido('+it.id+','+emb+')" title="Salvar quantidade">💾</button>'+
-        '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
+        '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(it.ids.length>1?'<div style="font-size:9px;color:var(--yw);margin-top:2px">⚠ '+it.ids.length+' linhas duplicadas — salvar unifica</div>':'')+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
+        '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.ids[0]+'">'+
+        '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido(\''+idsCsv+'\','+emb+')" title="Salvar quantidade">💾</button>'+
+        '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido(\''+idsCsv+'\')" title="Remover produto">🗑</button>'+
       '</div>';
-    }).join(''):semResultado;
+    }).join(''):semResultado)+paginacaoHtml;
   }else{
-    el.innerHTML=itensFiltrados.length?itensFiltrados.map(function(it){
-      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+    el.innerHTML=(itensPagina.length?itensPagina.map(function(it){
+      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=it.saldo;
       return '<div class="it-cons" style="align-items:flex-start">'+
         '<div class="it-cons-n">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+
         '<div style="font-size:9.5px;color:var(--td);margin-top:2px;font-family:var(--mo)">'+emb+' / '+esp+' un.</div></div>'+
         '<span class="it-cons-q" style="'+(sld>0?'':'background:var(--gnd);color:var(--gn)')+'">'+(sld>0?(sld+' rest.'):'✔ completo')+'</span>'+
       '</div>';
-    }).join(''):semResultado;
+    }).join(''):semResultado)+paginacaoHtml;
   }
 }
-function setFiltroItensPedido(v){ filtroItensPedido=v; renderItensPedidoListaConteudo(); }
+function mudarPaginaItensPedido(delta){ paginaItensPedido=Math.max(1,paginaItensPedido+delta); renderItensPedidoListaConteudo(); }
+function setFiltroItensPedido(v){ filtroItensPedido=v; paginaItensPedido=1; renderItensPedidoListaConteudo(); }
 function setAbaDetalhePedido(aba){ abaDetalhePedido=aba; renderDetalhePedido(); }
 function toggleExportMenuPedido(){ exportMenuAberto=!exportMenuAberto; renderDetalhePedido(); }
 function setExportMenuPedido(v){ exportMenuAberto=v; renderDetalhePedido(); }
