@@ -1717,7 +1717,7 @@ const Backend={
   // Editar itens de um pedido já cadastrado — atualizar quantidade, remover, adicionar novo.
   async atualizarItemPedido(itemId,novaQuantidade){ try{ await sbFetch('PATCH','/itens_pedido?id=eq.'+itemId,{quantidade_esperada:novaQuantidade}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async removerItemPedido(itemId){ try{ await sbFetch('DELETE','/itens_pedido?id=eq.'+itemId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async adicionarItemPedido(pedidoId,codigo,nome,quantidade){ try{ await sbFetch('POST','/itens_pedido',{pedido_id:pedidoId,codigo_produto:codigo,nome_produto:nome,quantidade_esperada:quantidade}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async adicionarItemPedido(pedidoId,codigo,nome,quantidade){ try{ var r=await sbFetch('POST','/itens_pedido',{pedido_id:pedidoId,codigo_produto:codigo,nome_produto:nome,quantidade_esperada:quantidade},{'Prefer':'return=representation'}); var novoId=r&&r[0]&&r[0].id; return {status:'ok',itemId:novoId||null}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarProgressoPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var itens=(itensEsp||[]).map(function(it){ var emb=embaladoMap[it.codigo_produto]||0; var esp=Number(it.quantidade_esperada)||0; return {codigo:it.codigo_produto,nome:it.nome_produto,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'fechado',motivo:null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Finalizar é mais definitivo que fechar: além de sumir da lista do operador (fechado:true
@@ -3624,7 +3624,11 @@ function atualizarProgressoPedidosAbertos(){
               alvo.itens.forEach(function(it){ var m=mapa[it.codigo]; if(m){ it.embalado=m.embalado; it.saldo=m.saldo; } });
               alvo.totalEmbalado=d.totalEmbalado; alvo.totalSaldo=d.totalSaldo; alvo.totalEsperado=d.totalEsperado;
               renderPedidosEsperados();
-              if(detPedAtual===alvo.id) renderDetalhePedido();
+              // Não redesenha por cima de quem está editando quantidade agora — senão o
+              // innerHTML é recriado do zero e apaga o que a pessoa ainda não salvou. Os
+              // dados (embalado/saldo) já foram atualizados acima mesmo sem redesenhar; a
+              // tela se atualiza sozinha assim que sair do modo editar ou salvar algo.
+              if(detPedAtual===alvo.id && modoEdicaoPedido!=='editar') renderDetalhePedido();
             }
           }
         })
@@ -3803,6 +3807,9 @@ function renderHistoricoFatSec(){
 // expandir inline: card só mostra o resumo, o clique abre a janela com tudo.
 var detPedAtual=null;
 var modoEdicaoPedido=null; // null | 'escolha' | 'editar' | 'adicionar'
+var abaDetalhePedido='finalizacoes'; // 'finalizacoes' | 'rastreabilidade' — sub-abas do histórico
+var filtroItensPedido=''; // busca por peça, vale tanto pro modo editar quanto pro modo leitura
+var exportMenuAberto=false; // menu suspenso do ícone único de Excel/PDF
 var pedEventosCache={}; // {pedidoId: [eventos] | 'erro' | undefined}
 function carregarEventosPedido(pedidoId){
   pedEventosCache[pedidoId]=undefined;
@@ -3916,6 +3923,21 @@ function pedirRemoverItemPedido(itemId){
     }catch(e){toast('⚠ Sem conexão');}
   });
 }
+// Se o código já existe no pedido, soma a quantidade na linha existente em vez de criar uma
+// segunda linha duplicada — usada tanto pelo Adicionar manual quanto pelo Importar Excel.
+// Quem chama já resolveu se existe (itemExistenteId/qtdExistente), porque numa importação em
+// lote isso precisa vir de um controle local que vai sendo atualizado a cada linha — se cada
+// chamada checasse contra os dados do pedido antigos, duas linhas da MESMA planilha com o
+// mesmo código pisariam uma na outra em vez de somar as duas.
+async function somarOuAdicionarItemPedido(pedidoId,codigo,nome,qtd,itemExistenteId,qtdExistente){
+  if(itemExistenteId){
+    var novaQtd=(Number(qtdExistente)||0)+qtd;
+    var r=await Backend.atualizarItemPedido(itemExistenteId,novaQtd);
+    if(r&&r.status==='ok'){ r.itemId=itemExistenteId; r.novaQtd=novaQtd; r.somado=true; }
+    return r;
+  }
+  return await Backend.adicionarItemPedido(pedidoId,codigo,nome,qtd);
+}
 var addItemPedIdCtx=null, addItemProdSel=null;
 function abrirAdicionarItemPedido(pedidoId){
   addItemPedIdCtx=pedidoId; addItemProdSel=null;
@@ -3937,7 +3959,7 @@ function renderAddItemLista(){
 }
 function selecionarAddItemProd(codigo,nome){ addItemProdSel={codigo:codigo,nome:nome}; renderAddItemLista(); }
 var salvandoAddItem=false;
-function confirmarAdicionarItemPedido(){
+async function confirmarAdicionarItemPedido(){
   if(salvandoAddItem)return;
   if(!addItemProdSel){toast('Escolha um produto primeiro');return;}
   var qtd=parseInt(document.getElementById('addItemQtd').value,10);
@@ -3947,11 +3969,15 @@ function confirmarAdicionarItemPedido(){
   btn.disabled=true; btn.textContent='Adicionando...';
   function restaurar(){ salvandoAddItem=false; btn.disabled=false; btn.textContent='+ Adicionar'; }
   try{
-    google.script.run.withSuccessHandler(function(r){
-      restaurar();
-      if(r&&r.status==='ok'){fecharOv('ovAdicionarItemPedido');toast('✔ Produto adicionado');carregarPedidosEsperados();}
-      else{toast('⚠ Não adicionou — tente de novo');}
-    }).withFailureHandler(function(){ restaurar(); toast('⚠ Sem conexão'); }).adicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd);
+    var p=pedidosEsperados.find(function(x){return x.id===addItemPedIdCtx;});
+    var existente=p&&p.itens&&p.itens.find(function(it){return it.codigo===addItemProdSel.codigo;});
+    var r=await somarOuAdicionarItemPedido(addItemPedIdCtx,addItemProdSel.codigo,addItemProdSel.nome,qtd,existente&&existente.id,existente&&existente.qtdEsperada);
+    restaurar();
+    if(r&&r.status==='ok'){
+      fecharOv('ovAdicionarItemPedido');
+      toast(r.somado?('✔ Somado — agora '+r.novaQtd+' un.'):'✔ Produto adicionado');
+      carregarPedidosEsperados();
+    }else{ toast('⚠ Não adicionou — tente de novo'); }
   }catch(e){ restaurar(); toast('⚠ Sem conexão'); }
 }
 // Importar Excel dentro da EDIÇÃO de um pedido já existente — mesmo modelo (Produto | Quantidade)
@@ -3992,20 +4018,32 @@ async function processarImportExcelItemPedido(rows,pedidoId){
   });
   if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
   if(!paraAdicionar.length){
-    alert('Nenhum item reconhecido.\n\nNão encontrado(s) no cadastro de Peças (nome tem que ser idêntico) — '+naoAchados.length+':\n'+naoAchados.slice(0,15).join('\n')+(naoAchados.length>15?'\n...':''));
+    toast('⚠ Nenhum item reconhecido — baixando lista');
+    baixarListaNaoEncontrados(naoAchados);
     return;
   }
-  toast('⏳ Adicionando '+paraAdicionar.length+' item(ns)...');
-  var okCount=0, falhas=[];
+  toast('⏳ Processando '+paraAdicionar.length+' item(ns)...');
+  // Mapa local {codigo:{id,qtd}} — parte do que já existe no pedido e vai sendo atualizado a
+  // cada linha processada. Sem isso, duas linhas da mesma planilha com o mesmo código
+  // pisariam uma na outra (a segunda leria o valor de antes da primeira ter somado).
+  var pAtual=pedidosEsperados.find(function(x){return x.id===pedidoId;});
+  var mapaAtual={};
+  (pAtual&&pAtual.itens||[]).forEach(function(it){ mapaAtual[it.codigo]={id:it.id,qtd:Number(it.qtdEsperada)||0}; });
+  var okCount=0, somados=0, falhas=[];
   for(var i=0;i<paraAdicionar.length;i++){
     var it=paraAdicionar[i];
     try{
-      var r=await Backend.adicionarItemPedido(pedidoId,it.codigo,it.nome,it.qtd);
-      if(r&&r.status==='ok') okCount++; else falhas.push(it.nome);
+      var existente=mapaAtual[it.codigo];
+      var r=await somarOuAdicionarItemPedido(pedidoId,it.codigo,it.nome,it.qtd,existente&&existente.id,existente&&existente.qtd);
+      if(r&&r.status==='ok'){
+        if(r.somado){ mapaAtual[it.codigo]={id:r.itemId,qtd:r.novaQtd}; somados++; }
+        else{ mapaAtual[it.codigo]={id:r.itemId,qtd:it.qtd}; }
+        okCount++;
+      }else{ falhas.push(it.nome); }
     }catch(e){ falhas.push(it.nome); }
   }
   carregarPedidosEsperados();
-  var msg='✔ '+okCount+' item(ns) adicionado(s) ao pedido';
+  var msg='✔ '+okCount+' item(ns) processado(s)'+(somados?(' ('+somados+' somado(s) em item já existente)'):'');
   if(falhas.length) msg+=' — '+falhas.length+' falharam ao salvar';
   toast(msg);
   if(naoAchados.length){
@@ -4019,6 +4057,9 @@ function abrirDetalhePedido(id){
   detPedAtual=id;
   editandoItensPedido=false;
   modoEdicaoPedido=null;
+  abaDetalhePedido='finalizacoes';
+  filtroItensPedido='';
+  exportMenuAberto=false;
   document.getElementById('detPedTitulo').textContent=p.pedido;
   renderDetalhePedido();
   carregarEventosPedido(id);
@@ -4052,12 +4093,15 @@ function renderDetalhePedido(){
     '<div class="dp2-head-main '+headCls+'">'+headMain+'</div>'+
     '<div class="dp2-head-sub">'+headSub+'</div>'+
     (p.finalizado?'':'<div class="dp2-head-bar"><div class="dp2-head-bar-fill" style="width:'+pct+'%"></div></div>')+
+    (totEsp>0?'<div style="font-family:var(--mo);font-size:11px;color:var(--td);margin-top:6px">'+pct+'% do pedido total</div>':'')+
   '</div>';
 
   var motivoBox=(p.finalizado&&p.motivoNaoConcluido)?('<div style="background:var(--rdd);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#ffb3ab"><b style="color:var(--rd)">Motivo de não ter concluído:</b> '+escAttr(p.motivoNaoConcluido)+'</div>'):'';
   var motivoReabBox=p.motivoReabertura?('<div style="background:var(--ywd);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#f2d98a"><b style="color:var(--yw)">Motivo da última reabertura:</b> '+escAttr(p.motivoReabertura)+'</div>'):'';
 
-  // ── Painel: Itens do pedido ──
+  // ── Painel: Itens do pedido — a lista em si (editar/leitura) é renderizada à parte por
+  // renderItensPedidoListaConteudo(), num container próprio, pra o campo de busca não perder
+  // foco a cada letra digitada (recriar o innerHTML inteiro recria o <input> junto).
   var podeEditarItens=!p.finalizado;
   var itensBodyHtml;
   if(podeEditarItens && modoEdicaoPedido==='escolha'){
@@ -4069,16 +4113,9 @@ function renderDetalhePedido(){
       '</div>';
   }else if(podeEditarItens && modoEdicaoPedido==='editar'){
     itensBodyHtml=
-      '<button class="btn-gh" style="width:auto;padding:5px 10px;font-size:10px;letter-spacing:0;text-transform:none;margin-bottom:10px" onclick="setModoEdicaoPedido(\'escolha\')">← voltar</button><br>'+
-      (p.itens.length?p.itens.map(function(it){
-        var emb=it.embalado||0;
-        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">'+
-          '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
-          '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.id+'">'+
-          '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido('+it.id+','+emb+')" title="Salvar quantidade">💾</button>'+
-          '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
-        '</div>';
-      }).join(''):'<div class="dp2-empty">Sem itens ainda.</div>');
+      '<button class="btn-gh" style="width:auto;padding:5px 10px;font-size:10px;letter-spacing:0;text-transform:none;margin-bottom:10px" onclick="setModoEdicaoPedido(\'escolha\')">← voltar</button>'+
+      (p.itens.length?'<input autocomplete="off" class="adm-search" id="filtroItensPedidoInp" placeholder="Filtrar por peça..." value="'+escAttr(filtroItensPedido)+'" oninput="setFiltroItensPedido(this.value)" style="margin-bottom:10px">':'')+
+      '<div id="itensPedidoListaWrap"></div>';
   }else if(podeEditarItens && modoEdicaoPedido==='adicionar'){
     itensBodyHtml=
       '<button class="btn-gh" style="width:auto;padding:5px 10px;font-size:10px;letter-spacing:0;text-transform:none;margin-bottom:10px" onclick="setModoEdicaoPedido(\'escolha\')">← voltar</button><br>'+
@@ -4092,14 +4129,9 @@ function renderDetalhePedido(){
         '<input autocomplete="off" type="file" id="editPedExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleImportExcelItemPedido(this,'+p.id+')">'+
       '</div>';
   }else{
-    itensBodyHtml=p.itens.length?p.itens.map(function(it){
-      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
-      return '<div class="it-cons" style="align-items:flex-start">'+
-        '<div class="it-cons-n">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+
-        '<div style="font-size:9.5px;color:var(--td);margin-top:2px;font-family:var(--mo)">'+emb+' / '+esp+' un.</div></div>'+
-        '<span class="it-cons-q" style="'+(sld>0?'':'background:var(--gnd);color:var(--gn)')+'">'+(sld>0?(sld+' rest.'):'✔ completo')+'</span>'+
-      '</div>';
-    }).join(''):'<div class="dp2-empty">Sem itens</div>';
+    itensBodyHtml=
+      (p.itens.length?'<input autocomplete="off" class="adm-search" id="filtroItensPedidoInp" placeholder="Filtrar por peça..." value="'+escAttr(filtroItensPedido)+'" oninput="setFiltroItensPedido(this.value)" style="margin-bottom:10px">':'')+
+      '<div id="itensPedidoListaWrap"></div>';
   }
   var itensPanel='<div class="dp2-panel">'+
     '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Itens do pedido</span>'+
@@ -4108,17 +4140,16 @@ function renderDetalhePedido(){
     '<div class="dp2-panel-bd">'+itensBodyHtml+'</div>'+
   '</div>';
 
-  // ── Painel: Rastreabilidade — timeline única (cadastro/fechado/reaberto/finalizado do
-  // pedido + início/fim de cada sessão de bipagem + faturamento), tudo em ordem cronológica ──
-  var rastreabPanel='<div class="dp2-panel">'+
-    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Rastreabilidade</span></div>'+
-    '<div class="dp2-panel-bd">'+renderRastreabilidadeHtml(p)+'</div>'+
-  '</div>';
-
-  // ── Painel: Finalizações — drill-down por sessão (caixas/itens, PDF individual) ──
-  var finPanel='<div class="dp2-panel">'+
-    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Finalizações — detalhe</span></div>'+
-    '<div class="dp2-panel-bd">'+renderFinalizacoesPedidoHtml(p.pedido)+'</div>'+
+  // ── Painel: Histórico — Finalizações e Rastreabilidade viraram sub-abas do mesmo painel,
+  // Rastreabilidade por último (é a visão mais "de auditoria", Finalizações é a mais usada
+  // no dia a dia — cada finalização mostra também quanto % do pedido total ela representa).
+  var abaBtnHtml=function(id,label){ return '<button class="fat-filter'+(abaDetalhePedido===id?' active':'')+'" onclick="setAbaDetalhePedido(\''+id+'\')">'+label+'</button>'; };
+  var histPanel='<div class="dp2-panel">'+
+    '<div class="dp2-panel-hd"><span class="dp2-panel-hd-t">Histórico</span></div>'+
+    '<div class="dp2-panel-bd">'+
+      '<div style="display:flex;gap:6px;margin-bottom:12px">'+abaBtnHtml('finalizacoes','Finalizações')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
+      (abaDetalhePedido==='rastreabilidade'?renderRastreabilidadeHtml(p):renderFinalizacoesPedidoHtml(p.pedido,totEsp))+
+    '</div>'+
   '</div>';
 
   // ── Rodapé de ações ──
@@ -4146,19 +4177,65 @@ function renderDetalhePedido(){
   var foot='<div class="dp2-foot">'+acoes+
     '<button class="dp2-btn-danger" onclick="excluirPedEsper('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13.5h10L18 7"/><path d="M10 11v6M14 11v6"/></svg> Excluir pedido</button></div>';
 
+  // ── Ícone único de exportação (canto direito), abre um menu com Excel/PDF em vez de dois
+  // botões grandes disputando espaço no topo ──
+  var exportBloco='<div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative">'+
+    '<button class="btn-gh" style="width:auto;padding:8px 11px;margin:0" onclick="toggleExportMenuPedido()" title="Baixar relatório deste pedido"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="vertical-align:-0.2em"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v4a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-4"/></svg></button>'+
+    (exportMenuAberto?(
+      '<div style="position:absolute;top:42px;right:0;background:var(--s2);border:1px solid var(--bd);border-radius:9px;box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:8;overflow:hidden;min-width:150px">'+
+        '<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;color:var(--gn);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="exportarPedidoDetalheExcel();setExportMenuPedido(false)">⬇ Excel</button>'+
+        '<button style="display:block;width:100%;text-align:left;padding:12px 14px;background:none;border:none;border-top:1px solid var(--bd);color:var(--brand2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-b)" onclick="imprimirPedidoPDF();setExportMenuPedido(false)">🖨 PDF</button>'+
+      '</div>'
+    ):'')+
+  '</div>';
+
   body.innerHTML=
-    '<div class="dp2-export-row">'+
-      '<button class="dp2-btn-export gn" onclick="exportarPedidoDetalheExcel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v4a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-4"/></svg> Excel</button>'+
-      '<button class="dp2-btn-export bl" onclick="imprimirPedidoPDF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M7 8.5V3.5h10v5"/><rect x="4.5" y="8.5" width="15" height="8" rx="1.5"/><path d="M7 15h10v6H7z"/></svg> PDF</button>'+
-    '</div>'+
+    exportBloco+
     head+
     motivoBox+
     motivoReabBox+
     itensPanel+
-    rastreabPanel+
-    finPanel+
+    histPanel+
     foot;
+  renderItensPedidoListaConteudo();
 }
+// Preenche só a lista de itens (não o modal inteiro) — chamada tanto pelo render completo
+// quanto pelo campo de busca a cada letra digitada. Isso é o que permite filtrar sem perder
+// o foco do campo: o <input> em si nunca é recriado, só o conteúdo da div abaixo dele.
+function renderItensPedidoListaConteudo(){
+  var p=pedidosEsperados.find(function(x){return x.id===detPedAtual;});
+  var el=document.getElementById('itensPedidoListaWrap');
+  if(!p||!el)return;
+  var termo=(filtroItensPedido||'').trim().toLowerCase();
+  var itensFiltrados=(p.itens||[]).filter(function(it){
+    return !termo||String(it.nome||'').toLowerCase().indexOf(termo)!==-1||String(it.codigo||'').toLowerCase().indexOf(termo)!==-1;
+  });
+  var semResultado=termo?('<div class="dp2-empty">Nenhuma peça bate com "'+escAttr(filtroItensPedido)+'".</div>'):'<div class="dp2-empty">Sem itens ainda.</div>';
+  if(modoEdicaoPedido==='editar'){
+    el.innerHTML=itensFiltrados.length?itensFiltrados.map(function(it){
+      var emb=it.embalado||0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">'+
+        '<div style="flex:1;min-width:0;font-size:12px">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+(emb>0?'<div style="font-size:9px;color:var(--td);margin-top:2px">já embalado: '+emb+' un.</div>':'')+'</div>'+
+        '<input autocomplete="off" class="inp" type="number" min="0" value="'+(Number(it.qtdEsperada)||0)+'" style="width:88px;padding:7px 8px;flex-shrink:0" id="itQtd-'+it.id+'">'+
+        '<button class="adm-btn-add" style="width:auto;padding:8px 12px;flex-shrink:0;background:var(--ac)" onclick="salvarQtdItemPedido('+it.id+','+emb+')" title="Salvar quantidade">💾</button>'+
+        '<button class="btn-rm" style="flex-shrink:0" onclick="pedirRemoverItemPedido('+it.id+')" title="Remover produto">🗑</button>'+
+      '</div>';
+    }).join(''):semResultado;
+  }else{
+    el.innerHTML=itensFiltrados.length?itensFiltrados.map(function(it){
+      var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
+      return '<div class="it-cons" style="align-items:flex-start">'+
+        '<div class="it-cons-n">'+escAttr(it.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9px">('+escAttr(it.codigo)+')</span>'+
+        '<div style="font-size:9.5px;color:var(--td);margin-top:2px;font-family:var(--mo)">'+emb+' / '+esp+' un.</div></div>'+
+        '<span class="it-cons-q" style="'+(sld>0?'':'background:var(--gnd);color:var(--gn)')+'">'+(sld>0?(sld+' rest.'):'✔ completo')+'</span>'+
+      '</div>';
+    }).join(''):semResultado;
+  }
+}
+function setFiltroItensPedido(v){ filtroItensPedido=v; renderItensPedidoListaConteudo(); }
+function setAbaDetalhePedido(aba){ abaDetalhePedido=aba; renderDetalhePedido(); }
+function toggleExportMenuPedido(){ exportMenuAberto=!exportMenuAberto; renderDetalhePedido(); }
+function setExportMenuPedido(v){ exportMenuAberto=v; renderDetalhePedido(); }
 // Lista plana das finalizações desse pedido, numeradas em ordem cronológica — sem agrupar
 // por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
 var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas de uma finalização
@@ -4236,7 +4313,7 @@ function imprimirFinalizacaoPDF(pedido,sessao){
   if(!w){toast('Libere pop-ups para gerar o PDF');return;}
   w.document.write(h);w.document.close();
 }
-function renderFinalizacoesPedidoHtml(pedidoNome){
+function renderFinalizacoesPedidoHtml(pedidoNome,totalEsperado){
   var lista=pedEsperFinalizacoes[pedidoNome];
   if(lista===undefined) return '<div class="dp2-empty">Carregando histórico...</div>';
   if(lista==='erro'){
@@ -4247,11 +4324,12 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
   return lista.map(function(fz){
       var aberto=!!finCaixasOpenSet[fz.sessao];
       var temCaixas=fz.detalheCaixas&&fz.detalheCaixas.length;
+      var pctFz=(totalEsperado>0)?Math.round((fz.unidades||0)/totalEsperado*100):null;
       return '<div class="cx-detalhe" style="cursor:pointer" onclick="togFinCaixas(\''+fz.sessao+'\')">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
           '<div><div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">Finalização '+fz.numero+(fz.finalizada?'':' <span style="color:var(--yw);font-size:10px;font-family:var(--f-b);letter-spacing:0">· em andamento</span>')+'</div>'+
           '<div style="font-size:10px;color:var(--td);margin-top:2px">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div>'+
-          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg</div></div>'+
+          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg'+(pctFz!=null?' · <span style="color:var(--brand2);font-weight:600">'+pctFz+'% do pedido</span>':'')+'</div></div>'+
           (fz.faturado
             ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
             :(fz.finalizada
@@ -4276,8 +4354,7 @@ function renderFinalizacoesPedidoHtml(pedidoNome){
         ):'')+
       '</div>';
     }).join('');
-}
-// ═══════════════════════════════════════
+}// ═══════════════════════════════════════
 // RELATÓRIO DE FATURAMENTO — período com atalhos + impressão profissional (print → salvar PDF)
 // ═══════════════════════════════════════
 var relatorioAtual=null;
