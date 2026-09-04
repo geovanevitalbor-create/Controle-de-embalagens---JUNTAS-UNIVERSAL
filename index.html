@@ -3913,12 +3913,14 @@ function renderTransportadorasSec(){
   wrap.innerHTML=
     '<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;justify-content:center;max-width:900px;margin:0 auto">'+
       '<div style="width:560px;max-width:100%">'+
-        '<div style="position:relative;max-width:220px;margin-bottom:8px">'+
-          '<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.7">🔍</span>'+
-          '<input autocomplete="off" class="adm-search" id="transpBuscaInp" placeholder="Buscar..." style="width:100%;padding:11px 12px 11px 36px;font-size:12.5px" oninput="filtrarBuscaTransp(this.value)">'+
+        '<div style="max-width:220px;margin:0 auto">'+
+          '<div style="position:relative">'+
+            '<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.7">🔍</span>'+
+            '<input autocomplete="off" class="adm-search" id="transpBuscaInp" placeholder="Buscar..." style="width:100%;padding:11px 12px 11px 36px;font-size:12.5px" oninput="filtrarBuscaTransp(this.value)">'+
+          '</div>'+
+          '<div id="transpBuscaResultados" style="margin-bottom:6px"></div>'+
+          '<div style="text-align:center"><button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:20px" onclick="abrirListaTransportadoras()">Ver todas ('+transportadorasCache.length+') →</button></div>'+
         '</div>'+
-        '<div id="transpBuscaResultados" style="max-width:300px;margin-bottom:6px"></div>'+
-        '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:20px" onclick="abrirListaTransportadoras()">Ver todas as transportadoras ('+transportadorasCache.length+') →</button>'+
         mapaHtml+
       '</div>'+
       '<div style="width:260px;max-width:100%;padding-top:6px">'+infoHtml+'</div>'+
@@ -4063,7 +4065,7 @@ function mostrarMunicipiosEstado(uf){
   }).join('');
   el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;margin-bottom:8px">'+escAttr(nome)+'</div>'+
     resumoHtml+
-    (ordem.length?('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Municípios cadastrados</div>'+linhasMunicipios):'');
+    (ordem.length?('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Municípios cadastrados</div>'+linhasMunicipios):'<div style="font-size:11px;color:var(--td)">Nenhuma cidade específica cadastrada pra esse estado ainda — toque numa transportadora acima pra adicionar.</div>');
 }// ── Formulário (novo/editar) ──
 function abrirTransportadora(id){
   var t=id?transportadorasCache.find(function(x){return x.id===id;}):null;
