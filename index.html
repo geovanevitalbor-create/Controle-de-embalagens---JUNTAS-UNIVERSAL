@@ -984,6 +984,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
 
       </div>
       <button class="fab-add" id="fabNovoPedido" onclick="abrirCadastrarPedido()" title="Novo Pedido">+</button>
+      <button class="fab-add hidden" id="fabNovaTransp" onclick="abrirTransportadora(null)" title="Nova Transportadora">+</button>
     </div>
   </div>
 </div>
@@ -3819,6 +3820,8 @@ function fatTab(t){
   var pane=document.getElementById('fpane-'+t); if(pane)pane.classList.add('active');
   var fab=document.getElementById('fabNovoPedido');
   if(fab) fab.style.display=(t==='pedidos')?'flex':'none';
+  var fabT=document.getElementById('fabNovaTransp');
+  if(fabT) fabT.style.display=(t==='transportadoras')?'flex':'none';
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
   if(t==='transportadoras') carregarTransportadoras();
@@ -3905,23 +3908,18 @@ function renderTransportadorasSec(){
     }).join('')+
     '<g id="marcadoresTransp" style="pointer-events:none"></g>'+
   '</svg>';
-  var infoHtml='<div id="mapaInfoEstado" style="margin-top:16px;text-align:center;min-height:48px">'+
-    '<div style="font-size:11px;color:var(--td)">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
-  var legendaHtml=transportadorasCache.length?(
-    '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px">'+
-    transportadorasCache.map(function(t){return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--td)"><span style="width:9px;height:9px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+'</span>';}).join('')+
-    '</div>'
-  ):'';
+  var infoHtml='<div id="mapaInfoEstado" style="margin-top:18px;max-width:520px;margin-left:auto;margin-right:auto">'+
+    '<div style="font-size:11px;color:var(--td);text-align:center">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
   wrap.innerHTML=
-    '<div style="display:flex;gap:10px;align-items:center;max-width:680px;margin:0 auto">'+
-      '<input autocomplete="off" class="inp" id="transpBuscaInp" placeholder="Buscar transportadora..." style="flex:1" oninput="filtrarBuscaTransp(this.value)">'+
-      '<button style="width:44px;height:44px;border-radius:50%;background:var(--gn);border:none;color:#fff;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.35)" onclick="abrirTransportadora(null)" title="Adicionar transportadora">+</button>'+
+    '<div style="max-width:680px;margin:0 auto;position:relative;display:inline-block">'+
+      '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none">🔍</span>'+
+      '<input autocomplete="off" class="inp" id="transpBuscaInp" placeholder="Buscar..." style="width:190px;padding:9px 12px 9px 34px;font-size:12px" oninput="filtrarBuscaTransp(this.value)">'+
     '</div>'+
-    '<div id="transpBuscaResultados" style="max-width:680px;margin:0 auto"></div>'+
-    '<div style="text-align:center;max-width:680px;margin:10px auto 26px">'+
+    '<div id="transpBuscaResultados" style="max-width:300px;margin:4px 0 0"></div>'+
+    '<div style="text-align:center;max-width:680px;margin:8px auto 22px">'+
       '<button class="btn-gh" style="width:auto;padding:8px 16px;font-size:11px;letter-spacing:0;text-transform:none" onclick="abrirListaTransportadoras()">Ver todas as transportadoras ('+transportadorasCache.length+') →</button>'+
     '</div>'+
-    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+legendaHtml+'</div>';
+    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+'</div>';
   renderMarcadoresTransportadoras();
 }
 // Busca digitada — atualiza só o container de resultados, nunca o <input>, senão perde o
@@ -3998,20 +3996,27 @@ function renderMarcadoresTransportadoras(){
 function mostrarInfoEstadoMapa(uf){
   var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
   var nome=e?e[1]:uf.toUpperCase();
-  var achadas=transportadorasCache.filter(function(t){ return (t.estados||[]).indexOf(uf)!==-1; });
+  var achadas=transportadorasDoEstado(uf);
   var el=document.getElementById('mapaInfoEstado');
   if(!el)return;
   if(!achadas.length){
-    el.innerHTML='<div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(nome)+'</div><div style="font-size:11px;color:var(--td);margin-top:2px">Nenhuma transportadora cadastrada atende esse estado.</div>';
+    el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;text-align:center">'+escAttr(nome)+'</div><div style="font-size:11px;color:var(--td);margin-top:4px;text-align:center">Nenhuma transportadora cadastrada atende esse estado.</div>';
     return;
   }
-  el.innerHTML='<div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(nome)+'</div>'+
-    '<div style="display:flex;flex-direction:column;gap:5px;align-items:center;margin-top:6px">'+
-      achadas.map(function(t){
-        var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
-        return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:4px 10px;font-size:11px"><span style="width:9px;height:9px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+(cids.length?(' · '+cids.map(escAttr).join(', ')):' · estado inteiro')+'</span>';
-      }).join('')+
-    '</div>';
+  el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;text-align:center;margin-bottom:10px">'+escAttr(nome)+'</div>'+
+    achadas.map(function(t){
+      var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+      return '<div class="cx-detalhe" style="text-align:left;cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          '<span style="width:12px;height:12px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+
+          '<span style="font-family:var(--f-d);font-size:15px;letter-spacing:.02em">'+escAttr(t.nome)+'</span>'+
+        '</div>'+
+        (cids.length?
+          ('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-top:8px">Principais cidades atendidas</div>'+
+           '<div style="font-size:11.5px;color:var(--tm);margin-top:3px;line-height:1.6">'+cids.map(escAttr).join(' · ')+'</div>')
+          :'<div style="font-size:11px;color:var(--td);margin-top:6px">Atende o estado inteiro</div>')+
+      '</div>';
+    }).join('');
 }
 // ── Formulário (novo/editar) ──
 function abrirTransportadora(id){
