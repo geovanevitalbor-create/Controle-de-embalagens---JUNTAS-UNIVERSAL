@@ -3896,9 +3896,9 @@ function renderTransportadorasSec(){
   var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:640px;display:block;margin:0 auto" id="svgBrasilTransp">'+
     BR_ESTADOS_RAW.map(function(e){
       var uf=e[0], nome=e[1], path=e[2];
-      var cor=corDoEstadoMapa(uf)||'#262b27';
-      return '<path d="'+path+'" data-uf="'+uf+'" fill="'+cor+'" stroke="#0a0e0c" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarInfoEstadoMapa(\''+uf+'\')" onclick="mostrarInfoEstadoMapa(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
+      return '<path d="'+path+'" data-uf="'+uf+'" fill="#20241f" stroke="#565c58" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarInfoEstadoMapa(\''+uf+'\')" onclick="mostrarInfoEstadoMapa(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
     }).join('')+
+    '<g id="marcadoresTransp" style="pointer-events:none"></g>'+
   '</svg>';
   var infoHtml='<div id="mapaInfoEstado" style="margin-top:16px;text-align:center;min-height:48px">'+
     '<div style="font-size:11px;color:var(--td)">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
@@ -3916,15 +3916,37 @@ function renderTransportadorasSec(){
     '</div>';
   }).join(''):'<div class="dp2-empty">Nenhuma transportadora cadastrada ainda.</div>';
   wrap.innerHTML=
+    '<div style="display:flex;justify-content:flex-end;max-width:680px;margin:0 auto 10px">'+
+      '<button class="adm-btn-add" style="width:auto;padding:8px 16px;font-size:18px;line-height:1;font-weight:700" onclick="abrirTransportadora(null)" title="Adicionar transportadora">+</button>'+
+    '</div>'+
     '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+legendaHtml+'</div>'+
     '<div style="max-width:680px;margin:0 auto">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
-        '<span style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em">Cadastradas ('+transportadorasCache.length+')</span>'+
-          '<button class="adm-btn-add" style="width:auto;padding:8px 14px" onclick="abrirTransportadora(null)">+ Nova</button>'+
-        '</div>'+
+      '<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Cadastradas ('+transportadorasCache.length+') — toque pra editar</div>'+
         listaHtml+
       '</div>'+
     '</div>';
+  renderMarcadoresTransportadoras();
+}
+// Desenha um pontinho (marcador de localização) no centro de cada estado que tem alguma
+// transportadora cadastrada — em vez de pintar o estado inteiro. O centro é calculado
+// depois do SVG já estar no DOM (getBBox só funciona com o elemento renderizado); por isso
+// não dá pra montar isso junto com o resto do HTML como string, precisa desse passo separado.
+function renderMarcadoresTransportadoras(){
+  var svg=document.getElementById('svgBrasilTransp');
+  var g=document.getElementById('marcadoresTransp');
+  if(!svg||!g)return;
+  g.innerHTML='';
+  svg.querySelectorAll('path[data-uf]').forEach(function(p){
+    var uf=p.getAttribute('data-uf');
+    var cor=corDoEstadoMapa(uf);
+    if(!cor)return;
+    var bb=p.getBBox();
+    var cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
+    var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r','7');
+    c.setAttribute('fill',cor); c.setAttribute('stroke','#0a0e0c'); c.setAttribute('stroke-width','1.5');
+    g.appendChild(c);
+  });
 }
 function mostrarInfoEstadoMapa(uf){
   var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
