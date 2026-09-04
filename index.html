@@ -3940,16 +3940,16 @@ function renderTransportadorasSec(){
   var infoHtml='<div id="mapaInfoEstado">'+
     '<div style="font-size:11px;color:var(--td)">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
   wrap.innerHTML=
+    '<div style="max-width:220px;margin-bottom:20px">'+
+      '<div style="position:relative">'+
+        '<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.7">🔍</span>'+
+        '<input autocomplete="off" class="adm-search" id="transpBuscaInp" placeholder="Buscar..." style="width:100%;padding:11px 12px 11px 36px;font-size:12.5px" oninput="filtrarBuscaTransp(this.value)">'+
+      '</div>'+
+      '<div id="transpBuscaResultados" style="margin-bottom:6px"></div>'+
+      '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none" onclick="abrirListaTransportadoras()">Ver todas ('+transportadorasCache.length+') →</button>'+
+    '</div>'+
     '<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;justify-content:center;max-width:900px;margin:0 auto">'+
       '<div style="width:560px;max-width:100%">'+
-        '<div style="max-width:220px">'+
-          '<div style="position:relative">'+
-            '<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.7">🔍</span>'+
-            '<input autocomplete="off" class="adm-search" id="transpBuscaInp" placeholder="Buscar..." style="width:100%;padding:11px 12px 11px 36px;font-size:12.5px" oninput="filtrarBuscaTransp(this.value)">'+
-          '</div>'+
-          '<div id="transpBuscaResultados" style="margin-bottom:6px"></div>'+
-          '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:20px" onclick="abrirListaTransportadoras()">Ver todas ('+transportadorasCache.length+') →</button>'+
-        '</div>'+
         mapaHtml+
       '</div>'+
       '<div style="width:260px;max-width:100%;padding-top:6px">'+infoHtml+'</div>'+
