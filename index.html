@@ -1259,6 +1259,14 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL VER TODAS AS TRANSPORTADORAS -->
+<div class="ov hidden" id="ovListaTransportadoras">
+  <div class="md">
+    <div class="md-hdr"><span class="md-title">Transportadoras cadastradas</span><button class="md-x" onclick="fecharOv('ovListaTransportadoras')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
+    <div class="md-body" id="listaTodasTranspBody"></div>
+  </div>
+</div>
+
 <!-- MODAL NOVA/EDITAR TRANSPORTADORA -->
 <div class="ov hidden" id="ovTransportadora">
   <div class="md">
@@ -3884,11 +3892,8 @@ function carregarTransportadoras(){
 // Devolve a cor a pintar num estado do mapa: nenhuma transportadora = cinza neutro (null),
 // uma só = a cor dela, duas ou mais no mesmo estado = âmbar de aviso (evita inventar uma
 // mistura de cores que ninguém consegue interpretar de relance).
-function corDoEstadoMapa(uf){
-  var achadas=transportadorasCache.filter(function(t){ return (t.estados||[]).indexOf(uf)!==-1; });
-  if(!achadas.length) return null;
-  if(achadas.length===1) return achadas[0].cor;
-  return '#c0862b';
+function transportadorasDoEstado(uf){
+  return transportadorasCache.filter(function(t){ return (t.estados||[]).indexOf(uf)!==-1; });
 }
 function renderTransportadorasSec(){
   var wrap=document.getElementById('transportadorasSec');
@@ -3907,30 +3912,56 @@ function renderTransportadorasSec(){
     transportadorasCache.map(function(t){return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--td)"><span style="width:9px;height:9px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+'</span>';}).join('')+
     '</div>'
   ):'';
-  var listaHtml=transportadorasCache.length?transportadorasCache.map(function(t){
-    return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
-      '<span style="width:16px;height:16px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
-      '<div style="flex:1;min-width:0"><div style="font-family:var(--f-d);font-size:15px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
-      '<div style="font-size:10px;color:var(--td);margin-top:1px">'+(t.estados||[]).length+' estado(s)</div></div>'+
-      '<span style="color:var(--td);font-size:16px;flex-shrink:0">›</span>'+
-    '</div>';
-  }).join(''):'<div class="dp2-empty">Nenhuma transportadora cadastrada ainda.</div>';
   wrap.innerHTML=
-    '<div style="display:flex;justify-content:flex-end;max-width:680px;margin:0 auto 10px">'+
-      '<button class="adm-btn-add" style="width:auto;padding:8px 16px;font-size:18px;line-height:1;font-weight:700" onclick="abrirTransportadora(null)" title="Adicionar transportadora">+</button>'+
+    '<div style="display:flex;gap:10px;align-items:center;max-width:680px;margin:0 auto">'+
+      '<input autocomplete="off" class="inp" id="transpBuscaInp" placeholder="Buscar transportadora..." style="flex:1" oninput="filtrarBuscaTransp(this.value)">'+
+      '<button style="width:44px;height:44px;border-radius:50%;background:var(--gn);border:none;color:#fff;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.35)" onclick="abrirTransportadora(null)" title="Adicionar transportadora">+</button>'+
     '</div>'+
-    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+legendaHtml+'</div>'+
-    '<div style="max-width:680px;margin:0 auto">'+
-      '<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Cadastradas ('+transportadorasCache.length+') — toque pra editar</div>'+
-        listaHtml+
-      '</div>'+
-    '</div>';
+    '<div id="transpBuscaResultados" style="max-width:680px;margin:0 auto"></div>'+
+    '<div style="text-align:center;max-width:680px;margin:10px auto 26px">'+
+      '<button class="btn-gh" style="width:auto;padding:8px 16px;font-size:11px;letter-spacing:0;text-transform:none" onclick="abrirListaTransportadoras()">Ver todas as transportadoras ('+transportadorasCache.length+') →</button>'+
+    '</div>'+
+    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+legendaHtml+'</div>';
   renderMarcadoresTransportadoras();
+}
+// Busca digitada — atualiza só o container de resultados, nunca o <input>, senão perde o
+// foco a cada letra (mesmo motivo do filtro de itens do pedido).
+function filtrarBuscaTransp(v){
+  var termo=v.trim().toLowerCase();
+  var el=document.getElementById('transpBuscaResultados');
+  if(!el)return;
+  if(!termo){ el.innerHTML=''; return; }
+  var achadas=transportadorasCache.filter(function(t){ return t.nome.toLowerCase().indexOf(termo)!==-1; });
+  el.innerHTML=achadas.length?achadas.map(function(t){
+    return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:6px" onclick="abrirTransportadora('+t.id+')">'+
+      '<span style="width:14px;height:14px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
+      '<div style="flex:1;min-width:0;font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
+      '<span style="color:var(--td);font-size:14px;flex-shrink:0">›</span>'+
+    '</div>';
+  }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px;margin-top:6px">Nenhuma transportadora encontrada.</div>';
+}
+function abrirListaTransportadoras(){
+  var el=document.getElementById('listaTodasTranspBody');
+  if(el){
+    el.innerHTML=transportadorasCache.length?transportadorasCache.map(function(t){
+      return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="fecharOv(\'ovListaTransportadoras\');abrirTransportadora('+t.id+')">'+
+        '<span style="width:16px;height:16px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
+        '<div style="flex:1;min-width:0"><div style="font-family:var(--f-d);font-size:15px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
+        '<div style="font-size:10px;color:var(--td);margin-top:1px">'+(t.estados||[]).length+' estado(s)</div></div>'+
+        '<span style="color:var(--td);font-size:16px;flex-shrink:0">›</span>'+
+      '</div>';
+    }).join(''):'<div class="dp2-empty">Nenhuma transportadora cadastrada ainda.</div>';
+  }
+  document.getElementById('ovListaTransportadoras').classList.remove('hidden');
 }
 // Desenha um pontinho (marcador de localização) no centro de cada estado que tem alguma
 // transportadora cadastrada — em vez de pintar o estado inteiro. O centro é calculado
 // depois do SVG já estar no DOM (getBBox só funciona com o elemento renderizado); por isso
 // não dá pra montar isso junto com o resto do HTML como string, precisa desse passo separado.
+// Path de um pin de localização (gota com furo), desenhado uma vez em coordenadas locais
+// com a ponta em (0,0) — cada instância só recebe um translate/scale pra essa ponta cair
+// exatamente no ponto certo do mapa.
+var PIN_PATH_D='M 0,0 C -1.5,-2.5 -9,-11 -9,-17 A 9,9 0 1 1 9,-17 C 9,-11 1.5,-2.5 0,0 Z';
 function renderMarcadoresTransportadoras(){
   var svg=document.getElementById('svgBrasilTransp');
   var g=document.getElementById('marcadoresTransp');
@@ -3938,14 +3969,30 @@ function renderMarcadoresTransportadoras(){
   g.innerHTML='';
   svg.querySelectorAll('path[data-uf]').forEach(function(p){
     var uf=p.getAttribute('data-uf');
-    var cor=corDoEstadoMapa(uf);
-    if(!cor)return;
+    var lista=transportadorasDoEstado(uf);
+    if(!lista.length)return;
     var bb=p.getBBox();
     var cx=bb.x+bb.width/2, cy=bb.y+bb.height/2;
-    var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r','7');
-    c.setAttribute('fill',cor); c.setAttribute('stroke','#0a0e0c'); c.setAttribute('stroke-width','1.5');
-    g.appendChild(c);
+    // Uma transportadora: pin único no centro. Duas ou mais: distribui em leque num raio
+    // pequeno ao redor do centro, uma ponta por transportadora — nunca mais mistura numa
+    // cor só, cada uma sempre visível com a própria cor.
+    var raioLeque=lista.length>1?16:0;
+    lista.forEach(function(t,i){
+      var ang=lista.length>1?(i*(2*Math.PI/lista.length))-Math.PI/2:0;
+      var px=cx+raioLeque*Math.cos(ang), py=cy+raioLeque*Math.sin(ang);
+      var pin=document.createElementNS('http://www.w3.org/2000/svg','g');
+      pin.setAttribute('transform','translate('+px+','+py+')');
+      var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',PIN_PATH_D);
+      path.setAttribute('fill',t.cor);
+      path.setAttribute('stroke','#0a0e0c');
+      path.setAttribute('stroke-width','1.3');
+      var furo=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      furo.setAttribute('cx','0'); furo.setAttribute('cy','-17'); furo.setAttribute('r','3.4');
+      furo.setAttribute('fill','#0a0e0c');
+      pin.appendChild(path); pin.appendChild(furo);
+      g.appendChild(pin);
+    });
   });
 }
 function mostrarInfoEstadoMapa(uf){
