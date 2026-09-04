@@ -4381,6 +4381,7 @@ function filtrarListaCidadesPin(termoFiltro){
 // mapa ficaria pulando de zoom toda vez que o mouse passasse por cima sem querer.
 function clicarEstado(uf){ aplicarZoomEstado(uf); mostrarMunicipiosEstado(uf); }
 function mostrarMunicipiosEstado(uf){
+  if(pinTranspSelecionado)return; // hover no estado não pode sobrepor um pin já selecionado por clique — só clicar em outra coisa muda a visão
   var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
   var nome=e?e[1]:uf.toUpperCase();
   var achadas=transportadorasDoEstado(uf);
