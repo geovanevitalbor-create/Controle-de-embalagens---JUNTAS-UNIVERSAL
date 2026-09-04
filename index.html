@@ -3901,25 +3901,28 @@ function transportadorasDoEstado(uf){
 function renderTransportadorasSec(){
   var wrap=document.getElementById('transportadorasSec');
   if(!wrap)return;
-  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:640px;display:block;margin:0 auto" id="svgBrasilTransp">'+
+  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:560px;display:block" id="svgBrasilTransp">'+
     BR_ESTADOS_RAW.map(function(e){
       var uf=e[0], nome=e[1], path=e[2];
       return '<path d="'+path+'" data-uf="'+uf+'" fill="#20241f" stroke="#565c58" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarInfoEstadoMapa(\''+uf+'\')" onclick="mostrarInfoEstadoMapa(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
     }).join('')+
     '<g id="marcadoresTransp" style="pointer-events:none"></g>'+
   '</svg>';
-  var infoHtml='<div id="mapaInfoEstado" style="margin-top:18px;max-width:520px;margin-left:auto;margin-right:auto">'+
-    '<div style="font-size:11px;color:var(--td);text-align:center">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
+  var infoHtml='<div id="mapaInfoEstado">'+
+    '<div style="font-size:11px;color:var(--td)">Toque ou passe o mouse num estado pra ver quem atende</div></div>';
   wrap.innerHTML=
-    '<div style="max-width:680px;margin:0 auto;position:relative;display:inline-block">'+
-      '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none">🔍</span>'+
-      '<input autocomplete="off" class="inp" id="transpBuscaInp" placeholder="Buscar..." style="width:190px;padding:9px 12px 9px 34px;font-size:12px" oninput="filtrarBuscaTransp(this.value)">'+
-    '</div>'+
-    '<div id="transpBuscaResultados" style="max-width:300px;margin:4px 0 0"></div>'+
-    '<div style="text-align:center;max-width:680px;margin:8px auto 22px">'+
-      '<button class="btn-gh" style="width:auto;padding:8px 16px;font-size:11px;letter-spacing:0;text-transform:none" onclick="abrirListaTransportadoras()">Ver todas as transportadoras ('+transportadorasCache.length+') →</button>'+
-    '</div>'+
-    '<div style="max-width:680px;margin:0 auto 28px">'+mapaHtml+infoHtml+'</div>';
+    '<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">'+
+      '<div style="flex:2;min-width:320px">'+
+        '<div style="position:relative;max-width:220px;margin-bottom:8px">'+
+          '<span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;opacity:.7">🔍</span>'+
+          '<input autocomplete="off" class="adm-search" id="transpBuscaInp" placeholder="Buscar..." style="width:100%;padding:11px 12px 11px 36px;font-size:12.5px" oninput="filtrarBuscaTransp(this.value)">'+
+        '</div>'+
+        '<div id="transpBuscaResultados" style="max-width:300px;margin-bottom:6px"></div>'+
+        '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:20px" onclick="abrirListaTransportadoras()">Ver todas as transportadoras ('+transportadorasCache.length+') →</button>'+
+        mapaHtml+
+      '</div>'+
+      '<div style="flex:1;min-width:240px;padding-top:6px">'+infoHtml+'</div>'+
+    '</div>';
   renderMarcadoresTransportadoras();
 }
 // Busca digitada — atualiza só o container de resultados, nunca o <input>, senão perde o
@@ -4000,10 +4003,10 @@ function mostrarInfoEstadoMapa(uf){
   var el=document.getElementById('mapaInfoEstado');
   if(!el)return;
   if(!achadas.length){
-    el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;text-align:center">'+escAttr(nome)+'</div><div style="font-size:11px;color:var(--td);margin-top:4px;text-align:center">Nenhuma transportadora cadastrada atende esse estado.</div>';
+    el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em">'+escAttr(nome)+'</div><div style="font-size:11px;color:var(--td);margin-top:4px">Nenhuma transportadora cadastrada atende esse estado.</div>';
     return;
   }
-  el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;text-align:center;margin-bottom:10px">'+escAttr(nome)+'</div>'+
+  el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;margin-bottom:10px">'+escAttr(nome)+'</div>'+
     achadas.map(function(t){
       var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
       return '<div class="cx-detalhe" style="text-align:left;cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
