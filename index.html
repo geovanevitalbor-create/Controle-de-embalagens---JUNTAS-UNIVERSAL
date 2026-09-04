@@ -1826,7 +1826,6 @@ function toggleCfgSwitch(inp){
 }
 
 const SENHA_ADM = 'juntas2026_';
-const SENHA_MASTER = '1234mudar'; // acesso exclusivo pra excluir — separado da senha de Admin comum
 const SENHA_FAT = 'faturamento25';
 
 // ═══════════════════════════════════════
@@ -1908,17 +1907,18 @@ function irParaProtegido(id){
 function voltarInicio(){
   pararBipCam();
   pararPollingFaturamento();
-  admOk=false; fatOk=false; masterOk=false; // ao sair, exige a senha novamente na próxima entrada
+  admOk=false; fatOk=false; // ao sair, exige a senha novamente na próxima entrada
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
   document.getElementById('startScreen').style.display='flex';
 }
-var masterOk=false, acaoPendenteMaster=null;
-// Toda exclusão do sistema passa por aqui. Já autenticado nesta sessão de tela? roda direto.
-// Senão, pede a senha master e só executa depois que ela for confirmada.
+var acaoPendenteMaster=null;
+// Toda exclusão do sistema passa por aqui. Já autenticado como Admin nesta sessão? roda
+// direto. Senão, pede a senha de Admin (senha master foi retirada — fundida nessa) e só
+// executa depois que ela for confirmada.
 function exigirSenhaMaster(acao){
-  if(masterOk){ acao(); return; }
+  if(admOk){ acao(); return; }
   acaoPendenteMaster=acao;
-  abrirSenha('master','🔒 Acesso Master (exclusão)');
+  abrirSenha('admAcao','🔒 Confirme a senha de Admin (ação irreversível)');
 }
 var acaoPendenteFat=null;
 // Mesmo padrão do exigirSenhaMaster, mas pra ações que só precisam da senha de Faturamento —
@@ -1949,7 +1949,7 @@ function abrirSenha(dest,titulo){
 function fecharSenhaModal(){fecharOv('ovSenha');}
 function checkSenha(){
   const v=document.getElementById('senhaInp').value;
-  const ok=(senhaDestino==='fat'&&v===SENHA_FAT)||(senhaDestino==='adm'&&v===SENHA_ADM)||(senhaDestino==='qtdmanual'&&v===SENHA_ADM)||(senhaDestino==='master'&&v===SENHA_MASTER)||(senhaDestino==='fatAcao'&&v===SENHA_FAT);
+  const ok=(senhaDestino==='fat'&&v===SENHA_FAT)||(senhaDestino==='adm'&&v===SENHA_ADM)||(senhaDestino==='qtdmanual'&&v===SENHA_ADM)||(senhaDestino==='admAcao'&&v===SENHA_ADM)||(senhaDestino==='fatAcao'&&v===SENHA_FAT);
   if(ok){
     fecharOv('ovSenha');
     if(senhaDestino==='adm'){admOk=true;irPara('adm');}
@@ -1957,8 +1957,8 @@ function checkSenha(){
     if(senhaDestino==='qtdmanual'){
       abrirQtdManual();
     }
-    if(senhaDestino==='master'){
-      masterOk=true;
+    if(senhaDestino==='admAcao'){
+      admOk=true;
       var acao=acaoPendenteMaster; acaoPendenteMaster=null;
       if(acao) acao();
     }
@@ -2526,7 +2526,7 @@ function renderCxFech(){
   }).join('');
 }
 
-// Apagar uma caixa já fechada exige senha master.
+// Apagar uma caixa já fechada exige senha de Admin (ação irreversível).
 function pedirSenhaRemoverCx(idx){
   exigirSenhaMaster(function(){ removerCaixaFechada(idx); });
 }
@@ -3973,41 +3973,62 @@ function filtrarBuscaTransp(v){
   var el=document.getElementById('transpBuscaResultados');
   if(!el)return;
   if(!termo){ el.innerHTML=''; return; }
-  var resultados=[];
+  var transpAchadas=[];
+  var estadosAchados={}; // uf -> {nome, transportadoras:[t,...]}
+  var cidadesAchadas={}; // uf+'|'+cidade -> {cidade, uf, transportadoras:[t,...]}
   transportadorasCache.forEach(function(t){
-    if(semAcento(t.nome.toLowerCase()).indexOf(termo)!==-1){
-      resultados.push({t:t, motivo:null}); return;
-    }
-    var estados=t.estados||[];
-    for(var i=0;i<estados.length;i++){
-      var uf=estados[i];
+    if(semAcento(t.nome.toLowerCase()).indexOf(termo)!==-1) transpAchadas.push(t);
+    (t.estados||[]).forEach(function(uf){
       var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
       var nomeEstado=e?e[1]:uf.toUpperCase();
       if(uf.indexOf(termo)!==-1 || semAcento(nomeEstado.toLowerCase()).indexOf(termo)!==-1){
-        resultados.push({t:t, motivo:'atende '+nomeEstado}); return;
+        if(!estadosAchados[uf]) estadosAchados[uf]={nome:nomeEstado, transportadoras:[]};
+        estadosAchados[uf].transportadoras.push(t);
       }
-    }
+    });
     var cidadesPorEstado=t.cidades_por_estado||{};
     for(var uf2 in cidadesPorEstado){
-      var cids=cidadesPorEstado[uf2]||[];
-      for(var j=0;j<cids.length;j++){
-        if(semAcento(cids[j].toLowerCase()).indexOf(termo)!==-1){
-          resultados.push({t:t, motivo:'atende '+cids[j]+' · '+uf2.toUpperCase()}); return;
+      (cidadesPorEstado[uf2]||[]).forEach(function(c){
+        if(semAcento(c.toLowerCase()).indexOf(termo)!==-1){
+          var chave=uf2+'|'+c;
+          if(!cidadesAchadas[chave]) cidadesAchadas[chave]={cidade:c, uf:uf2, transportadoras:[]};
+          cidadesAchadas[chave].transportadoras.push(t);
         }
-      }
+      });
     }
   });
-  el.innerHTML=resultados.length?resultados.map(function(r){
-    var t=r.t;
-    return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:6px" onclick="abrirTransportadora('+t.id+')">'+
-      '<span style="width:14px;height:14px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
-        (r.motivo?'<div style="font-size:10px;color:var(--td);margin-top:1px">'+escAttr(r.motivo)+'</div>':'')+
-      '</div>'+
-      '<span style="color:var(--td);font-size:14px;flex-shrink:0">›</span>'+
-    '</div>';
-  }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px;margin-top:6px">Nada encontrado.</div>';
+  var partes=[];
+  if(transpAchadas.length){
+    partes.push(transpAchadas.map(function(t){
+      return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:6px" onclick="abrirTransportadora('+t.id+')">'+
+        '<span style="width:14px;height:14px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
+        '<div style="flex:1;min-width:0;font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
+        '<span style="color:var(--td);font-size:14px;flex-shrink:0">›</span>'+
+      '</div>';
+    }).join(''));
+  }
+  Object.keys(estadosAchados).forEach(function(uf){
+    var info=estadosAchados[uf];
+    partes.push('<div class="cx-detalhe" style="cursor:pointer;margin-top:6px" onclick="irParaEstadoBusca(\''+uf+'\')">'+
+      '<div style="font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(info.nome)+'</div>'+
+      '<div style="font-size:10px;color:var(--td);margin-top:2px">'+info.transportadoras.length+' transportadora'+(info.transportadoras.length>1?'s':'')+' · toque pra ver no mapa</div>'+
+    '</div>');
+  });
+  Object.keys(cidadesAchadas).forEach(function(chave){
+    var info=cidadesAchadas[chave];
+    partes.push('<div class="cx-detalhe" style="cursor:pointer;margin-top:6px" onclick="irParaEstadoBusca(\''+info.uf+'\')">'+
+      '<div style="font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(info.cidade)+'</div>'+
+      '<div style="font-size:10px;color:var(--td);margin-top:2px">'+info.uf.toUpperCase()+' · '+info.transportadoras.length+' transportadora'+(info.transportadoras.length>1?'s':'')+' · toque pra ver no mapa</div>'+
+    '</div>');
+  });
+  el.innerHTML=partes.length?partes.join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px;margin-top:6px">Nada encontrado.</div>';
+}
+// Resultado de busca por estado/cidade: leva direto pro mapa zoomado naquele estado, em vez
+// de abrir o modal de edição (isso é só pra resultado de nome de transportadora).
+function irParaEstadoBusca(uf){
+  clicarEstado(uf);
+  var svg=document.getElementById('svgBrasilTransp');
+  if(svg) svg.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function abrirListaTransportadoras(){
   var el=document.getElementById('listaTodasTranspBody');
@@ -4697,7 +4718,7 @@ async function salvarQtdItemPedido(idsCsv,jaEmbalado){
     }else{ toast('⚠ Não salvou — tente de novo'); }
   }catch(e){ toast('⚠ Sem conexão'); }
 }
-// Remover item de pedido é destrutivo — mesma trava de senha master das outras exclusões.
+// Remover item de pedido é destrutivo — mesma trava de senha de Admin das outras exclusões.
 // Aceita uma lista de ids: se a peça tinha linhas duplicadas do mesmo código, remove todas.
 function pedirRemoverItemPedido(idsCsv){
   var ids=String(idsCsv).split(',').map(function(s){return parseInt(s,10);}).filter(function(n){return !isNaN(n);});
@@ -5066,7 +5087,7 @@ var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas
 function togFinCaixas(sessao){ finCaixasOpenSet[sessao]=!finCaixasOpenSet[sessao]; if(detPedAtual!==null) renderDetalhePedido(); }
 // Cancela uma sessão travada "em andamento" (finalizada:false) que nunca foi concluída — ex:
 // fechou a aba no meio da bipagem, queda de conexão, tablet travou. Some do histórico de vez
-// (e apaga qualquer caixa que já tivesse sido fechada nela); exige senha master, é destrutivo.
+// (e apaga qualquer caixa que já tivesse sido fechada nela); exige senha de Admin, é destrutivo.
 function cancelarSessaoAbandonada(sessao,pedidoNome){
   exigirSenhaMaster(function(){
     if(!confirm('Cancelar esta sessão em andamento? Se ela já tiver caixas fechadas, elas também são apagadas. Isso não pode ser desfeito.'))return;
@@ -5319,11 +5340,11 @@ function renderRelatorioFaturamento(d){
 
   el.innerHTML=
     '<div class="dash-hero-row">'+
-      '<div class="dash-hero"><div class="dash-hero-lbl">Faturado com imposto</div>'+
-      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorComImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'+
-      badgeVariacao(variacaoPct(d.totalValorComImposto||0,d.anterior,'totalValorComImposto'))+'</div>'+
-      '<div class="dash-hero sem"><div class="dash-hero-lbl">Faturado sem imposto</div>'+
-      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorSemImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'+
+      '<div class="dash-hero"><div class="dash-hero-lbl">Faturado líquido (sem imposto)</div>'+
+      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorSemImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'+
+      badgeVariacao(variacaoPct(d.totalValorSemImposto||0,d.anterior,'totalValorSemImposto'))+'</div>'+
+      '<div class="dash-hero sem"><div class="dash-hero-lbl">Faturado bruto (com imposto)</div>'+
+      '<div class="dash-hero-val"><span class="cifrao">R$</span>'+(d.totalValorComImposto||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'+
     '</div>'+
 
     '<div class="dash-section" style="--sec-c:var(--ac)"><div class="dash-section-ttl">Visão geral<span class="sub">contagens do período selecionado</span></div>'+
@@ -5687,8 +5708,8 @@ function imprimirRelatorioFaturamento(){
     '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
     '<div class="hdr-t"><h1>Relatório de Faturamento</h1><div class="sub">'+_dataBR(ini)+' até '+_dataBR(fim)+' &nbsp;·&nbsp; gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
     '<div class="kpis">'+
-      '<div class="kpi hero"><div class="v">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="l">Faturado c/ imposto</div>'+variacaoTxt(variacaoPct(d.totalValorComImposto||0,d.anterior,'totalValorComImposto'))+'</div>'+
-      '<div class="kpi hero"><div class="v" style="color:#555">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="l">Faturado s/ imposto</div></div>'+
+      '<div class="kpi hero"><div class="v">'+fmtR$(d.totalValorSemImposto||0)+'</div><div class="l">Faturado líquido (s/ imposto)</div>'+variacaoTxt(variacaoPct(d.totalValorSemImposto||0,d.anterior,'totalValorSemImposto'))+'</div>'+
+      '<div class="kpi hero"><div class="v" style="color:#555">'+fmtR$(d.totalValorComImposto||0)+'</div><div class="l">Faturado bruto (c/ imposto)</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalNFs+'</div><div class="l">Notas Fiscais</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalCaixas+'</div><div class="l">Caixas</div></div>'+
       '<div class="kpi"><div class="v">'+d.totalUnidades+'</div><div class="l">Unidades</div>'+variacaoTxt(variacaoPct(d.totalUnidades,d.anterior,'totalUnidades'))+'</div>'+
