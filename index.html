@@ -4047,6 +4047,37 @@ function renderMarcadoresBrasil(svg,g){
 // posição vem da conversão lat/lng calibrada, travada dentro da bbox do estado com uma
 // margem — a calibração é aproximada (regressão sobre os 27 estados, R²~0.96), então sem
 // essa trava um município perto da borda podia calcular pra fora do recorte visível.
+var GEO_BBOX_ESTADO_CACHE={};
+// Extensão geográfica real (lat/lng min/max) de todos os municípios de um estado — calculado
+// uma vez e guardado, usado pra calibrar a posição dos pins só DENTRO desse estado.
+function bboxGeograficoEstado(uf){
+  if(GEO_BBOX_ESTADO_CACHE[uf]) return GEO_BBOX_ESTADO_CACHE[uf];
+  var lista=municipiosDoEstado(uf);
+  if(!lista.length) return null;
+  var latMin=Infinity,latMax=-Infinity,lngMin=Infinity,lngMax=-Infinity;
+  lista.forEach(function(m){
+    var lat=m[2], lng=m[3];
+    if(lat<latMin)latMin=lat; if(lat>latMax)latMax=lat;
+    if(lng<lngMin)lngMin=lng; if(lng>lngMax)lngMax=lng;
+  });
+  var r={latMin:latMin,latMax:latMax,lngMin:lngMin,lngMax:lngMax};
+  GEO_BBOX_ESTADO_CACHE[uf]=r;
+  return r;
+}
+// Posição de uma cidade DENTRO do recorte zoomado do próprio estado: normaliza a posição
+// real dela pela extensão geográfica de TODOS os municípios desse mesmo estado, depois mapeia
+// pra dentro do desenho SVG desse estado. Diferente de latLngParaSvg (calibração única pro
+// Brasil inteiro) — essa é local, por estado, e não acumula a distorção do país inteiro, que
+// era pequena no mapa completo mas ficava enorme quando o zoom era só num estado.
+function latLngParaSvgLocalEstado(lat,lng,uf,bbSvg){
+  var geo=bboxGeograficoEstado(uf);
+  if(!geo||geo.latMax===geo.latMin||geo.lngMax===geo.lngMin){
+    return {x:bbSvg.x+bbSvg.width/2, y:bbSvg.y+bbSvg.height/2};
+  }
+  var tx=(lng-geo.lngMin)/(geo.lngMax-geo.lngMin);
+  var ty=1-(lat-geo.latMin)/(geo.latMax-geo.latMin);
+  return {x:bbSvg.x+tx*bbSvg.width, y:bbSvg.y+ty*bbSvg.height};
+}
 function renderMarcadoresZoom(svg,g,uf){
   var path=svg.querySelector('path[data-uf="'+uf+'"]');
   if(!path)return;
@@ -4064,7 +4095,7 @@ function renderMarcadoresZoom(svg,g,uf){
   });
   ordemMun.forEach(function(nomeCidade){
     var entry=porMunicipio[nomeCidade];
-    var pos=latLngParaSvg(entry.m[2],entry.m[3]);
+    var pos=latLngParaSvgLocalEstado(entry.m[2],entry.m[3],uf,bb);
     var margemX=bb.width*0.06, margemY=bb.height*0.06;
     var x=Math.min(bb.x+bb.width-margemX,Math.max(bb.x+margemX,pos.x));
     var y=Math.min(bb.y+bb.height-margemY,Math.max(bb.y+margemY,pos.y));
