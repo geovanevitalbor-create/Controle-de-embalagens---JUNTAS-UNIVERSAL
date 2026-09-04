@@ -3901,10 +3901,10 @@ function transportadorasDoEstado(uf){
 function renderTransportadorasSec(){
   var wrap=document.getElementById('transportadorasSec');
   if(!wrap)return;
-  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:560px;display:block" id="svgBrasilTransp">'+
+  var mapaHtml='<svg viewBox="'+BR_ESTADOS_VIEWBOX+'" style="width:100%;max-width:560px;display:block;margin:0 auto" id="svgBrasilTransp">'+
     BR_ESTADOS_RAW.map(function(e){
       var uf=e[0], nome=e[1], path=e[2];
-      return '<path d="'+path+'" data-uf="'+uf+'" fill="#20241f" stroke="#565c58" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarInfoEstadoMapa(\''+uf+'\')" onclick="mostrarInfoEstadoMapa(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
+      return '<path d="'+path+'" data-uf="'+uf+'" fill="#20241f" stroke="#565c58" stroke-width="1" style="cursor:pointer" onmouseenter="mostrarMunicipiosEstado(\''+uf+'\')" onclick="mostrarMunicipiosEstado(\''+uf+'\')"><title>'+escAttr(nome)+'</title></path>';
     }).join('')+
     '<g id="marcadoresTransp" style="pointer-events:none"></g>'+
   '</svg>';
@@ -3983,6 +3983,9 @@ function renderMarcadoresTransportadoras(){
       var px=cx+raioLeque*Math.cos(ang), py=cy+raioLeque*Math.sin(ang);
       var pin=document.createElementNS('http://www.w3.org/2000/svg','g');
       pin.setAttribute('transform','translate('+px+','+py+')');
+      pin.setAttribute('style','cursor:pointer;pointer-events:auto');
+      pin.addEventListener('click',function(ev){ ev.stopPropagation(); mostrarFichaTransportadoraPin(t.id,uf); });
+      pin.addEventListener('mouseenter',function(ev){ ev.stopPropagation(); mostrarFichaTransportadoraPin(t.id,uf); });
       var path=document.createElementNS('http://www.w3.org/2000/svg','path');
       path.setAttribute('d',PIN_PATH_D);
       path.setAttribute('fill',t.cor);
@@ -3996,7 +3999,31 @@ function renderMarcadoresTransportadoras(){
     });
   });
 }
-function mostrarInfoEstadoMapa(uf){
+// Clique/hover num pin específico: mostra só a ficha daquela transportadora (não a lista de
+// municípios do estado inteiro, que é o que aparece clicando fora dos pins).
+function mostrarFichaTransportadoraPin(id,uf){
+  var t=transportadorasCache.find(function(x){return x.id===id;});
+  var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
+  var nomeEstado=e?e[1]:uf.toUpperCase();
+  var el=document.getElementById('mapaInfoEstado');
+  if(!el||!t)return;
+  var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+  el.innerHTML='<div class="cx-detalhe" style="cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+      '<span style="width:12px;height:12px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+
+      '<span style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(t.nome)+'</span>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--td);margin-top:4px">em '+escAttr(nomeEstado)+'</div>'+
+    (cids.length?
+      ('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-top:8px">Municípios atendidos</div>'+
+       '<div style="font-size:11.5px;color:var(--tm);margin-top:3px;line-height:1.6">'+cids.map(escAttr).join(' · ')+'</div>')
+      :'<div style="font-size:11px;color:var(--td);margin-top:6px">Atende o estado inteiro</div>')+
+  '</div>';
+}
+// Clique/hover no estado, fora dos pins: lista os municípios já cadastrados por qualquer
+// transportadora nesse estado, e pra cada um mostra quem é responsável — pode ser mais de
+// uma transportadora pelo mesmo município.
+function mostrarMunicipiosEstado(uf){
   var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
   var nome=e?e[1]:uf.toUpperCase();
   var achadas=transportadorasDoEstado(uf);
@@ -4006,22 +4033,32 @@ function mostrarInfoEstadoMapa(uf){
     el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em">'+escAttr(nome)+'</div><div style="font-size:11px;color:var(--td);margin-top:4px">Nenhuma transportadora cadastrada atende esse estado.</div>';
     return;
   }
-  el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;margin-bottom:10px">'+escAttr(nome)+'</div>'+
-    achadas.map(function(t){
-      var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
-      return '<div class="cx-detalhe" style="text-align:left;cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
-        '<div style="display:flex;align-items:center;gap:8px">'+
-          '<span style="width:12px;height:12px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+
-          '<span style="font-family:var(--f-d);font-size:15px;letter-spacing:.02em">'+escAttr(t.nome)+'</span>'+
-        '</div>'+
-        (cids.length?
-          ('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-top:8px">Principais cidades atendidas</div>'+
-           '<div style="font-size:11.5px;color:var(--tm);margin-top:3px;line-height:1.6">'+cids.map(escAttr).join(' · ')+'</div>')
-          :'<div style="font-size:11px;color:var(--td);margin-top:6px">Atende o estado inteiro</div>')+
-      '</div>';
-    }).join('');
-}
-// ── Formulário (novo/editar) ──
+  var porMunicipio={}, ordem=[], estadoInteiro=[];
+  achadas.forEach(function(t){
+    var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+    if(!cids.length){ estadoInteiro.push(t); return; }
+    cids.forEach(function(c){
+      if(!porMunicipio[c]){ porMunicipio[c]=[]; ordem.push(c); }
+      porMunicipio[c].push(t);
+    });
+  });
+  var avisoEstadoInteiro=estadoInteiro.length?('<div style="font-size:10.5px;color:var(--td);margin-bottom:12px">'+estadoInteiro.map(function(t){return escAttr(t.nome);}).join(', ')+' atende'+(estadoInteiro.length===1?'':'m')+' o estado inteiro (qualquer município)</div>'):'';
+  var linhasMunicipios=ordem.map(function(c){
+    var ts=porMunicipio[c].concat(estadoInteiro);
+    return '<div class="cx-detalhe" style="padding:9px 12px;margin-bottom:6px">'+
+      '<div style="font-family:var(--f-d);font-size:13.5px;letter-spacing:.02em">'+escAttr(c)+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px">'+
+        ts.map(function(t){return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tm)"><span style="width:8px;height:8px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+escAttr(t.nome)+'</span>';}).join('')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  el.innerHTML='<div style="font-family:var(--f-d);font-size:17px;letter-spacing:.02em;margin-bottom:4px">'+escAttr(nome)+'</div>'+
+    avisoEstadoInteiro+
+    (ordem.length?
+      ('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Municípios cadastrados</div>'+linhasMunicipios)
+      :(estadoInteiro.length?'':'<div style="font-size:11px;color:var(--td)">Nenhum município específico cadastrado ainda.</div>')
+    );
+}// ── Formulário (novo/editar) ──
 function abrirTransportadora(id){
   var t=id?transportadorasCache.find(function(x){return x.id===id;}):null;
   transpCtxId=id||null;
