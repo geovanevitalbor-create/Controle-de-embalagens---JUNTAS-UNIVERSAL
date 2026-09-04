@@ -3879,11 +3879,15 @@ function municipiosDoEstado(uf){
   }
   return BR_MUNICIPIOS_POR_UF[uf]||[];
 }
+var MUNICIPIO_POR_NOME_CACHE={};
 function municipioPorNomeUf(uf,nome){
-  var lista=municipiosDoEstado(uf);
+  if(!MUNICIPIO_POR_NOME_CACHE[uf]){
+    var idx={};
+    municipiosDoEstado(uf).forEach(function(m){ idx[m[1].toLowerCase()]=m; });
+    MUNICIPIO_POR_NOME_CACHE[uf]=idx;
+  }
   var alvo=String(nome||'').trim().toLowerCase();
-  for(var i=0;i<lista.length;i++){ if(lista[i][1].toLowerCase()===alvo) return lista[i]; }
-  return null;
+  return MUNICIPIO_POR_NOME_CACHE[uf][alvo]||null;
 }
 // Conversão aproximada lat/lng -> coordenada do mapa SVG. Calibrada por regressão linear
 // usando os 27 estados como pontos de referência (comparando o centro real de cada estado
@@ -3955,25 +3959,55 @@ function renderTransportadorasSec(){
       '<div style="width:560px;max-width:100%">'+
         mapaHtml+
       '</div>'+
-      '<div style="width:260px;max-width:100%;padding-top:6px">'+infoHtml+'</div>'+
+      '<div style="width:260px;max-width:100%;padding-top:6px;max-height:600px;overflow-y:auto">'+infoHtml+'</div>'+
     '</div>';
   renderMarcadoresTransportadoras();
 }
 // Busca digitada — atualiza só o container de resultados, nunca o <input>, senão perde o
 // foco a cada letra (mesmo motivo do filtro de itens do pedido).
+function semAcento(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
 function filtrarBuscaTransp(v){
-  var termo=v.trim().toLowerCase();
+  var termo=semAcento(v.trim().toLowerCase());
   var el=document.getElementById('transpBuscaResultados');
   if(!el)return;
   if(!termo){ el.innerHTML=''; return; }
-  var achadas=transportadorasCache.filter(function(t){ return t.nome.toLowerCase().indexOf(termo)!==-1; });
-  el.innerHTML=achadas.length?achadas.map(function(t){
+  var resultados=[];
+  transportadorasCache.forEach(function(t){
+    if(semAcento(t.nome.toLowerCase()).indexOf(termo)!==-1){
+      resultados.push({t:t, motivo:null}); return;
+    }
+    var estados=t.estados||[];
+    for(var i=0;i<estados.length;i++){
+      var uf=estados[i];
+      var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
+      var nomeEstado=e?e[1]:uf.toUpperCase();
+      if(uf.indexOf(termo)!==-1 || semAcento(nomeEstado.toLowerCase()).indexOf(termo)!==-1){
+        resultados.push({t:t, motivo:'atende '+nomeEstado}); return;
+      }
+    }
+    var cidadesPorEstado=t.cidades_por_estado||{};
+    for(var uf2 in cidadesPorEstado){
+      var cids=cidadesPorEstado[uf2]||[];
+      for(var j=0;j<cids.length;j++){
+        if(semAcento(cids[j].toLowerCase()).indexOf(termo)!==-1){
+          resultados.push({t:t, motivo:'atende '+cids[j]+' · '+uf2.toUpperCase()}); return;
+        }
+      }
+    }
+  });
+  el.innerHTML=resultados.length?resultados.map(function(r){
+    var t=r.t;
     return '<div class="cx-detalhe" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:6px" onclick="abrirTransportadora('+t.id+')">'+
       '<span style="width:14px;height:14px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0;border:1px solid rgba(255,255,255,.25)"></span>'+
-      '<div style="flex:1;min-width:0;font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+escAttr(t.nome)+'</div>'+
+        (r.motivo?'<div style="font-size:10px;color:var(--td);margin-top:1px">'+escAttr(r.motivo)+'</div>':'')+
+      '</div>'+
       '<span style="color:var(--td);font-size:14px;flex-shrink:0">›</span>'+
     '</div>';
-  }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px;margin-top:6px">Nenhuma transportadora encontrada.</div>';
+  }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px;margin-top:6px">Nada encontrado.</div>';
 }
 function abrirListaTransportadoras(){
   var el=document.getElementById('listaTodasTranspBody');
@@ -4045,8 +4079,8 @@ function renderMarcadoresBrasil(svg,g){
       var px=cx+raioLeque*Math.cos(ang), py=cy+raioLeque*Math.sin(ang);
       var selecionado=pinTranspSelecionado&&pinTranspSelecionado.id===t.id&&pinTranspSelecionado.uf===uf;
       criarElementoPin(g,px,py,t.cor,selecionado?1.35:1,selecionado,
-        function(){ pinTranspSelecionado={id:t.id,uf:uf}; mostrarFichaTransportadoraPin(t.id,uf); renderMarcadoresTransportadoras(); },
-        function(){ mostrarFichaTransportadoraPin(t.id,uf); }
+        function(){ selecionarPinTransportadora(t.id,uf); },
+        function(){ if(!pinTranspSelecionado) mostrarFichaTransportadoraPin(t.id,uf); }
       );
     });
   });
@@ -4070,21 +4104,88 @@ function denormalizarPathRegiao(pathNorm,bbSvg){
     return x.toFixed(2)+','+y.toFixed(2);
   });
 }
+// Converte o path normalizado (string "Mx,yLx,y...ZMx,y...Z") numa lista de anéis, cada
+// anel uma lista de [tx,ty] — usado tanto pra desenhar quanto pra testar se um ponto cai
+// dentro da região.
+var PATH_ANEIS_CACHE={};
+function parseAneisPath(pathNorm){
+  if(PATH_ANEIS_CACHE[pathNorm]) return PATH_ANEIS_CACHE[pathNorm];
+  var aneis=[];
+  var partes=pathNorm.split('M');
+  partes.forEach(function(parte){
+    if(!parte)return;
+    var numeros=parte.replace('Z','').split('L').map(function(p){
+      var xy=p.split(',');
+      return [parseFloat(xy[0]),parseFloat(xy[1])];
+    }).filter(function(p){ return !isNaN(p[0])&&!isNaN(p[1]); });
+    if(numeros.length>=3) aneis.push(numeros);
+  });
+  PATH_ANEIS_CACHE[pathNorm]=aneis;
+  return aneis;
+}
+// Ponto dentro de polígono (ray casting, regra par-ímpar — cobre buraco/ilha corretamente
+// somando a paridade de todos os anéis juntos, igual ao fill-rule evenodd usado pra desenhar).
+function pontoDentroAneis(px,py,aneis){
+  var dentro=false;
+  aneis.forEach(function(anel){
+    var n=anel.length;
+    for(var i=0,j=n-1;i<n;j=i++){
+      var xi=anel[i][0], yi=anel[i][1], xj=anel[j][0], yj=anel[j][1];
+      var intersecta=((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi);
+      if(intersecta) dentro=!dentro;
+    }
+  });
+  return dentro;
+}
+// Acha em qual mesorregião um ponto normalizado (0 a 1, mesma referência da bbox geográfica
+// do estado) cai — usada pra descobrir a região de uma cidade a partir da posição dela,
+// já que os dados reais que você tem são por cidade, não por região.
+var REGIAO_POR_PONTO_CACHE={};
+function regiaoContendoPonto(uf,tx,ty){
+  var chaveCache=uf+':'+tx.toFixed(4)+','+ty.toFixed(4);
+  if(REGIAO_POR_PONTO_CACHE.hasOwnProperty(chaveCache)) return REGIAO_POR_PONTO_CACHE[chaveCache];
+  var regioes=regioesDoEstado(uf);
+  var achado=null;
+  for(var i=0;i<regioes.length;i++){
+    var aneis=parseAneisPath(regioes[i][2]);
+    if(pontoDentroAneis(tx,ty,aneis)){ achado=regioes[i][0]; break; }
+  }
+  REGIAO_POR_PONTO_CACHE[chaveCache]=achado;
+  return achado;
+}
+// Pra cada transportadora que atende o estado, calcula o conjunto EFETIVO de regiões que ela
+// cobre: soma das regiões marcadas manualmente (regioes_por_estado) com as regiões deduzidas
+// a partir das cidades que ela atende (cidades_por_estado) — a maioria dos dados reais que
+// você importou é por cidade, então sem essa dedução o mapa ficava sem cor nenhuma.
+function regioesEfetivasDaTransportadora(t,uf){
+  var geo=bboxGeograficoEstado(uf);
+  var set={};
+  (((t.regioes_por_estado||{})[uf])||[]).forEach(function(cod){ set[cod]=true; });
+  var cidades=((t.cidades_por_estado||{})[uf])||[];
+  if(cidades.length&&geo&&geo.latMax>geo.latMin&&geo.lngMax>geo.lngMin){
+    cidades.forEach(function(nomeCidade){
+      var m=municipioPorNomeUf(uf,nomeCidade);
+      if(!m)return;
+      var tx=(m[3]-geo.lngMin)/(geo.lngMax-geo.lngMin);
+      var ty=1-(m[2]-geo.latMin)/(geo.latMax-geo.latMin);
+      var cod=regiaoContendoPonto(uf,tx,ty);
+      if(cod) set[cod]=true;
+    });
+  }
+  return Object.keys(set);
+}
 
+// Extensão geográfica EXATA (lat/lng min/max) usada quando as mesorregiões foram
+// desenhadas — mesma fonte, pra garantir que testar "essa cidade está dentro dessa região"
+// bata exatamente com o desenho, mesmo em cidade litorânea/de borda do estado.
+var BR_ESTADOS_BBOX_GEO={"ac": {"latMin": -11.1455, "latMax": -7.1118, "lngMin": -73.9904, "lngMax": -66.6267}, "al": {"latMin": -10.5003, "latMax": -8.8163, "lngMin": -38.2375, "lngMax": -35.1525}, "am": {"latMin": -9.818, "latMax": 2.244, "lngMin": -73.8015, "lngMax": -56.0975}, "ap": {"latMin": -1.2359, "latMax": 4.4367, "lngMin": -54.8746, "lngMax": -49.8775}, "ba": {"latMin": -18.3371, "latMax": -8.5334, "lngMin": -46.617, "lngMax": -37.3411}, "ce": {"latMin": -7.8575, "latMax": -2.7845, "lngMin": -41.4215, "lngMax": -37.2532}, "df": {"latMin": -16.0502, "latMax": -15.5002, "lngMin": -48.2855, "lngMax": -47.3083}, "es": {"latMin": -21.3015, "latMax": -17.8919, "lngMin": -41.8747, "lngMax": -28.8376}, "go": {"latMin": -19.4981, "latMax": -12.3957, "lngMin": -53.2508, "lngMax": -45.9121}, "ma": {"latMin": -10.2617, "latMax": -1.0465, "lngMin": -48.7551, "lngMax": -41.7967}, "mg": {"latMin": -22.9227, "latMax": -14.2333, "lngMin": -51.046, "lngMax": -39.8568}, "ms": {"latMin": -24.0683, "latMax": -17.1667, "lngMin": -58.1671, "lngMax": -50.9229}, "mt": {"latMin": -18.0415, "latMax": -7.3517, "lngMin": -61.6333, "lngMax": -50.2248}, "pa": {"latMin": -9.8411, "latMax": 2.591, "lngMin": -58.8983, "lngMax": -46.0609}, "pb": {"latMin": -8.3029, "latMax": -6.0275, "lngMin": -38.7651, "lngMax": -34.7928}, "pe": {"latMin": -9.4825, "latMax": -3.8329, "lngMin": -41.3583, "lngMax": -32.395}, "pi": {"latMin": -10.9287, "latMax": -2.7393, "lngMin": -45.9942, "lngMax": -40.3705}, "pr": {"latMin": -26.7101, "latMax": -22.5199, "lngMin": -54.6193, "lngMax": -48.0235}, "rj": {"latMin": -23.3675, "latMax": -20.7639, "lngMin": -44.8893, "lngMax": -40.9601}, "rn": {"latMin": -6.9827, "latMax": -4.8315, "lngMin": -38.582, "lngMax": -34.9685}, "ro": {"latMin": -13.693, "latMax": -7.9758, "lngMin": -66.8102, "lngMax": -59.7743}, "rr": {"latMin": -1.5806, "latMax": 5.2718, "lngMin": -64.8219, "lngMax": -58.8868}, "rs": {"latMin": -33.7511, "latMax": -27.0823, "lngMin": -57.6451, "lngMax": -49.692}, "sc": {"latMin": -29.355, "latMax": -25.9558, "lngMin": -53.8366, "lngMax": -48.3271}, "se": {"latMin": -11.5686, "latMax": -9.515, "lngMin": -38.245, "lngMax": -36.3938}, "sp": {"latMin": -25.31, "latMax": -19.7798, "lngMin": -53.1078, "lngMax": -44.1613}, "to": {"latMin": -13.4677, "latMax": -5.1683, "lngMin": -50.742, "lngMax": -45.6967}};
 var GEO_BBOX_ESTADO_CACHE={};
 // Extensão geográfica real (lat/lng min/max) de todos os municípios de um estado — calculado
 // uma vez e guardado, usado pra calibrar a posição dos pins só DENTRO desse estado.
 function bboxGeograficoEstado(uf){
   if(GEO_BBOX_ESTADO_CACHE[uf]) return GEO_BBOX_ESTADO_CACHE[uf];
-  var lista=municipiosDoEstado(uf);
-  if(!lista.length) return null;
-  var latMin=Infinity,latMax=-Infinity,lngMin=Infinity,lngMax=-Infinity;
-  lista.forEach(function(m){
-    var lat=m[2], lng=m[3];
-    if(lat<latMin)latMin=lat; if(lat>latMax)latMax=lat;
-    if(lng<lngMin)lngMin=lng; if(lng>lngMax)lngMax=lng;
-  });
-  var r={latMin:latMin,latMax:latMax,lngMin:lngMin,lngMax:lngMax};
+  var r=BR_ESTADOS_BBOX_GEO[uf];
+  if(!r) return null;
   GEO_BBOX_ESTADO_CACHE[uf]=r;
   return r;
 }
@@ -4111,9 +4212,13 @@ function renderMarcadoresZoom(svg,g,uf){
   var bb=path.getBBox();
   var regioes=regioesDoEstado(uf);
   var lista=transportadorasDoEstado(uf);
+  // Calcula a cobertura efetiva de cada transportadora UMA vez (não uma vez por região) —
+  // combina o que foi marcado manualmente com o que dá pra deduzir das cidades atendidas.
+  var coberturaPorTransp={};
+  lista.forEach(function(t){ coberturaPorTransp[t.id]=regioesEfetivasDaTransportadora(t,uf); });
   regioes.forEach(function(r,idx){
     var codarea=r[0], nomeRegiao=r[1], pathNorm=r[2];
-    var ts=lista.filter(function(t){ return (t.regioes_por_estado&&t.regioes_por_estado[uf]&&t.regioes_por_estado[uf].indexOf(codarea)!==-1); });
+    var ts=lista.filter(function(t){ return coberturaPorTransp[t.id].indexOf(codarea)!==-1; });
     var pathReal=denormalizarPathRegiao(pathNorm,bb);
     var fill;
     if(!ts.length){ fill='#262b27'; }
@@ -4198,8 +4303,8 @@ function mostrarFichaMunicipio(nomeCidade,uf,transportadorasList){
       '</div>';
     }).join('');
 }
-// Clique/hover num pin específico: mostra só a ficha daquela transportadora (não a lista de
-// municípios do estado inteiro, que é o que aparece clicando fora dos pins).
+// Hover num pin (sem clicar ainda): prévia leve — nome, estado, contagem. Não lista as
+// cidades uma a uma aqui (isso é o clique, com filtro) — só um resumo rápido.
 function mostrarFichaTransportadoraPin(id,uf){
   var t=transportadorasCache.find(function(x){return x.id===id;});
   var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
@@ -4207,17 +4312,67 @@ function mostrarFichaTransportadoraPin(id,uf){
   var el=document.getElementById('mapaInfoEstado');
   if(!el||!t)return;
   var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
-  el.innerHTML='<div class="cx-detalhe" style="cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
+  el.innerHTML='<div class="cx-detalhe" style="cursor:pointer" onclick="selecionarPinTransportadora('+t.id+',\''+uf+'\')">'+
     '<div style="display:flex;align-items:center;gap:8px">'+
       '<span style="width:12px;height:12px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+
       '<span style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(t.nome)+'</span>'+
     '</div>'+
     '<div style="font-size:10px;color:var(--td);margin-top:4px">em '+escAttr(nomeEstado)+'</div>'+
-    (cids.length?
-      ('<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin-top:8px">Municípios atendidos</div>'+
-       '<div style="font-size:11.5px;color:var(--tm);margin-top:3px;line-height:1.6">'+cids.map(escAttr).join(' · ')+'</div>')
-      :'<div style="font-size:11px;color:var(--td);margin-top:6px">Atende o estado inteiro</div>')+
+    '<div style="font-size:11px;color:var(--tm);margin-top:8px">'+
+      (cids.length?(cids.length+' cidade'+(cids.length>1?'s':'')+' cadastrada'+(cids.length>1?'s':'')+' · toque pra ver a lista'):'Atende o estado inteiro')+
+    '</div>'+
   '</div>';
+}
+// Clique num pin: fixa a seleção (não some ao mover o mouse) e mostra a lista completa de
+// cidades, uma embaixo da outra, com campo de filtro — pensado pra transportadora com
+// centenas de cidades, onde rolar tudo sem filtrar não é viável.
+function selecionarPinTransportadora(id,uf){
+  pinTranspSelecionado={id:id,uf:uf};
+  renderMarcadoresTransportadoras();
+  var t=transportadorasCache.find(function(x){return x.id===id;});
+  var e=BR_ESTADOS_RAW.find(function(x){return x[0]===uf;});
+  var nomeEstado=e?e[1]:uf.toUpperCase();
+  var el=document.getElementById('mapaInfoEstado');
+  if(!el||!t)return;
+  var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+  var cabecalho='<div class="cx-detalhe" style="cursor:pointer" onclick="abrirTransportadora('+t.id+')">'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+      '<span style="width:12px;height:12px;border-radius:50%;background:'+escAttr(t.cor)+';flex-shrink:0"></span>'+
+      '<span style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+escAttr(t.nome)+'</span>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--td);margin-top:4px">em '+escAttr(nomeEstado)+'</div>'+
+  '</div>';
+  if(!cids.length){
+    el.innerHTML=cabecalho+'<div style="font-size:11px;color:var(--td);margin-top:10px">Atende o estado inteiro (sem cidade específica cadastrada).</div>';
+    return;
+  }
+  // O input é criado AQUI, uma vez só. Digitar (oninput) só re-renderiza o container de
+  // baixo (#listaCidadesPinResultado) — nunca este elemento, senão o campo perde o foco a
+  // cada letra (mesmo cuidado já tomado nas outras buscas do sistema).
+  el.innerHTML=cabecalho+
+    '<div style="margin-top:10px;position:sticky;top:0;background:var(--bg);padding-bottom:6px;z-index:2">'+
+      '<input autocomplete="off" class="inp" id="filtroCidadesPinInp" style="width:100%;padding:8px 10px;font-size:11.5px" placeholder="Filtrar '+cids.length+' cidade'+(cids.length>1?'s':'')+'..." oninput="filtrarListaCidadesPin(this.value)">'+
+    '</div>'+
+    '<div id="listaCidadesPinResultado"></div>';
+  filtrarListaCidadesPin('');
+  var inp=document.getElementById('filtroCidadesPinInp'); if(inp)inp.focus();
+}
+function filtrarListaCidadesPin(termoFiltro){
+  if(!pinTranspSelecionado)return;
+  var t=transportadorasCache.find(function(x){return x.id===pinTranspSelecionado.id;});
+  var uf=pinTranspSelecionado.uf;
+  var el=document.getElementById('listaCidadesPinResultado');
+  if(!el||!t)return;
+  var cids=(t.cidades_por_estado&&t.cidades_por_estado[uf])||[];
+  var termo=semAcento((termoFiltro||'').trim().toLowerCase());
+  var filtradas=termo?cids.filter(function(c){ return semAcento(c.toLowerCase()).indexOf(termo)!==-1; }):cids;
+  el.innerHTML=
+    '<div style="font-size:9px;color:var(--td);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 4px">'+
+      (termo?filtradas.length+' de '+cids.length:cids.length+' cidade'+(cids.length>1?'s':''))+
+    '</div>'+
+    (filtradas.length?filtradas.map(function(c){
+      return '<div style="padding:7px 10px;border-bottom:1px solid var(--bd);font-size:12px;color:var(--tm)">'+escAttr(c)+'</div>';
+    }).join(''):'<div style="font-size:11px;color:var(--td);padding:8px 2px">Nenhuma cidade bate com "'+escAttr(termoFiltro)+'".</div>');
 }
 // Clique/hover no estado, fora dos pins: lista os municípios já cadastrados por qualquer
 // transportadora nesse estado, e pra cada um mostra quem é responsável — pode ser mais de
