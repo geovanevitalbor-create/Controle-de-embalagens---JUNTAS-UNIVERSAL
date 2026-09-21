@@ -877,6 +877,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="adm-wrap">
       <nav class="adm-tabs">
         <button class="adm-tab active" data-t="dashboard" onclick="fatTab('dashboard')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M5 20V13M12 20V6M19 20v-9"/></svg></span>Dashboard</button>
+        <button class="adm-tab" data-t="resumo" onclick="fatTab('resumo')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M9 9.5V20"/></svg></span>Resumo</button>
         <button class="adm-tab" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 7.5l9-4.5 9 4.5-9 4.5-9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg></span>Pedidos</button>
         <button class="adm-tab" data-t="transportadoras" onclick="fatTab('transportadoras')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 16.5V6.5a1 1 0 0 1 1-1h9v11"/><path d="M13 9.5h4l3.5 3.5v3.5h-2"/><circle cx="7" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/></svg></span>Transportadoras</button>
         <!-- Aba "Histórico" removida do menu — painel e função continuam no código
@@ -917,6 +918,37 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
             </div>
           </div>
           <div id="relFatSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
+        </section>
+
+        <section class="fat-panel" id="fpane-resumo">
+          <h2 class="adm-panel-title">Resumo <span class="adm-panel-count" style="text-transform:none;letter-spacing:0">· pedido, operador, peça e quantidade — tudo numa tabela só</span></h2>
+          <div class="rel-toolbar">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+              <div class="rel-group">
+                <span class="rel-group-lbl">Datas selecionadas</span>
+                <div class="rel-dates">
+                  <input autocomplete="off" class="adm-search" id="resumoDataInicio" type="date" onchange="periodoResumoPersonalizado()">
+                  <span class="rel-dates-sep">até</span>
+                  <input autocomplete="off" class="adm-search" id="resumoDataFim" type="date" onchange="periodoResumoPersonalizado()">
+                </div>
+              </div>
+              <div class="rel-acoes">
+                <button class="btn-reload" onclick="carregarResumoOperadorPeca()">↻ Atualizar</button>
+                <button class="btn-reload" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)" onclick="exportarResumoExcel()">⬇ Excel</button>
+                <button class="btn-reload rel-pdf" onclick="imprimirResumoPDF()">Baixar PDF</button>
+              </div>
+            </div>
+            <div class="rel-group">
+              <span class="rel-group-lbl">Período</span>
+              <div class="rel-pills">
+                <button class="fat-filter" id="resumoBtn30" onclick="setPeriodoResumo('30d',this)">30 dias</button>
+                <button class="fat-filter" id="resumoBtn3m" onclick="setPeriodoResumo('3m',this)">3 meses</button>
+                <button class="fat-filter" id="resumoBtnTudo" onclick="setPeriodoResumo('tudo',this)">Tudo</button>
+              </div>
+            </div>
+          </div>
+          <input autocomplete="off" class="fat-search" id="resumoBusca" placeholder="Buscar por pedido, operador ou peça..." oninput="renderResumoOperadorPeca()">
+          <div id="resumoSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
         </section>
 
         <section class="fat-panel" id="fpane-transportadoras">
@@ -1393,6 +1425,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <div class="step-dot" id="stepDot2"></div>
         <div class="step-dot" id="stepDot3"></div>
         <div class="step-dot" id="stepDot4"></div>
+        <div class="step-dot" id="stepDot5"></div>
       </div>
 
       <div id="popStepOperador">
@@ -1412,11 +1445,17 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <button class="btn-gh" style="margin-top:16px" onclick="voltarStepPop(2)">← Voltar</button>
       </div>
 
+      <div id="popStepTipo" style="display:none">
+        <div class="lbl req" style="margin-bottom:9px">Tipo desta embalagem — só vai poder bipar peças desse tipo</div>
+        <div id="tipoCardsPop" style="display:grid;grid-template-columns:1fr 1fr;gap:9px"></div>
+        <button class="btn-gh" style="margin-top:16px" onclick="voltarStepPop(3)">← Voltar</button>
+      </div>
+
       <div id="popStepLote" style="display:none">
         <div id="avisoConcorrenciaPop" style="display:none;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:10px 12px;font-size:11px;margin-bottom:12px;line-height:1.5"></div>
         <div class="md-row"><label class="lbl req">Lote de Fabricação</label><input autocomplete="off" class="inp" type="text" id="inpLotePop" placeholder="Ex: 0085426F22" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
         <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">Confirmar e iniciar</button>
-        <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(3)">← Voltar</button>
+        <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(4)">← Voltar</button>
       </div>
     </div>
   </div>
@@ -1718,6 +1757,36 @@ const Backend={
     }
     return {status:'ok',pendencias:Object.values(porPedido),pecas:pecas};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Resumo agregado Pedido+Operador+Peça — pega TODAS as embalagens do período (ou de sempre,
+  // sem filtro de data) e soma quantidade por combinação. Não filtra por finalizada de propósito:
+  // inclui também sessões em andamento, pra dar visão de "quem está bipando o quê" em tempo real,
+  // não só o que já fechou. Mesmo padrão de consultas em lote já usado no Dashboard/Pendências —
+  // busca tudo em poucas idas ao banco e agrupa no navegador, em vez de uma consulta por linha.
+  async buscarResumoOperadorPeca(dataInicio,dataFim){ try{
+    var filtroData='';
+    if(dataInicio) filtroData+='&data_embalagem=gte.'+dataInicio;
+    if(dataFim) filtroData+='&data_embalagem=lte.'+dataFim;
+    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador'+filtroData,null);
+    if(!embs||!embs.length) return {status:'ok',linhas:[]};
+    var infoPorSessao={};
+    embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—'}; });
+    var sessoes=Object.keys(infoPorSessao);
+    var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
+    var sessaoPorCaixa={};
+    (caixasTodas||[]).forEach(function(c){ sessaoPorCaixa[c.id]=c.sessao; });
+    var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
+    if(!caixaIds.length) return {status:'ok',linhas:[]};
+    var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+    var mapa={}, ordem=[];
+    (itensTodos||[]).forEach(function(it){
+      var sessao=sessaoPorCaixa[it.caixa_id]; if(!sessao)return;
+      var info=infoPorSessao[sessao]; if(!info)return;
+      var chave=info.pedido+'|'+info.operador+'|'+(it.codigo_produto||it.nome_produto);
+      if(!mapa[chave]){ mapa[chave]={pedido:info.pedido,operador:info.operador,codigo:it.codigo_produto||'',nome:it.nome_produto||'',quantidade:0}; ordem.push(chave); }
+      mapa[chave].quantidade+=Number(it.quantidade)||0;
+    });
+    return {status:'ok',linhas:ordem.map(function(k){return mapa[k];})};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async listarFaturamentosParciais(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var fats=await sbFetch('GET','/faturamentos_parciais?pedido=eq.'+p+'&select=*&order=data_embalagem.asc',null); return {status:'ok',fats:(fats||[]).map(function(f){return {id:f.id,dataEmbalagem:_dataBR(f.data_embalagem),nf:f.nf||'',cliente:f.cliente||'',dataFaturamento:_dataBR(f.data_faturamento)};})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarProduto(codigo,nome,tipo){ try{ var c=String(codigo||'').trim(),nm=String(nome||'').trim(); if(!c||!nm)return {status:'erro',msg:'Codigo e nome sao obrigatorios.'}; var tp=(tipo==='componente')?'componente':'acabado'; await sbFetch('POST','/produtos?on_conflict=codigo',{codigo:c,nome:nm,tipo:tp},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirProduto(codigo){ try{ var c=encodeURIComponent(String(codigo||'').trim()); if(!c)return {status:'erro',msg:'Codigo vazio.'}; await sbFetch('DELETE','/produtos?codigo=eq.'+c,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -1744,7 +1813,7 @@ const Backend={
   // Grava a sessão no servidor assim que operador/baia/pedido/lote são confirmados — não mais
   // só no fim. finalizada:false até confirmarFin() marcar como true. É essa gravação antecipada
   // que permite Faturamento enxergar progresso em andamento, não só sessões já terminadas.
-  async iniciarSessaoEmbalagem(s){ try{ await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,finalizada:false},{'Prefer':'return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async iniciarSessaoEmbalagem(s){ try{ await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,tipo_embalagem:s.tipo||null,finalizada:false},{'Prefer':'return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Grava UMA caixa (e seus itens) assim que ela fecha, em vez de esperar o fim da sessão inteira.
   async registrarCaixaFechada(sessaoId,cx){ try{ var cr=await sbFetch('POST','/caixas',{sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } if(cid){ await Backend.recalcularEsalvarAgregados(sessaoId); } return {status:'ok',caixaId:cid||null}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Progresso de um pedido: esperado (de itens_pedido) vs. embalado (somando itens_caixa de
@@ -1856,7 +1925,7 @@ let salvandoFatura=false;
 let finalizandoEmbalagem=false;
 let fechandoCaixa=false;
 
-function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',lote:'',peso:0,pedidoProgresso:null};}
+function novaSess(){return{id:'SES-'+Date.now().toString(36).toUpperCase(),itens:{},scans:0,op:'',baia:'',data:new Date().toLocaleDateString('pt-BR'),ped:'',lote:'',tipo:'',peso:0,pedidoProgresso:null};}
 let sess=novaSess();
 let cxFech=[], cxAtual={};
 try{const s=localStorage.getItem(SK);if(s){const d=JSON.parse(s);sess=d.sess||novaSess();cxFech=d.cxFech||[];cxAtual=d.cxAtual||{};}}catch{}
@@ -1894,7 +1963,7 @@ function irPara(id){
 // mais lenta a checagem única falhava e o operador ficava sem popup e sem aviso nenhum.
 function tentarAbrirWizardBip(tentativas){
   var op=document.getElementById('selOp').value, ba=document.getElementById('selBaia').value;
-  if(op&&ba&&sess.ped){ focusScan(); return; }
+  if(op&&ba&&sess.ped&&sess.tipo){ focusScan(); return; }
   if(ops.length&&baias.length){ abrirOperBaia(); return; }
   if(tentativas>=15){ toast('⚠ Não consegui carregar operadores/baias — confira a conexão e toque em Operador de novo'); focusScan(); return; }
   setTimeout(function(){ tentarAbrirWizardBip(tentativas+1); },200);
@@ -2154,6 +2223,8 @@ function registrar(codigo){
   // Cache carregado: decisão instantânea (funciona offline)
   if(produtosCache){
     if(Object.prototype.hasOwnProperty.call(produtosCache,chave)){
+      var checagemTipo=checarContraTipo(chave);
+      if(checagemTipo.status==='tipo_incompativel'){ mostrarTipoIncompativel(chave,produtosCache[chave],checagemTipo.tipoPeca); return; }
       var checagem=checarContraPedido(chave);
       if(checagem.status==='fora'){ mostrarForaDoPedido(chave,produtosCache[chave]); return; }
       if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,produtosCache[chave]); return; }
@@ -2170,6 +2241,8 @@ function registrar(codigo){
       google.script.run
         .withSuccessHandler(function(d){
           if(d&&d.encontrado){
+            var checagemTipo=checarContraTipo(chave);
+            if(checagemTipo.status==='tipo_incompativel'){ mostrarTipoIncompativel(chave,d.nome,checagemTipo.tipoPeca); return; }
             var checagem=checarContraPedido(chave);
             if(checagem.status==='fora'){ mostrarForaDoPedido(chave,d.nome); return; }
             if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,d.nome); return; }
@@ -2288,6 +2361,30 @@ function mostrarSaldoExcedido(codigo,nome){
   setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
 }
 
+// Confere se a peça bipada é do mesmo tipo (Acabado/Componente) escolhido no início desta
+// sessão (sess.tipo, definido no passo "Tipo" do wizard) — checado antes até de saber se a
+// peça pertence ao pedido, porque misturar tipo na mesma embalagem já quebra a etiqueta do
+// cliente (montarImprimirEtqCliente decide EAN13 x QR olhando só o 1º item de cada caixa).
+function checarContraTipo(codigo){
+  if(!sess.tipo) return {status:'ok'}; // sessão antiga sem tipo definido (antes desta função existir) não bloqueia
+  var tipoPeca=tipoProdutoPorCodigo(codigo);
+  if(tipoPeca!==sess.tipo) return {status:'tipo_incompativel',tipoPeca:tipoPeca};
+  return {status:'ok'};
+}
+function mostrarTipoIncompativel(codigo,nome,tipoPeca){
+  document.getElementById('scanInput').disabled=true;
+  document.getElementById('btnBipCam').disabled=true;
+  if(bipCamStream && bipCamInterval){clearInterval(bipCamInterval);bipCamInterval=null;}
+  var tipoSessaoLbl=sess.tipo==='acabado'?'Acabado':'Componente';
+  var tipoPecaLbl=tipoPeca==='acabado'?'Acabado':'Componente';
+  document.getElementById('naoExisteTitle').textContent='TIPO INCOMPATÍVEL';
+  document.getElementById('naoExisteSub').textContent=nome+' é '+tipoPecaLbl+', mas esta sessão foi iniciada como '+tipoSessaoLbl+' — não é permitido misturar tipos na mesma embalagem.';
+  document.getElementById('naoExisteCod').textContent=codigo;
+  document.getElementById('naoExisteOv').classList.remove('hidden');
+  animZone('error');beepAtencao();showFb('⛔ Tipo incompatível: '+nome,'err');
+  setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
+}
+
 // ═══════════════════════════════════════
 // QUANTIDADE MANUAL — protegido por senha admin (pedirSenhaQtdManual -> checkSenha -> abrirQtdManual)
 // Soma de uma vez, sem bipar peça por peça. Mesma validação de cadastro do scan normal:
@@ -2315,6 +2412,12 @@ function confirmarQtdManual(){
   if(!produtosCache){err.textContent='Cadastro de peças ainda não carregou — aguarde a conexão e tente de novo.';err.style.display='block';return;}
   if(!Object.prototype.hasOwnProperty.call(produtosCache,cod)){
     err.textContent='Código não cadastrado — cadastre em Admin › Peças antes de adicionar.';err.style.display='block';return;
+  }
+  var checagemTipoManual=checarContraTipo(cod);
+  if(checagemTipoManual.status==='tipo_incompativel'){
+    var tipoSessaoLblM=sess.tipo==='acabado'?'Acabado':'Componente';
+    var tipoPecaLblM=checagemTipoManual.tipoPeca==='acabado'?'Acabado':'Componente';
+    err.textContent='Essa peça é '+tipoPecaLblM+', mas a sessão é '+tipoSessaoLblM+' — não é permitido misturar tipos.';err.style.display='block';return;
   }
   // Mesma regra do pedido que já vale na bipagem normal — manual não é mais válvula de
   // escape do saldo, só um jeito mais rápido de contar quando já se sabe a quantidade certa.
@@ -3825,9 +3928,163 @@ function fatTab(t){
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
   if(t==='transportadoras') carregarTransportadoras();
+  if(t==='resumo'){
+    if(!document.getElementById('resumoDataInicio').value) setPeriodoResumo('30d',document.getElementById('resumoBtn30'));
+    else carregarResumoOperadorPeca();
+  }
   if(t==='dashboard'){
     if(!document.getElementById('relDataInicio').value) setPeriodoRelatorio('30d',document.getElementById('relBtn30'));
   }
+}
+
+// ═══════════════════════════════════════
+// RESUMO — Pedido × Operador × Peça × Quantidade numa tabela só, sem precisar abrir cada
+// pedido pra ver quem embalou o quê. Clicar na linha ainda abre o detalhe completo (mesmo
+// modal de sempre) — a tabela só evita que isso seja obrigatório pra enxergar o básico.
+// ═══════════════════════════════════════
+var resumoOpCache=[]; // linhas cruas vindas do servidor: {pedido,operador,codigo,nome,quantidade}
+function periodoResumoPersonalizado(){
+  document.querySelectorAll('#fpane-resumo .fat-filter').forEach(function(b){b.classList.remove('active');});
+  carregarResumoOperadorPeca();
+}
+function setPeriodoResumo(tipo,btn){
+  document.querySelectorAll('#fpane-resumo .fat-filter').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  if(tipo==='tudo'){
+    document.getElementById('resumoDataInicio').value='';
+    document.getElementById('resumoDataFim').value='';
+  }else{
+    var fim=new Date(), inicio=new Date();
+    if(tipo==='30d') inicio.setDate(inicio.getDate()-30);
+    if(tipo==='3m') inicio.setMonth(inicio.getMonth()-3);
+    document.getElementById('resumoDataInicio').value=fmtDataISO(inicio);
+    document.getElementById('resumoDataFim').value=fmtDataISO(fim);
+  }
+  carregarResumoOperadorPeca();
+}
+function carregarResumoOperadorPeca(){
+  var ini=document.getElementById('resumoDataInicio').value, fim=document.getElementById('resumoDataFim').value;
+  var el=document.getElementById('resumoSec');
+  el.innerHTML='<div class="fat-spin-wrap"><div class="fat-spinner"></div></div>';
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'){ resumoOpCache=d.linhas||[]; renderResumoOperadorPeca(); }
+        else{ el.innerHTML=renderDashError((d&&d.msg)||'Não consegui carregar o resumo.','carregarResumoOperadorPeca'); }
+      })
+      .withFailureHandler(function(e){ el.innerHTML=renderDashError('Sem conexão'+(e&&e.message?': '+e.message:'.'),'carregarResumoOperadorPeca'); })
+      .buscarResumoOperadorPeca(ini||null,fim||null);
+  }catch(e){ el.innerHTML=renderDashError(e.message,'carregarResumoOperadorPeca'); }
+}
+function ordenarLinhasResumo(lista){
+  return lista.slice().sort(function(a,b){
+    return String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+  });
+}
+function renderResumoOperadorPeca(){
+  var el=document.getElementById('resumoSec'); if(!el)return;
+  var q=(document.getElementById('resumoBusca').value||'').trim().toLowerCase();
+  var linhas=resumoOpCache.filter(function(l){
+    return !q||String(l.pedido).toLowerCase().indexOf(q)!==-1||String(l.operador).toLowerCase().indexOf(q)!==-1||String(l.nome).toLowerCase().indexOf(q)!==-1||String(l.codigo).toLowerCase().indexOf(q)!==-1;
+  });
+  if(!resumoOpCache.length){ el.innerHTML='<div class="fat-empty">Nenhuma embalagem nesse período.</div>'; return; }
+  if(!linhas.length){ el.innerHTML='<div class="fat-empty">Nenhum resultado com esse filtro.</div>'; return; }
+  linhas=ordenarLinhasResumo(linhas);
+  el.innerHTML='<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-bd" style="padding:0;overflow-x:auto">'+
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
+    '<thead><tr>'+
+      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
+      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Operador</th>'+
+      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
+      '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Quantidade</th>'+
+    '</tr></thead><tbody>'+
+    linhas.map(function(l){
+      var pedEsc=String(l.pedido).replace(/'/g,"\\'");
+      return '<tr style="cursor:pointer" onclick="abrirPedidoPeloNome(\''+pedEsc+'\')">'+
+        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(l.pedido)+'</td>'+
+        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.operador)+'</td>'+
+        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9.5px">('+escAttr(l.codigo)+')</span></td>'+
+        '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2);font-weight:600">'+l.quantidade+'</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div></div>';
+}
+// Clique numa linha do Resumo: acha o pedido pelo nome na lista já carregada (pedidosEsperados,
+// populada ao entrar em Faturamento) e abre o mesmo modal de detalhe usado em Pedidos/Histórico
+// — não duplica a lógica de exibição, só oferece um atalho a partir da tabela agregada.
+function abrirPedidoPeloNome(pedidoNome){
+  var p=pedidosEsperados.find(function(x){return x.pedido===pedidoNome;});
+  if(!p){ toast('Ainda carregando os pedidos — tente de novo em instantes'); return; }
+  fatTab('pedidos');
+  abrirDetalhePedido(p.id);
+}
+function exportarResumoExcel(){
+  if(!resumoOpCache.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
+  var linhas=[['Pedido','Operador','Peça','Código','Quantidade']];
+  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([l.pedido,l.operador,l.nome,l.codigo,l.quantidade]); });
+  var hoje=new Date();
+  var nome='resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+  var payload=JSON.stringify({linhas:linhas,nome:nome}).replace(/</g,'\\u003c');
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para baixar o Excel');return;}
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando Excel...</title>'+
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>'+
+    '<style>body{font-family:Segoe UI,sans-serif;background:#0a0e0c;color:#e8f0ea;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:14px;text-align:center;padding:20px}'+
+    '.b{background:#00833E;border:none;color:#fff;padding:14px 22px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:none}'+
+    '.sp{width:34px;height:34px;border:4px solid #28352d;border-top-color:#00833E;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head>'+
+    '<body><div class="sp" id="sp"></div><div id="msg">Gerando planilha...</div>'+
+    '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
+    '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:16},{wch:18},{wch:28},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Resumo");'+
+    'XLSX.writeFile(wb,D.nome+".xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! O download comecou. Pode fechar esta aba.";document.getElementById("bd").style.display="inline-block";}'+
+    'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
+    'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
+  w.document.write(h);w.document.close();
+}
+function imprimirResumoPDF(){
+  if(!resumoOpCache.length){toast('Nada para gerar — carregue o resumo primeiro');return;}
+  var ini=document.getElementById('resumoDataInicio').value, fim=document.getElementById('resumoDataFim').value;
+  var linhas=ordenarLinhasResumo(resumoOpCache);
+  var totalQtd=linhas.reduce(function(s,l){return s+l.quantidade;},0);
+  var pedidosUnicos={}; linhas.forEach(function(l){pedidosUnicos[l.pedido]=true;});
+  var operadoresUnicos={}; linhas.forEach(function(l){operadoresUnicos[l.operador]=true;});
+  var logoEl=document.querySelector('.start-logo-img');
+  var logoSrc=logoEl?logoEl.src:'';
+  var linhasHtml=linhas.map(function(l){
+    return '<tr><td>'+escAttr(l.pedido)+'</td><td>'+escAttr(l.operador)+'</td><td>'+escAttr(l.nome)+' ('+escAttr(l.codigo)+')</td><td style="text-align:right">'+l.quantidade+'</td></tr>';
+  }).join('');
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Resumo — Pedido x Operador x Peça</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
+    '.hdr img{height:42px;display:block}'+
+    '.hdr-t{text-align:right}'+
+    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
+    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
+    '.kpi .v{font-size:23px;font-weight:800;color:#00833E}'+
+    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
+    'table{width:100%;border-collapse:collapse;font-size:11px}'+
+    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
+    'tr:nth-child(even) td{background:#f8f9f8}'+
+    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4;margin:14mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
+    '<div class="hdr-t"><h1>Resumo — Pedido × Operador × Peça</h1><div class="sub">'+(ini&&fim?(_dataBR(ini)+' até '+_dataBR(fim)):'Todo o período')+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+Object.keys(pedidosUnicos).length+'</div><div class="l">Pedidos</div></div>'+
+      '<div class="kpi"><div class="v">'+Object.keys(operadoresUnicos).length+'</div><div class="l">Operadores</div></div>'+
+      '<div class="kpi"><div class="v">'+totalQtd+'</div><div class="l">Unidades</div></div>'+
+    '</div>'+
+    '<table><thead><tr><th>Pedido</th><th>Operador</th><th>Peça</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},400);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
+  w.document.write(h);w.document.close();
 }
 
 // ═══════════════════════════════════════
@@ -6172,29 +6429,38 @@ function popularSels(){
   validarCampos();
 }
 
-// Popup obrigatório de seleção de operador, baia, pedido e lote (aparece ao limpar sessão / iniciar)
-var popOpSel='', popBaiaSel='', popPedSel=''; // seleção atual nos cards do popup
+// Popup obrigatório de seleção de operador, baia, pedido, tipo e lote (aparece ao limpar
+// sessão / iniciar)
+var popOpSel='', popBaiaSel='', popPedSel='', popTipoSel=''; // seleção atual nos cards do popup
+var popTiposDisponiveis=null; // tipos (['acabado','componente']) presentes no pedido escolhido, ou null se ainda não dá pra saber
+var pedidosParaPopCache=[]; // cache da lista completa vinda do servidor no passo Pedido — usado pra calcular popTiposDisponiveis sem nova consulta
 function abrirOperBaia(){
   popOpSel=document.getElementById('selOp').value||sess.op||'';
   popBaiaSel=document.getElementById('selBaia').value||sess.baia||'';
   popPedSel=sess.ped||'';
+  popTipoSel=sess.tipo||'';
+  popTiposDisponiveis=null;
   renderPickCards();
   document.getElementById('inpLotePop').value=sess.lote||'';
   document.getElementById('lotePopErr').style.display='none';
   mostrarStepPop(1);
   document.getElementById('ovOperBaia').classList.remove('hidden');
 }
-// Mostra só o passo N, esconde os outros três — é isso que torna o fluxo passo a passo de
-// verdade (uma decisão por tela). Ordem: operador → baia → pedido → lote (lote por último,
-// porque só faz sentido ler o lote da peça depois de saber pra qual pedido ela vai).
+// Mostra só o passo N, esconde os outros quatro — é isso que torna o fluxo passo a passo de
+// verdade (uma decisão por tela). Ordem: operador → baia → pedido → tipo → lote (lote por
+// último, porque só faz sentido ler o lote da peça depois de saber pra qual pedido ela vai;
+// tipo entra logo depois do pedido pra já poder avisar quando aquele pedido só tem um dos
+// dois tipos de peça, em vez do operador descobrir isso travado no meio da bipagem).
 function mostrarStepPop(n){
   document.getElementById('popStepOperador').style.display=(n===1)?'block':'none';
   document.getElementById('popStepBaia').style.display=(n===2)?'block':'none';
   document.getElementById('popStepPedido').style.display=(n===3)?'block':'none';
-  document.getElementById('popStepLote').style.display=(n===4)?'block':'none';
-  [1,2,3,4].forEach(function(i){ document.getElementById('stepDot'+i).classList.toggle('active',i<=n); });
+  document.getElementById('popStepTipo').style.display=(n===4)?'block':'none';
+  document.getElementById('popStepLote').style.display=(n===5)?'block':'none';
+  [1,2,3,4,5].forEach(function(i){ document.getElementById('stepDot'+i).classList.toggle('active',i<=n); });
   if(n===3) carregarPedidosParaPop();
-  if(n===4){ setTimeout(function(){document.getElementById('inpLotePop').focus();},250); }
+  if(n===4) renderTipoCardsPop();
+  if(n===5){ setTimeout(function(){document.getElementById('inpLotePop').focus();},250); }
 }
 function voltarStepPop(n){ mostrarStepPop(n); }
 function renderPickCards(){
@@ -6220,7 +6486,7 @@ function carregarPedidosParaPop(){
   try{
     google.script.run
       .withSuccessHandler(function(d){
-        if(d&&d.status==='ok'){ renderPedCardsPop((d.pedidos||[]).filter(function(p){return !p.fechado;})); }
+        if(d&&d.status==='ok'){ pedidosParaPopCache=d.pedidos||[]; renderPedCardsPop((d.pedidos||[]).filter(function(p){return !p.fechado;})); }
         else{ document.getElementById('pedCardsPop').innerHTML='<div class="fat-empty">⚠ '+(d&&d.msg||'Erro ao carregar pedidos')+'</div>'; }
       })
       .withFailureHandler(function(e){ document.getElementById('pedCardsPop').innerHTML='<div class="fat-empty">📡 Sem conexão'+(e&&e.message?': '+e.message:'')+'</div>'; })
@@ -6240,13 +6506,40 @@ function renderPedCardsPop(lista){
   }).join('');
 }
 // Escolher o pedido já dispara a busca do progresso em segundo plano — fica pronta enquanto
-// o operador ainda está digitando o lote no passo seguinte, sem atraso perceptível.
+// o operador ainda está no passo Tipo/Lote, sem atraso perceptível. Também já calcula quais
+// tipos (Acabado/Componente) esse pedido específico tem, pro passo seguinte.
 function pickPedido(pedido){
   popPedSel=pedido;
+  popTiposDisponiveis=calcularTiposDoPedido(pedido);
   buscarProgressoParaSessAtual(pedido);
   checarConcorrenciaPedido(pedido);
   mostrarStepPop(4);
 }
+// ── Passo 4: escolher o tipo (Acabado/Componente) desta embalagem ──
+// Cruza os itens do pedido escolhido (pedidosParaPopCache) com o cadastro de peças pra saber
+// quais tipos aquele pedido realmente tem — sem isso, escolher um tipo que o pedido nem tem
+// travaria o operador logo no primeiro bipe. Sem dado suficiente (cache ainda vazio), retorna
+// null e as duas opções ficam liberadas — nunca bloqueia por falta de informação.
+function calcularTiposDoPedido(pedido){
+  var p=pedidosParaPopCache.find(function(x){return x.pedido===pedido;});
+  if(!p||!p.itens||!produtosCache) return null;
+  var set={};
+  p.itens.forEach(function(it){ set[tipoProdutoPorCodigo(it.codigo)]=true; });
+  var tipos=Object.keys(set);
+  return tipos.length?tipos:null;
+}
+function renderTipoCardsPop(){
+  var el=document.getElementById('tipoCardsPop'); if(!el)return;
+  var disponiveis=popTiposDisponiveis;
+  function cardHtml(tipo,label){
+    var indisponivel=disponiveis&&disponiveis.indexOf(tipo)===-1;
+    if(indisponivel) return '<button class="pick-card" style="opacity:.35;cursor:not-allowed" disabled>'+label+'<div style="font-size:9px;font-weight:400;margin-top:3px">sem peças desse tipo neste pedido</div></button>';
+    var sel=(popTipoSel===tipo);
+    return '<button class="pick-card'+(sel?' sel':'')+'" onclick="pickTipo(\''+tipo+'\')">'+label+'</button>';
+  }
+  el.innerHTML=cardHtml('acabado','Acabado')+cardHtml('componente','Componente');
+}
+function pickTipo(tipo){ popTipoSel=tipo; renderTipoCardsPop(); mostrarStepPop(5); }
 // Avisa (não bloqueia) se outra sessão ainda ativa hoje já está nesse mesmo pedido — pode ser
 // legítimo dois operadores no mesmo pedido em baias diferentes, então só sinaliza.
 function checarConcorrenciaPedido(pedido){
@@ -6295,12 +6588,12 @@ function confirmarOperBaia(){
   document.getElementById('lotePopErr').style.display='none';
   document.getElementById('selOp').value=popOpSel;
   document.getElementById('selBaia').value=popBaiaSel;
-  sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.lote=lote;
+  sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.tipo=popTipoSel; sess.lote=lote;
   salvarSess();
   validarCampos();
   fecharOv('ovOperBaia');
   iniciarSessaoNoServidorSeNecessario();
-  toast('✔ Sessão iniciada — '+popPedSel);
+  toast('✔ Sessão iniciada — '+popPedSel+' ('+(popTipoSel==='acabado'?'Acabado':'Componente')+')');
   setTimeout(focusScan,150);
 }
 // Mostra/esconde o aviso de "progresso não carregou" no topo da bipagem — some assim que
@@ -6319,7 +6612,7 @@ function recarregarProgressoPedido(){
 // Garante que a sessão já existe como registro em /embalagens antes do operador começar a
 // bipar — assim o Faturamento enxerga progresso em andamento, não só sessões finalizadas.
 function iniciarSessaoNoServidorSeNecessario(){
-  var payload={id:sess.id,pedido:sess.ped,operador:sess.op,baia:sess.baia,lote:sess.lote,data:sess.data,hora:new Date().toLocaleTimeString('pt-BR')};
+  var payload={id:sess.id,pedido:sess.ped,operador:sess.op,baia:sess.baia,lote:sess.lote,tipo:sess.tipo,data:sess.data,hora:new Date().toLocaleTimeString('pt-BR')};
   if(online){
     try{
       google.script.run
