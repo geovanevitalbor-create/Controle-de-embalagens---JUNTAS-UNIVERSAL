@@ -934,8 +934,8 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
               </div>
               <div class="rel-acoes">
                 <button class="btn-reload" onclick="carregarResumoOperadorPeca()">↻ Atualizar</button>
-                <button class="btn-reload" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)" onclick="exportarResumoExcel()">⬇ Excel</button>
-                <button class="btn-reload rel-pdf" onclick="imprimirResumoPDF()">Baixar PDF</button>
+                <button class="btn-reload" style="background:var(--gnd);border-color:var(--gn);color:var(--gn)" onclick="abrirResumoExportModal('excel')">⬇ Excel</button>
+                <button class="btn-reload rel-pdf" onclick="abrirResumoExportModal('pdf')">Baixar PDF</button>
               </div>
             </div>
             <div class="rel-group">
@@ -1369,6 +1369,21 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
       <div style="font-size:12px;color:var(--td);margin-bottom:12px">Escolha quais finalizações entram nessa nota fiscal — não precisa ser todas, nem em ordem.</div>
       <div id="selFinLista" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:14px"></div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovSelecionarFinalizacoes')">Cancelar</button><button class="btn-ok green" id="btnContinuarSelFin" onclick="continuarSelecaoFinalizacoes()">Continuar →</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SELEÇÃO DE DATAS PRA EXPORTAR (Resumo → Excel/PDF) -->
+<div class="ov hidden" id="ovResumoExportDatas">
+  <div class="md" style="max-width:440px">
+    <div class="md-hdr"><span class="md-title">Selecionar datas</span><button class="md-x" onclick="fecharOv('ovResumoExportDatas')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
+    <div class="md-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--td)">Quais datas entram no arquivo?</div>
+        <button class="btn-gh" id="resumoExportBtnTodas" style="width:auto;padding:6px 12px;font-size:11px;letter-spacing:0;text-transform:none;margin:0" onclick="toggleResumoExportTodas()">Nenhuma</button>
+      </div>
+      <div id="resumoExportDatasLista" style="display:flex;flex-direction:column;max-height:50vh;overflow-y:auto;margin-bottom:14px;border:1px solid var(--bd);border-radius:8px"></div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovResumoExportDatas')">Cancelar</button><button class="btn-ok green" onclick="confirmarResumoExportDatas()">Gerar →</button></div>
     </div>
   </div>
 </div>
@@ -4014,6 +4029,8 @@ function fatTab(t){
 var resumoOpCache=[]; // linhas cruas vindas do servidor: {data,pedido,operador,baia,codigo,nome,quantidade}
 var resumoDataSelecionada=null; // ISO da data aberta no drill-down, ou null = mostra a lista de datas
 var resumoFiltroBaia='', resumoFiltroPeca='', resumoFiltroOperador=''; // seleção atual dos dropdowns no detalhe da data
+var resumoExportFormatoPendente=''; // 'excel' | 'pdf' — setado ao abrir o modal de seleção de datas pra exportar
+var resumoExportDatasSelecionadas={}; // {dataISO: true/false} — marcação atual no modal de exportar
 function periodoResumoPersonalizado(){
   document.querySelectorAll('#fpane-resumo .fat-filter').forEach(function(b){b.classList.remove('active');});
   resumoDataSelecionada=null;
@@ -4192,14 +4209,67 @@ function abrirPedidoPeloNome(pedidoNome){
   fatTab('pedidos');
   abrirDetalhePedido(p.id);
 }
-function exportarResumoExcel(){
-  var linhasParaExportar=resumoDataSelecionada?resumoLinhasDetalheAtual():ordenarLinhasResumo(resumoOpCache);
-  if(!linhasParaExportar||!linhasParaExportar.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
-  var linhas=[['Data','Hora','Pedido','Operador','Baia','Peça','Código','Quantidade']];
-  linhasParaExportar.forEach(function(l){ linhas.push([_dataBR(l.data),l.hora?String(l.hora).substring(0,5):'',l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
-  var hoje=new Date();
-  var nome=resumoDataSelecionada?('resumo_'+resumoDataSelecionada):('resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0'));
-  var payload=JSON.stringify({linhas:linhas,nome:nome}).replace(/</g,'\\u003c');
+function abrirResumoExportModal(formato){
+  if(!resumoOpCache.length){ toast('Nada para exportar — carregue o resumo primeiro'); return; }
+  resumoExportFormatoPendente=formato;
+  var datasSet={};
+  resumoLinhasFiltradasTexto().forEach(function(l){ datasSet[l.data]=true; });
+  // Por padrão já marca todas as datas — exportar tudo é o caso mais comum, então já sai
+  // pronto pra gerar; desmarcar uma ou outra que vira exceção.
+  resumoExportDatasSelecionadas={};
+  Object.keys(datasSet).forEach(function(d){ resumoExportDatasSelecionadas[d]=true; });
+  renderResumoExportModal();
+  document.getElementById('ovResumoExportDatas').classList.remove('hidden');
+}
+function renderResumoExportModal(){
+  var el=document.getElementById('resumoExportDatasLista'); if(!el)return;
+  var porData={};
+  resumoLinhasFiltradasTexto().forEach(function(l){ if(!porData[l.data])porData[l.data]=0; porData[l.data]+=l.quantidade; });
+  var datas=Object.keys(resumoExportDatasSelecionadas).sort().reverse();
+  el.innerHTML=datas.map(function(d){
+    var marcado=!!resumoExportDatasSelecionadas[d];
+    return '<label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--bd);cursor:pointer">'+
+      '<input type="checkbox" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--ac)" '+(marcado?'checked':'')+' onchange="toggleResumoExportData(\''+d+'\')">'+
+      '<span style="font-family:var(--mo);flex:1;font-size:13px">'+_dataBR(d)+'</span>'+
+      '<span style="font-family:var(--mo);color:var(--td);font-size:11px">'+(porData[d]||0)+' un.</span>'+
+    '</label>';
+  }).join('');
+  var el2=el.querySelector('label:last-child'); if(el2) el2.style.borderBottom='none';
+  var totalDatas=datas.length, marcadas=datas.filter(function(d){return resumoExportDatasSelecionadas[d];}).length;
+  var btnTodas=document.getElementById('resumoExportBtnTodas');
+  if(btnTodas) btnTodas.textContent=(totalDatas>0&&marcadas===totalDatas)?'Nenhuma':'Selecionar todas';
+}
+function toggleResumoExportData(d){ resumoExportDatasSelecionadas[d]=!resumoExportDatasSelecionadas[d]; renderResumoExportModal(); }
+function toggleResumoExportTodas(){
+  var datas=Object.keys(resumoExportDatasSelecionadas);
+  var todasMarcadas=datas.length>0&&datas.every(function(d){return resumoExportDatasSelecionadas[d];});
+  datas.forEach(function(d){ resumoExportDatasSelecionadas[d]=!todasMarcadas; });
+  renderResumoExportModal();
+}
+function confirmarResumoExportDatas(){
+  var selecionadas=Object.keys(resumoExportDatasSelecionadas).filter(function(d){return resumoExportDatasSelecionadas[d];});
+  if(!selecionadas.length){ toast('Selecione ao menos uma data'); return; }
+  var linhas=resumoLinhasFiltradasTexto().filter(function(l){ return selecionadas.indexOf(l.data)!==-1; }).sort(function(a,b){
+    return String(b.data).localeCompare(String(a.data)) || String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+  });
+  fecharOv('ovResumoExportDatas');
+  if(resumoExportFormatoPendente==='excel') gerarResumoExcel(linhas,selecionadas);
+  else gerarResumoPDF(linhas,selecionadas);
+}
+// Rótulo do período pro cabeçalho do PDF/nome do Excel — uma data só mostra ela mesma;
+// mais de uma mostra o intervalo (mín. a máx.) e quantas foram escolhidas, já que datas
+// selecionadas não precisam ser contínuas (dá pra pular dias no meio).
+function resumoExportRotuloPeriodo(datasSelecionadas){
+  if(datasSelecionadas.length===1) return _dataBR(datasSelecionadas[0]);
+  var ord=datasSelecionadas.slice().sort();
+  return _dataBR(ord[0])+' até '+_dataBR(ord[ord.length-1])+' ('+datasSelecionadas.length+' data'+(datasSelecionadas.length===1?'':'s')+' selecionada'+(datasSelecionadas.length===1?'':'s')+')';
+}
+function gerarResumoExcel(linhas,datasSelecionadas){
+  var cabecalho=[['Data','Hora','Pedido','Operador','Baia','Peça','Código','Quantidade']];
+  linhas.forEach(function(l){ cabecalho.push([_dataBR(l.data),l.hora?String(l.hora).substring(0,5):'',l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
+  var ord=datasSelecionadas.slice().sort();
+  var nome=(datasSelecionadas.length===1)?('resumo_'+ord[0]):('resumo_'+ord[0]+'_a_'+ord[ord.length-1]);
+  var payload=JSON.stringify({linhas:cabecalho,nome:nome}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar o Excel');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando Excel...</title>'+
@@ -4216,15 +4286,11 @@ function exportarResumoExcel(){
     'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
   w.document.write(h);w.document.close();
 }
-function imprimirResumoPDF(){
-  var linhas=resumoDataSelecionada?resumoLinhasDetalheAtual():ordenarLinhasResumo(resumoOpCache);
-  if(!linhas||!linhas.length){toast('Nada para gerar — carregue o resumo primeiro');return;}
-  var ini=document.getElementById('resumoDataInicio').value, fim=document.getElementById('resumoDataFim').value;
-  var subtitulo=resumoDataSelecionada?_dataBR(resumoDataSelecionada):(ini&&fim?(_dataBR(ini)+' até '+_dataBR(fim)):'Todo o período');
+function gerarResumoPDF(linhas,datasSelecionadas){
+  var subtitulo=resumoExportRotuloPeriodo(datasSelecionadas);
   var totalQtd=linhas.reduce(function(s,l){return s+l.quantidade;},0);
   var pedidosUnicos={}; linhas.forEach(function(l){pedidosUnicos[l.pedido]=true;});
   var operadoresUnicos={}; linhas.forEach(function(l){operadoresUnicos[l.operador]=true;});
-  var datasUnicas={}; linhas.forEach(function(l){datasUnicas[l.data]=true;});
   var logoEl=document.querySelector('.start-logo-img');
   var logoSrc=logoEl?logoEl.src:'';
   var linhasHtml=linhas.map(function(l){
@@ -4251,7 +4317,7 @@ function imprimirResumoPDF(){
     '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
     '<div class="hdr-t"><h1>Resumo — Pedido × Operador × Peça</h1><div class="sub">'+subtitulo+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
     '<div class="kpis">'+
-      '<div class="kpi"><div class="v">'+Object.keys(datasUnicas).length+'</div><div class="l">Dias</div></div>'+
+      '<div class="kpi"><div class="v">'+datasSelecionadas.length+'</div><div class="l">Dias</div></div>'+
       '<div class="kpi"><div class="v">'+Object.keys(pedidosUnicos).length+'</div><div class="l">Pedidos</div></div>'+
       '<div class="kpi"><div class="v">'+Object.keys(operadoresUnicos).length+'</div><div class="l">Operadores</div></div>'+
       '<div class="kpi"><div class="v">'+totalQtd+'</div><div class="l">Unidades</div></div>'+
