@@ -1791,10 +1791,10 @@ const Backend={
     var filtroData='';
     if(dataInicio) filtroData+='&data_embalagem=gte.'+dataInicio;
     if(dataFim) filtroData+='&data_embalagem=lte.'+dataFim;
-    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador,baia,data_embalagem'+filtroData,null);
+    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador,baia,data_embalagem,hora_embalagem'+filtroData,null);
     if(!embs||!embs.length) return {status:'ok',linhas:[]};
     var infoPorSessao={};
-    embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—',baia:e.baia||'—',data:e.data_embalagem}; });
+    embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—',baia:e.baia||'—',data:e.data_embalagem,hora:e.hora_embalagem||''}; });
     var sessoes=Object.keys(infoPorSessao);
     var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
     var sessaoPorCaixa={};
@@ -1807,7 +1807,10 @@ const Backend={
       var sessao=sessaoPorCaixa[it.caixa_id]; if(!sessao)return;
       var info=infoPorSessao[sessao]; if(!info)return;
       var chave=info.data+'|'+info.pedido+'|'+info.operador+'|'+info.baia+'|'+(it.codigo_produto||it.nome_produto);
-      if(!mapa[chave]){ mapa[chave]={data:info.data,pedido:info.pedido,operador:info.operador,baia:info.baia,codigo:it.codigo_produto||'',nome:it.nome_produto||'',quantidade:0}; ordem.push(chave); }
+      if(!mapa[chave]){ mapa[chave]={data:info.data,hora:info.hora,pedido:info.pedido,operador:info.operador,baia:info.baia,codigo:it.codigo_produto||'',nome:it.nome_produto||'',quantidade:0}; ordem.push(chave); }
+      // Mais de uma sessão no mesmo dia pode cair na mesma combinação (pedido+operador+baia+peça)
+      // — ex: operador saiu e voltou. Guarda a hora mais cedo (início do trabalho naquele dia).
+      else if(info.hora&&(!mapa[chave].hora||info.hora<mapa[chave].hora)){ mapa[chave].hora=info.hora; }
       mapa[chave].quantidade+=Number(it.quantidade)||0;
     });
     return {status:'ok',linhas:ordem.map(function(k){return mapa[k];})};
@@ -4147,9 +4150,10 @@ function renderResumoDetalheData(){
       '<select class="adm-search" style="flex:1;min-width:140px" onchange="setResumoFiltro(\'operador\',this.value)">'+optsHtml(opsSet,resumoFiltroOperador,'Todos os operadores')+'</select>'+
     '</div>'+
     '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-bd" style="padding:0;overflow-x:auto">'+
-      '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:680px">'+
       '<thead><tr>'+
         '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
+        '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Hora</th>'+
         '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Operador</th>'+
         '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Baia</th>'+
         '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
@@ -4159,12 +4163,13 @@ function renderResumoDetalheData(){
         var pedEsc=String(l.pedido).replace(/'/g,"\\'");
         return '<tr style="cursor:pointer" onclick="abrirPedidoPeloNome(\''+pedEsc+'\')">'+
           '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(l.pedido)+'</td>'+
+          '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--tm)">'+(l.hora?String(l.hora).substring(0,5):'—')+'</td>'+
           '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.operador)+'</td>'+
           '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.baia)+'</td>'+
           '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9.5px">('+escAttr(l.codigo)+')</span></td>'+
           '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2);font-weight:600">'+l.quantidade+'</td>'+
         '</tr>';
-      }).join(''):'<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--td)">Nenhum resultado com esses filtros.</td></tr>')+
+      }).join(''):'<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--td)">Nenhum resultado com esses filtros.</td></tr>')+
       '</tbody></table>'+
       (linhasFiltradas.length?('<div style="padding:10px 14px;border-top:1px solid var(--bd);text-align:right;font-family:var(--mo);font-size:12px;color:var(--tm)">Total: <b style="color:var(--brand2)">'+totalQtd+'</b> un.</div>'):'')+
     '</div></div>';
@@ -4180,8 +4185,8 @@ function abrirPedidoPeloNome(pedidoNome){
 }
 function exportarResumoExcel(){
   if(!resumoOpCache.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
-  var linhas=[['Data','Pedido','Operador','Baia','Peça','Código','Quantidade']];
-  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([_dataBR(l.data),l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
+  var linhas=[['Data','Hora','Pedido','Operador','Baia','Peça','Código','Quantidade']];
+  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([_dataBR(l.data),l.hora?String(l.hora).substring(0,5):'',l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
   var hoje=new Date();
   var nome='resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
   var payload=JSON.stringify({linhas:linhas,nome:nome}).replace(/</g,'\\u003c');
@@ -4195,7 +4200,7 @@ function exportarResumoExcel(){
     '<body><div class="sp" id="sp"></div><div id="msg">Gerando planilha...</div>'+
     '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
     '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
-    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:12},{wch:16},{wch:18},{wch:12},{wch:28},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Resumo");'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:12},{wch:8},{wch:16},{wch:18},{wch:12},{wch:28},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Resumo");'+
     'XLSX.writeFile(wb,D.nome+".xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! O download comecou. Pode fechar esta aba.";document.getElementById("bd").style.display="inline-block";}'+
     'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
     'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
@@ -4212,7 +4217,7 @@ function imprimirResumoPDF(){
   var logoEl=document.querySelector('.start-logo-img');
   var logoSrc=logoEl?logoEl.src:'';
   var linhasHtml=linhas.map(function(l){
-    return '<tr><td>'+_dataBR(l.data)+'</td><td>'+escAttr(l.pedido)+'</td><td>'+escAttr(l.operador)+'</td><td>'+escAttr(l.baia)+'</td><td>'+escAttr(l.nome)+' ('+escAttr(l.codigo)+')</td><td style="text-align:right">'+l.quantidade+'</td></tr>';
+    return '<tr><td>'+_dataBR(l.data)+'</td><td>'+(l.hora?String(l.hora).substring(0,5):'—')+'</td><td>'+escAttr(l.pedido)+'</td><td>'+escAttr(l.operador)+'</td><td>'+escAttr(l.baia)+'</td><td>'+escAttr(l.nome)+' ('+escAttr(l.codigo)+')</td><td style="text-align:right">'+l.quantidade+'</td></tr>';
   }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Resumo — Pedido x Operador x Peça</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
@@ -4240,7 +4245,7 @@ function imprimirResumoPDF(){
       '<div class="kpi"><div class="v">'+Object.keys(operadoresUnicos).length+'</div><div class="l">Operadores</div></div>'+
       '<div class="kpi"><div class="v">'+totalQtd+'</div><div class="l">Unidades</div></div>'+
     '</div>'+
-    '<table><thead><tr><th>Data</th><th>Pedido</th><th>Operador</th><th>Baia</th><th>Peça</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
+    '<table><thead><tr><th>Data</th><th>Hora</th><th>Pedido</th><th>Operador</th><th>Baia</th><th>Peça</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
     '<script>window.onload=function(){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},400);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
     '</body></html>';
