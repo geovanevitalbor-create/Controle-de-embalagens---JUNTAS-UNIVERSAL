@@ -1589,6 +1589,31 @@ const Backend={
     await sbFetch('DELETE','/embalagens?sessao=eq.'+s,null);
     return {status:'ok'};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Fecha sozinho, sem depender de ninguém clicar em nada, qualquer sessão "em andamento"
+  // (finalizada:false) de um dia ANTERIOR ao de hoje — esquecida pelo operador, tablet
+  // travou, aba fechada no meio. Critério é só a data: se já virou o dia seguinte e a sessão
+  // continua aberta, ela nunca mais vai receber bipe nenhum (cada dia/pedido novo abre sua
+  // própria sessão), então não faz sentido ficar "em andamento" pra sempre esperando alguém
+  // notar. Zerada (nenhuma caixa) -> apaga, igual cancelarSessaoAbandonada faria; COM caixa
+  // fechada -> só marca finalizada:true, preservando a produção real (nunca apaga dado real
+  // só porque o operador esqueceu de apertar "Finalizar").
+  async fecharSessoesAbandonadasAntigas(hojeISO){ try{
+    var pendentes=await sbFetch('GET','/embalagens?finalizada=eq.false&data_embalagem=lt.'+hojeISO+'&select=sessao',null);
+    if(!pendentes||!pendentes.length) return {status:'ok',fechadas:0,apagadas:0};
+    var sessoes=pendentes.map(function(e){return e.sessao;});
+    var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
+    var sessoesComCaixa={};
+    (caixasTodas||[]).forEach(function(c){ sessoesComCaixa[c.sessao]=true; });
+    var comCaixa=sessoes.filter(function(s){return sessoesComCaixa[s];});
+    var semCaixa=sessoes.filter(function(s){return !sessoesComCaixa[s];});
+    if(comCaixa.length){
+      await sbFetch('PATCH','/embalagens?sessao=in.('+comCaixa.map(function(s){return encodeURIComponent(s);}).join(',')+')',{finalizada:true});
+    }
+    if(semCaixa.length){
+      await sbFetch('DELETE','/embalagens?sessao=in.('+semCaixa.map(function(s){return encodeURIComponent(s);}).join(',')+')',null);
+    }
+    return {status:'ok',fechadas:comCaixa.length,apagadas:semCaixa.length};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // ── FATURAMENTO PARCIAL — a unidade é (pedido + data de embalagem): "fatura o que o
   // pedido X embalou no dia Y". Tabela: faturamentos_parciais (ver SQL no chat).
   // Lista os dias em que um pedido teve embalagem, com total de unidades/caixas do dia e,
@@ -1956,8 +1981,27 @@ function irPara(id){
     validarCampos();
     setTimeout(function(){ tentarAbrirWizardBip(0); },120);
   }
-  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');}
+  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');fecharSessoesAbandonadasAntigas();}
   if(id==='adm'){carregarConfigs();admTab('op');}
+}
+// Chamado uma vez ao entrar em Faturamento — fecha sozinho qualquer sessão "em andamento"
+// esquecida de um dia anterior (zerada -> apaga; com caixa -> finaliza). Substitui o antigo
+// botão manual "Cancelar sessão" (removido da aba Finalizações, que também saiu). Best-effort:
+// silencioso se não achar nada ou se falhar — nunca trava a tela por causa dessa limpeza.
+function fecharSessoesAbandonadasAntigas(){
+  if(!online) return;
+  var hojeISO=fmtDataISO(new Date());
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        if(d&&d.status==='ok'&&(d.fechadas||d.apagadas)){
+          toast('🧹 '+(d.fechadas+d.apagadas)+' sessão(ões) antiga(s) fechada(s) automaticamente');
+          carregarPedidosEsperados();
+        }
+      })
+      .withFailureHandler(function(){})
+      .fecharSessoesAbandonadasAntigas(hojeISO);
+  }catch(e){}
 }
 // Espera ops/baias carregarem do servidor antes de abrir o popup — sem isso, numa conexão
 // mais lenta a checagem única falhava e o operador ficava sem popup e sem aviso nenhum.
@@ -5003,8 +5047,9 @@ function carregarEventosPedido(pedidoId){
 // bipagem (iniciada/finalizada/faturada, via pedEsperFinalizacoes) numa timeline única,
 // ordenada por data — mais recente primeiro. Substitui a antiga renderEventosPedidoHtml, que
 // só mostrava fechado/reaberto/finalizado isolados, sem cruzar com o que realmente aconteceu
-// na produção. Não substitui os cards detalhados de finalização (renderFinalizacoesPedidoHtml)
-// — esta é a visão panorâmica "o que aconteceu, em ordem"; aquela é o drill-down por sessão.
+// na produção. Esta é a única visão de histórico do pedido agora — a aba "Finalizações" (com
+// drill-down por sessão, cancelar sessão travada e PDF por finalização) foi removida; sessão
+// travada some sozinha no dia seguinte via fecharSessoesAbandonadasAntigas().
 function coletarRastreabilidade(p){
   var itens=[];
   if(p.criadoEm){
@@ -5328,11 +5373,11 @@ function renderDetalhePedido(){
   var abaBtnHtml=function(id,label){ return '<button class="fat-filter'+(abaDetalhePedido===id?' active':'')+'" onclick="setAbaDetalhePedido(\''+id+'\')">'+label+'</button>'; };
   var painelUnico='<div class="dp2-panel">'+
     '<div class="dp2-panel-hd" style="flex-wrap:wrap;gap:8px">'+
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+abaBtnHtml('itens','Itens')+abaBtnHtml('finalizacoes','Finalizações')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+abaBtnHtml('itens','Itens')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
       (abaDetalhePedido==='itens'&&podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none;margin:0" onclick="setModoEdicaoPedido('+(modoEdicaoPedido?'null':"'escolha'")+')">'+(modoEdicaoPedido?'✔ Concluir':'✎ Editar')+'</button>'):'')+
     '</div>'+
     '<div class="dp2-panel-bd">'+
-      (abaDetalhePedido==='itens'?itensBodyHtml:(abaDetalhePedido==='rastreabilidade'?renderRastreabilidadeHtml(p):renderFinalizacoesPedidoHtml(p.pedido,totEsp)))+
+      (abaDetalhePedido==='itens'?itensBodyHtml:renderRastreabilidadeHtml(p))+
     '</div>'+
   '</div>';
 
@@ -5456,125 +5501,7 @@ function setFiltroItensPedido(v){ filtroItensPedido=v; paginaItensPedido=1; rend
 function setAbaDetalhePedido(aba){ abaDetalhePedido=aba; renderDetalhePedido(); }
 function toggleExportMenuPedido(){ exportMenuAberto=!exportMenuAberto; renderDetalhePedido(); }
 function setExportMenuPedido(v){ exportMenuAberto=v; renderDetalhePedido(); }
-// Lista plana das finalizações desse pedido, numeradas em ordem cronológica — sem agrupar
-// por dia. Cada finalização é uma sessão de bipagem que rodou até o fim.
-var finCaixasOpenSet={}; // {sessao: true/false} — expande o detalhe de caixas de uma finalização
-function togFinCaixas(sessao){ finCaixasOpenSet[sessao]=!finCaixasOpenSet[sessao]; if(detPedAtual!==null) renderDetalhePedido(); }
-// Cancela uma sessão travada "em andamento" (finalizada:false) que nunca foi concluída — ex:
-// fechou a aba no meio da bipagem, queda de conexão, tablet travou. Some do histórico de vez
-// (e apaga qualquer caixa que já tivesse sido fechada nela); exige senha de Admin, é destrutivo.
-function cancelarSessaoAbandonada(sessao,pedidoNome){
-  exigirSenhaMaster(function(){
-    if(!confirm('Cancelar esta sessão em andamento? Se ela já tiver caixas fechadas, elas também são apagadas. Isso não pode ser desfeito.'))return;
-    try{
-      google.script.run
-        .withSuccessHandler(function(r){
-          if(r&&r.status==='ok'){ toast('🗑 Sessão cancelada'); carregarFinalizacoesPedido(pedidoNome); carregarPedidosEsperados(); }
-          else{ toast('⚠ Não cancelou — tente de novo'); }
-        })
-        .withFailureHandler(function(){ toast('⚠ Sem conexão'); })
-        .cancelarSessaoAbandonada(sessao);
-    }catch(e){ toast('⚠ Sem conexão'); }
-  });
-}
-// PDF de uma finalização específica — usa o mesmo detalheCaixas já carregado pra tela, sem
-// precisar de nova consulta ao servidor.
-function imprimirFinalizacaoPDF(pedido,sessao){
-  var lista=pedEsperFinalizacoes[pedido];
-  if(!Array.isArray(lista)){ toast('Aguarde o histórico carregar antes de exportar'); return; }
-  var fz=lista.find(function(f){return f.sessao===sessao;});
-  if(!fz){ toast('Finalização não encontrada'); return; }
-  var linhasCaixas='';
-  (fz.detalheCaixas||[]).forEach(function(cx){
-    if(!cx.itens||!cx.itens.length){ linhasCaixas+='<tr><td>'+cx.num+'</td><td colspan="2" style="color:#999">Sem itens registrados</td></tr>'; return; }
-    cx.itens.forEach(function(it,idx){
-      linhasCaixas+='<tr><td>'+(idx===0?cx.num:'')+'</td><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+it.qty+'</td></tr>';
-    });
-  });
-  var logoEl=document.querySelector('.start-logo-img');
-  var logoSrc=logoEl?logoEl.src:'';
-  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Finalização '+fz.numero+' — '+escAttr(pedido)+'</title><style>'+
-    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
-    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:16px;margin-bottom:22px;gap:20px}'+
-    '.hdr img{height:42px;display:block}'+
-    '.hdr-t{text-align:right}'+
-    '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
-    '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
-    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}'+
-    '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
-    '.kpi .v{font-size:21px;font-weight:800;color:#00833E}'+
-    '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
-    'table{width:100%;border-collapse:collapse;font-size:11px}'+
-    'th{background:#00833E;color:#fff;padding:9px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.03em}'+
-    'td{padding:8px 7px;border-bottom:1px solid #e3e3e3}'+
-    'tr:nth-child(even) td{background:#f8f9f8}'+
-    '.sec-ttl{font-size:12px;font-weight:800;color:#00833E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:.04em}'+
-    '.nf-box{background:#eef8f1;border:1px solid #bfe3cb;border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:12px}'+
-    '.foot{margin-top:22px;font-size:9px;color:#999;text-align:center}'+
-    '@page{size:A4;margin:14mm}'+
-    '</style></head><body>'+
-    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
-    '<div class="hdr-t"><h1>Pedido '+escAttr(pedido)+' — Finalização '+fz.numero+'</h1><div class="sub">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div></div></div>'+
-    (fz.faturado?('<div class="nf-box"><b>NF '+escAttr(fz.nf)+'</b>'+(fz.cliente?(' — '+escAttr(fz.cliente)):'')+(fz.dataFaturamento?(' — faturado em '+fz.dataFaturamento):'')+'</div>'):'')+
-    '<div class="kpis">'+
-      '<div class="kpi"><div class="v">'+fz.caixas+'</div><div class="l">Caixas</div></div>'+
-      '<div class="kpi"><div class="v">'+fz.unidades+'</div><div class="l">Unidades</div></div>'+
-      '<div class="kpi"><div class="v">'+fz.peso+' kg</div><div class="l">Peso</div></div>'+
-      '<div class="kpi"><div class="v">'+(fz.finalizada?'✔':'⏳')+'</div><div class="l">'+(fz.finalizada?'Finalizada':'Em andamento')+'</div></div>'+
-    '</div>'+
-    (linhasCaixas?(
-      '<div class="sec-ttl">Detalhamento por caixa</div>'+
-      '<table><thead><tr><th>Caixa</th><th>Produto</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasCaixas+'</tbody></table>'
-    ):'<div style="text-align:center;padding:30px;color:#999">Sem caixas registradas nessa finalização.</div>')+
-    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
-    '<script>window.onload=function(){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},400);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
-    '</body></html>';
-  var w=window.open('','_blank');
-  if(!w){toast('Libere pop-ups para gerar o PDF');return;}
-  w.document.write(h);w.document.close();
-}
-function renderFinalizacoesPedidoHtml(pedidoNome,totalEsperado){
-  var lista=pedEsperFinalizacoes[pedidoNome];
-  if(lista===undefined) return '<div class="dp2-empty">Carregando histórico...</div>';
-  if(lista==='erro'){
-    var pedEscErr=String(pedidoNome).replace(/'/g,"\\'");
-    return '<div class="dp2-empty" style="color:var(--rd);display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠ Não consegui carregar o histórico.<button class="btn-gh" style="width:auto;padding:6px 12px" onclick="carregarFinalizacoesPedido(\''+pedEscErr+'\')">🔄 Tentar de novo</button></div>';
-  }
-  if(!lista.length) return '<div class="dp2-empty">Nenhuma produção finalizada ainda pra este pedido.</div>';
-  return lista.map(function(fz){
-      var aberto=!!finCaixasOpenSet[fz.sessao];
-      var temCaixas=fz.detalheCaixas&&fz.detalheCaixas.length;
-      var pctFz=(totalEsperado>0)?Math.round((fz.unidades||0)/totalEsperado*100):null;
-      return '<div class="cx-detalhe" style="cursor:pointer" onclick="togFinCaixas(\''+fz.sessao+'\')">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
-          '<div><div style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">Finalização '+fz.numero+(fz.finalizada?'':' <span style="color:var(--yw);font-size:10px;font-family:var(--f-b);letter-spacing:0">· em andamento</span>')+'</div>'+
-          '<div style="font-size:10px;color:var(--td);margin-top:2px">'+fz.dataBR+(fz.hora?' '+String(fz.hora).substring(0,5):'')+' · '+escAttr(fz.operador||'—')+' · lote '+escAttr(fz.lote||'—')+'</div>'+
-          '<div style="font-size:10px;color:var(--td);margin-top:1px">'+fz.caixas+' cx · '+fz.unidades+' un · '+fz.peso+' kg'+(pctFz!=null?' · <span style="color:var(--brand2);font-weight:600">'+pctFz+'% do pedido</span>':'')+'</div></div>'+
-          (fz.faturado
-            ?'<div style="text-align:right;flex-shrink:0"><span class="ped-badge fat">NF '+escAttr(fz.nf)+'</span>'+(fz.cliente?'<div style="font-size:9px;color:var(--td);margin-top:4px">'+escAttr(fz.cliente)+'</div>':'')+'</div>'
-            :(fz.finalizada
-              ?'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--td);white-space:nowrap">Aguardando faturamento</span>'
-              :'<span style="text-align:right;flex-shrink:0;font-size:10px;color:var(--yw);white-space:nowrap" title="Só pode faturar depois que essa sessão for finalizada na bipagem">⏳ Aguardando finalizar</span>'))+
-        '</div>'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">'+
-          (temCaixas?('<span style="font-size:10px;color:var(--brand2);display:flex;align-items:center;gap:4px">'+(aberto?'▴ ocultar itens das caixas':'▾ toque pra ver os itens das caixas')+'</span>'):'<span></span>')+
-          '<div style="display:flex;gap:6px;flex-shrink:0">'+
-            (fz.finalizada?'':'<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--rd);border-color:rgba(220,38,38,.3)" onclick="event.stopPropagation();cancelarSessaoAbandonada(\''+fz.sessao+'\',\''+String(pedidoNome).replace(/'/g,"\\'")+'\')" title="Sessão travada em andamento — abandonada por fechar a aba, queda de conexão etc."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13.5h10L18 7"/><path d="M10 11v6M14 11v6"/></svg> Cancelar sessão</button>')+
-            '<button class="btn-gh" style="width:auto;padding:5px 11px;font-size:10px;letter-spacing:0;text-transform:none" onclick="event.stopPropagation();imprimirFinalizacaoPDF(\''+String(pedidoNome).replace(/'/g,"\\'")+'\',\''+fz.sessao+'\')">🖨 PDF</button>'+
-          '</div>'+
-        '</div>'+
-        (aberto&&temCaixas?(
-          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd);display:flex;flex-direction:column;gap:7px" onclick="event.stopPropagation()">'+
-          fz.detalheCaixas.map(function(cx){
-            return '<div style="font-size:11px"><b style="color:var(--tm)">📦 Caixa '+cx.num+'</b> <span style="color:var(--td)">· '+(cx.totalUnid||0)+' un · '+cx.peso+' kg</span>'+
-              (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="color:var(--td);padding-left:14px;margin-top:2px">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="color:var(--td);padding-left:14px;margin-top:2px">Sem itens</div>')+
-            '</div>';
-          }).join('')+
-          '</div>'
-        ):'')+
-      '</div>';
-    }).join('');
-}// ═══════════════════════════════════════
+// ═══════════════════════════════════════
 // RELATÓRIO DE FATURAMENTO — período com atalhos + impressão profissional (print → salvar PDF)
 // ═══════════════════════════════════════
 var relatorioAtual=null;
