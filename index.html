@@ -1757,19 +1757,19 @@ const Backend={
     }
     return {status:'ok',pendencias:Object.values(porPedido),pecas:pecas};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
-  // Resumo agregado Pedido+Operador+Peça — pega TODAS as embalagens do período (ou de sempre,
-  // sem filtro de data) e soma quantidade por combinação. Não filtra por finalizada de propósito:
-  // inclui também sessões em andamento, pra dar visão de "quem está bipando o quê" em tempo real,
-  // não só o que já fechou. Mesmo padrão de consultas em lote já usado no Dashboard/Pendências —
-  // busca tudo em poucas idas ao banco e agrupa no navegador, em vez de uma consulta por linha.
+  // Resumo agregado Data+Pedido+Operador+Baia+Peça — pega TODAS as embalagens do período (ou de
+  // sempre, sem filtro de data) e soma quantidade por combinação. Não filtra por finalizada de
+  // propósito: inclui também sessões em andamento, pra dar visão de "quem está bipando o quê"
+  // em tempo real, não só o que já fechou. Mesmo padrão de consultas em lote já usado no
+  // Dashboard/Pendências — busca tudo em poucas idas ao banco e agrupa no navegador.
   async buscarResumoOperadorPeca(dataInicio,dataFim){ try{
     var filtroData='';
     if(dataInicio) filtroData+='&data_embalagem=gte.'+dataInicio;
     if(dataFim) filtroData+='&data_embalagem=lte.'+dataFim;
-    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador'+filtroData,null);
+    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador,baia,data_embalagem'+filtroData,null);
     if(!embs||!embs.length) return {status:'ok',linhas:[]};
     var infoPorSessao={};
-    embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—'}; });
+    embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—',baia:e.baia||'—',data:e.data_embalagem}; });
     var sessoes=Object.keys(infoPorSessao);
     var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
     var sessaoPorCaixa={};
@@ -1781,8 +1781,8 @@ const Backend={
     (itensTodos||[]).forEach(function(it){
       var sessao=sessaoPorCaixa[it.caixa_id]; if(!sessao)return;
       var info=infoPorSessao[sessao]; if(!info)return;
-      var chave=info.pedido+'|'+info.operador+'|'+(it.codigo_produto||it.nome_produto);
-      if(!mapa[chave]){ mapa[chave]={pedido:info.pedido,operador:info.operador,codigo:it.codigo_produto||'',nome:it.nome_produto||'',quantidade:0}; ordem.push(chave); }
+      var chave=info.data+'|'+info.pedido+'|'+info.operador+'|'+info.baia+'|'+(it.codigo_produto||it.nome_produto);
+      if(!mapa[chave]){ mapa[chave]={data:info.data,pedido:info.pedido,operador:info.operador,baia:info.baia,codigo:it.codigo_produto||'',nome:it.nome_produto||'',quantidade:0}; ordem.push(chave); }
       mapa[chave].quantidade+=Number(it.quantidade)||0;
     });
     return {status:'ok',linhas:ordem.map(function(k){return mapa[k];})};
@@ -2915,7 +2915,29 @@ function confirmarFin(){
 }
 
 function novaEmb(){if(!confirm('Nova embalagem?'))return;fecharOv('ovImpr');limpar();}
+// Se o wizard já tinha sido confirmado (sess.ped preenchido = iniciarSessaoNoServidorSeNecessario
+// já rodou) mas nenhuma caixa chegou a ser fechada, essa sessão é só um registro vazio "em
+// andamento" que nunca vai virar nada — ex: operador confirmou o wizard errado (pedido, tipo,
+// baia) e clicou aqui pra recomeçar. Sem isso, cada vez que alguém clicava "Limpar sessão" sobrava
+// pra sempre um "Finalização N · em andamento · 0 cx" no Faturamento, só removível na mão lá
+// (cancelarSessaoAbandonada). Agora: se ainda estiver na fila offline (nunca chegou a ser criada
+// no servidor), tira da fila antes que reconectar crie o fantasma; se já foi criada, apaga ela
+// (best-effort, sem senha — não há nenhum dado real em risco). Só faz isso com ZERO caixa
+// fechada: com caixa fechada é trabalho real, e decidir apagar isso continua sendo só do
+// Faturamento, com senha e confirmação.
+function limparSessaoServidorSeVazia(){
+  if(!sess.ped || cxFech.length>0) return;
+  var idAtual=sess.id;
+  var aindaNaFila=fila.some(function(item){ return item.tipo==='iniciarSessao' && item.dados && item.dados.id===idAtual; });
+  if(aindaNaFila){
+    fila=fila.filter(function(item){ return !(item.tipo==='iniciarSessao' && item.dados && item.dados.id===idAtual); });
+    salvarFila();
+  }else if(online){
+    try{ google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).cancelarSessaoAbandonada(idAtual); }catch(e){}
+  }
+}
 function limpar(manterDadosFin){
+  limparSessaoServidorSeVazia();
   sess=novaSess();cxFech=[];cxAtual={};
   if(!manterDadosFin) dadosFin=null;
   try{localStorage.removeItem(SK);}catch{}
@@ -3938,18 +3960,22 @@ function fatTab(t){
 }
 
 // ═══════════════════════════════════════
-// RESUMO — Pedido × Operador × Peça × Quantidade numa tabela só, sem precisar abrir cada
-// pedido pra ver quem embalou o quê. Clicar na linha ainda abre o detalhe completo (mesmo
-// modal de sempre) — a tabela só evita que isso seja obrigatório pra enxergar o básico.
+// RESUMO — lista de datas primeiro; clicar numa data abre o detalhe por peça daquele dia
+// (Pedido/Operador/Baia/Peça/Quantidade), com dropdowns pra fatiar por Baia/Peça/Operador
+// — os valores dos dropdowns são só os que existem NAQUELA data, não no período inteiro.
 // ═══════════════════════════════════════
-var resumoOpCache=[]; // linhas cruas vindas do servidor: {pedido,operador,codigo,nome,quantidade}
+var resumoOpCache=[]; // linhas cruas vindas do servidor: {data,pedido,operador,baia,codigo,nome,quantidade}
+var resumoDataSelecionada=null; // ISO da data aberta no drill-down, ou null = mostra a lista de datas
+var resumoFiltroBaia='', resumoFiltroPeca='', resumoFiltroOperador=''; // seleção atual dos dropdowns no detalhe da data
 function periodoResumoPersonalizado(){
   document.querySelectorAll('#fpane-resumo .fat-filter').forEach(function(b){b.classList.remove('active');});
+  resumoDataSelecionada=null;
   carregarResumoOperadorPeca();
 }
 function setPeriodoResumo(tipo,btn){
   document.querySelectorAll('#fpane-resumo .fat-filter').forEach(function(b){b.classList.remove('active');});
   if(btn) btn.classList.add('active');
+  resumoDataSelecionada=null;
   if(tipo==='tudo'){
     document.getElementById('resumoDataInicio').value='';
     document.getElementById('resumoDataFim').value='';
@@ -3976,40 +4002,130 @@ function carregarResumoOperadorPeca(){
       .buscarResumoOperadorPeca(ini||null,fim||null);
   }catch(e){ el.innerHTML=renderDashError(e.message,'carregarResumoOperadorPeca'); }
 }
+// Ordenação usada só nas exportações (Excel/PDF), que sempre pegam o período inteiro —
+// mais recente primeiro, depois pedido/operador, pra ficar fácil de ler numa planilha.
 function ordenarLinhasResumo(lista){
   return lista.slice().sort(function(a,b){
-    return String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+    return String(b.data||'').localeCompare(String(a.data||'')) || String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+  });
+}
+// A busca por texto vale nos dois níveis (lista de datas e detalhe de uma data) — filtra as
+// linhas cruas antes de agrupar, então uma data sem nenhuma linha batendo já nem aparece.
+function resumoLinhasFiltradasTexto(){
+  var q=(document.getElementById('resumoBusca').value||'').trim().toLowerCase();
+  if(!q) return resumoOpCache;
+  return resumoOpCache.filter(function(l){
+    return String(l.pedido).toLowerCase().indexOf(q)!==-1||String(l.operador).toLowerCase().indexOf(q)!==-1||String(l.baia).toLowerCase().indexOf(q)!==-1||String(l.nome).toLowerCase().indexOf(q)!==-1||String(l.codigo).toLowerCase().indexOf(q)!==-1;
   });
 }
 function renderResumoOperadorPeca(){
   var el=document.getElementById('resumoSec'); if(!el)return;
-  var q=(document.getElementById('resumoBusca').value||'').trim().toLowerCase();
-  var linhas=resumoOpCache.filter(function(l){
-    return !q||String(l.pedido).toLowerCase().indexOf(q)!==-1||String(l.operador).toLowerCase().indexOf(q)!==-1||String(l.nome).toLowerCase().indexOf(q)!==-1||String(l.codigo).toLowerCase().indexOf(q)!==-1;
-  });
   if(!resumoOpCache.length){ el.innerHTML='<div class="fat-empty">Nenhuma embalagem nesse período.</div>'; return; }
+  if(resumoDataSelecionada) renderResumoDetalheData(); else renderResumoListaDatas();
+}
+// Nível 1: uma linha por data, com total de unidades e contagem de pedidos/peças distintas
+// naquele dia — mais recente primeiro. Clicar abre o detalhe (nível 2).
+function renderResumoListaDatas(){
+  var el=document.getElementById('resumoSec');
+  var linhas=resumoLinhasFiltradasTexto();
   if(!linhas.length){ el.innerHTML='<div class="fat-empty">Nenhum resultado com esse filtro.</div>'; return; }
-  linhas=ordenarLinhasResumo(linhas);
+  var porData={}, datas=[];
+  linhas.forEach(function(l){
+    if(!porData[l.data]){ porData[l.data]={quantidade:0,pedidos:{},pecas:{}}; datas.push(l.data); }
+    porData[l.data].quantidade+=l.quantidade;
+    porData[l.data].pedidos[l.pedido]=true;
+    porData[l.data].pecas[l.codigo||l.nome]=true;
+  });
+  datas.sort().reverse();
   el.innerHTML='<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-bd" style="padding:0;overflow-x:auto">'+
-    '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">'+
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px">'+
     '<thead><tr>'+
-      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
-      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Operador</th>'+
-      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
+      '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Data</th>'+
+      '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedidos</th>'+
+      '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peças</th>'+
       '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Quantidade</th>'+
     '</tr></thead><tbody>'+
-    linhas.map(function(l){
-      var pedEsc=String(l.pedido).replace(/'/g,"\\'");
-      return '<tr style="cursor:pointer" onclick="abrirPedidoPeloNome(\''+pedEsc+'\')">'+
-        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(l.pedido)+'</td>'+
-        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.operador)+'</td>'+
-        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9.5px">('+escAttr(l.codigo)+')</span></td>'+
-        '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2);font-weight:600">'+l.quantidade+'</td>'+
+    datas.map(function(dISO){
+      var info=porData[dISO];
+      return '<tr style="cursor:pointer" onclick="abrirResumoData(\''+dISO+'\')">'+
+        '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--f-d);font-size:14px;letter-spacing:.02em">'+_dataBR(dISO)+'</td>'+
+        '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+Object.keys(info.pedidos).length+'</td>'+
+        '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+Object.keys(info.pecas).length+'</td>'+
+        '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2);font-weight:600">'+info.quantidade+'</td>'+
       '</tr>';
     }).join('')+
     '</tbody></table></div></div>';
 }
-// Clique numa linha do Resumo: acha o pedido pelo nome na lista já carregada (pedidosEsperados,
+function abrirResumoData(dataISO){
+  resumoDataSelecionada=dataISO;
+  resumoFiltroBaia=''; resumoFiltroPeca=''; resumoFiltroOperador='';
+  renderResumoOperadorPeca();
+}
+function voltarResumoListaDatas(){
+  resumoDataSelecionada=null;
+  renderResumoOperadorPeca();
+}
+// Nível 2: detalhe de uma data — Pedido/Operador/Baia/Peça/Quantidade, com 3 dropdowns
+// (Baia, Peça, Operador) montados só com os valores que aparecem NESSA data específica,
+// não no período inteiro — escolher um filtro nunca mostra uma opção que dá lista vazia.
+function setResumoFiltro(campo,valor){
+  if(campo==='baia') resumoFiltroBaia=valor;
+  if(campo==='peca') resumoFiltroPeca=valor;
+  if(campo==='operador') resumoFiltroOperador=valor;
+  renderResumoDetalheData();
+}
+function renderResumoDetalheData(){
+  var el=document.getElementById('resumoSec');
+  var linhasData=resumoLinhasFiltradasTexto().filter(function(l){return l.data===resumoDataSelecionada;});
+  var baiasSet={}, pecasSet={}, opsSet={};
+  linhasData.forEach(function(l){ baiasSet[l.baia]=l.baia; pecasSet[l.codigo||l.nome]=l.nome; opsSet[l.operador]=l.operador; });
+  function optsHtml(valoresObj,atual,todosLabel){
+    var chaves=Object.keys(valoresObj).sort();
+    return '<option value="">'+todosLabel+'</option>'+chaves.map(function(v){
+      return '<option value="'+escAttr(v)+'"'+(v===atual?' selected':'')+'>'+escAttr(valoresObj[v])+'</option>';
+    }).join('');
+  }
+  var linhasFiltradas=linhasData.filter(function(l){
+    if(resumoFiltroBaia&&l.baia!==resumoFiltroBaia) return false;
+    if(resumoFiltroPeca&&(l.codigo||l.nome)!==resumoFiltroPeca) return false;
+    if(resumoFiltroOperador&&l.operador!==resumoFiltroOperador) return false;
+    return true;
+  }).sort(function(a,b){
+    return String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+  });
+  var totalQtd=linhasFiltradas.reduce(function(s,l){return s+l.quantidade;},0);
+  el.innerHTML=
+    '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:12px" onclick="voltarResumoListaDatas()">← Voltar às datas</button>'+
+    '<div style="font-family:var(--f-d);font-size:20px;letter-spacing:.02em;margin-bottom:12px">'+_dataBR(resumoDataSelecionada)+'</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+      '<select class="adm-search" style="flex:1;min-width:140px" onchange="setResumoFiltro(\'baia\',this.value)">'+optsHtml(baiasSet,resumoFiltroBaia,'Todas as baias')+'</select>'+
+      '<select class="adm-search" style="flex:1;min-width:140px" onchange="setResumoFiltro(\'peca\',this.value)">'+optsHtml(pecasSet,resumoFiltroPeca,'Todas as peças')+'</select>'+
+      '<select class="adm-search" style="flex:1;min-width:140px" onchange="setResumoFiltro(\'operador\',this.value)">'+optsHtml(opsSet,resumoFiltroOperador,'Todos os operadores')+'</select>'+
+    '</div>'+
+    '<div class="dp2-panel" style="margin-bottom:0"><div class="dp2-panel-bd" style="padding:0;overflow-x:auto">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">'+
+      '<thead><tr>'+
+        '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Pedido</th>'+
+        '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Operador</th>'+
+        '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Baia</th>'+
+        '<th style="text-align:left;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Peça</th>'+
+        '<th style="text-align:right;padding:9px 14px;color:var(--td);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)">Quantidade</th>'+
+      '</tr></thead><tbody>'+
+      (linhasFiltradas.length?linhasFiltradas.map(function(l){
+        var pedEsc=String(l.pedido).replace(/'/g,"\\'");
+        return '<tr style="cursor:pointer" onclick="abrirPedidoPeloNome(\''+pedEsc+'\')">'+
+          '<td style="padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo)">'+escAttr(l.pedido)+'</td>'+
+          '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.operador)+'</td>'+
+          '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.baia)+'</td>'+
+          '<td style="padding:9px 14px;border-bottom:1px solid var(--bd)">'+escAttr(l.nome)+' <span style="color:var(--td);font-family:var(--mo);font-size:9.5px">('+escAttr(l.codigo)+')</span></td>'+
+          '<td style="text-align:right;padding:9px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);color:var(--brand2);font-weight:600">'+l.quantidade+'</td>'+
+        '</tr>';
+      }).join(''):'<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--td)">Nenhum resultado com esses filtros.</td></tr>')+
+      '</tbody></table>'+
+      (linhasFiltradas.length?('<div style="padding:10px 14px;border-top:1px solid var(--bd);text-align:right;font-family:var(--mo);font-size:12px;color:var(--tm)">Total: <b style="color:var(--brand2)">'+totalQtd+'</b> un.</div>'):'')+
+    '</div></div>';
+}
+// Clique numa linha do detalhe: acha o pedido pelo nome na lista já carregada (pedidosEsperados,
 // populada ao entrar em Faturamento) e abre o mesmo modal de detalhe usado em Pedidos/Histórico
 // — não duplica a lógica de exibição, só oferece um atalho a partir da tabela agregada.
 function abrirPedidoPeloNome(pedidoNome){
@@ -4020,8 +4136,8 @@ function abrirPedidoPeloNome(pedidoNome){
 }
 function exportarResumoExcel(){
   if(!resumoOpCache.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
-  var linhas=[['Pedido','Operador','Peça','Código','Quantidade']];
-  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([l.pedido,l.operador,l.nome,l.codigo,l.quantidade]); });
+  var linhas=[['Data','Pedido','Operador','Baia','Peça','Código','Quantidade']];
+  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([_dataBR(l.data),l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
   var hoje=new Date();
   var nome='resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
   var payload=JSON.stringify({linhas:linhas,nome:nome}).replace(/</g,'\\u003c');
@@ -4035,7 +4151,7 @@ function exportarResumoExcel(){
     '<body><div class="sp" id="sp"></div><div id="msg">Gerando planilha...</div>'+
     '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
     '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
-    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:16},{wch:18},{wch:28},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Resumo");'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.linhas);s1["!cols"]=[{wch:12},{wch:16},{wch:18},{wch:12},{wch:28},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Resumo");'+
     'XLSX.writeFile(wb,D.nome+".xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! O download comecou. Pode fechar esta aba.";document.getElementById("bd").style.display="inline-block";}'+
     'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
     'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
@@ -4048,10 +4164,11 @@ function imprimirResumoPDF(){
   var totalQtd=linhas.reduce(function(s,l){return s+l.quantidade;},0);
   var pedidosUnicos={}; linhas.forEach(function(l){pedidosUnicos[l.pedido]=true;});
   var operadoresUnicos={}; linhas.forEach(function(l){operadoresUnicos[l.operador]=true;});
+  var datasUnicas={}; linhas.forEach(function(l){datasUnicas[l.data]=true;});
   var logoEl=document.querySelector('.start-logo-img');
   var logoSrc=logoEl?logoEl.src:'';
   var linhasHtml=linhas.map(function(l){
-    return '<tr><td>'+escAttr(l.pedido)+'</td><td>'+escAttr(l.operador)+'</td><td>'+escAttr(l.nome)+' ('+escAttr(l.codigo)+')</td><td style="text-align:right">'+l.quantidade+'</td></tr>';
+    return '<tr><td>'+_dataBR(l.data)+'</td><td>'+escAttr(l.pedido)+'</td><td>'+escAttr(l.operador)+'</td><td>'+escAttr(l.baia)+'</td><td>'+escAttr(l.nome)+' ('+escAttr(l.codigo)+')</td><td style="text-align:right">'+l.quantidade+'</td></tr>';
   }).join('');
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Resumo — Pedido x Operador x Peça</title><style>'+
     '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Segoe UI,Arial,sans-serif;padding:26px;color:#111}'+
@@ -4060,7 +4177,7 @@ function imprimirResumoPDF(){
     '.hdr-t{text-align:right}'+
     '.hdr-t h1{font-size:19px;color:#00833E;letter-spacing:.01em}'+
     '.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
-    '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}'+
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}'+
     '.kpi{background:#f3f7f4;border:1px solid #dde3df;border-radius:8px;padding:14px;text-align:center}'+
     '.kpi .v{font-size:23px;font-weight:800;color:#00833E}'+
     '.kpi .l{font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}'+
@@ -4074,11 +4191,12 @@ function imprimirResumoPDF(){
     '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
     '<div class="hdr-t"><h1>Resumo — Pedido × Operador × Peça</h1><div class="sub">'+(ini&&fim?(_dataBR(ini)+' até '+_dataBR(fim)):'Todo o período')+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
     '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+Object.keys(datasUnicas).length+'</div><div class="l">Dias</div></div>'+
       '<div class="kpi"><div class="v">'+Object.keys(pedidosUnicos).length+'</div><div class="l">Pedidos</div></div>'+
       '<div class="kpi"><div class="v">'+Object.keys(operadoresUnicos).length+'</div><div class="l">Operadores</div></div>'+
       '<div class="kpi"><div class="v">'+totalQtd+'</div><div class="l">Unidades</div></div>'+
     '</div>'+
-    '<table><thead><tr><th>Pedido</th><th>Operador</th><th>Peça</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
+    '<table><thead><tr><th>Data</th><th>Pedido</th><th>Operador</th><th>Baia</th><th>Peça</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
     '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
     '<script>window.onload=function(){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},400);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
     '</body></html>';
