@@ -4121,6 +4121,22 @@ function setResumoFiltro(campo,valor){
   if(campo==='operador') resumoFiltroOperador=valor;
   renderResumoDetalheData();
 }
+// Linhas realmente visíveis no detalhe da data atual — texto + baia/peça/operador já
+// aplicados, na mesma ordem da tela. Compartilhada entre o render e os exports (Excel/PDF),
+// pra "o que você vê é o que baixa" — sem isso, exportar sempre trazia o período inteiro,
+// mesmo com uma data aberta.
+function resumoLinhasDetalheAtual(){
+  if(!resumoDataSelecionada) return null;
+  var linhasData=resumoLinhasFiltradasTexto().filter(function(l){return l.data===resumoDataSelecionada;});
+  return linhasData.filter(function(l){
+    if(resumoFiltroBaia&&l.baia!==resumoFiltroBaia) return false;
+    if(resumoFiltroPeca&&(l.codigo||l.nome)!==resumoFiltroPeca) return false;
+    if(resumoFiltroOperador&&l.operador!==resumoFiltroOperador) return false;
+    return true;
+  }).sort(function(a,b){
+    return String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
+  });
+}
 function renderResumoDetalheData(){
   var el=document.getElementById('resumoSec');
   var linhasData=resumoLinhasFiltradasTexto().filter(function(l){return l.data===resumoDataSelecionada;});
@@ -4132,14 +4148,7 @@ function renderResumoDetalheData(){
       return '<option value="'+escAttr(v)+'"'+(v===atual?' selected':'')+'>'+escAttr(valoresObj[v])+'</option>';
     }).join('');
   }
-  var linhasFiltradas=linhasData.filter(function(l){
-    if(resumoFiltroBaia&&l.baia!==resumoFiltroBaia) return false;
-    if(resumoFiltroPeca&&(l.codigo||l.nome)!==resumoFiltroPeca) return false;
-    if(resumoFiltroOperador&&l.operador!==resumoFiltroOperador) return false;
-    return true;
-  }).sort(function(a,b){
-    return String(a.pedido).localeCompare(String(b.pedido)) || String(a.operador).localeCompare(String(b.operador)) || (b.quantidade-a.quantidade);
-  });
+  var linhasFiltradas=resumoLinhasDetalheAtual();
   var totalQtd=linhasFiltradas.reduce(function(s,l){return s+l.quantidade;},0);
   el.innerHTML=
     '<button class="btn-gh" style="width:auto;padding:8px 14px;font-size:11px;letter-spacing:0;text-transform:none;margin-bottom:12px" onclick="voltarResumoListaDatas()">← Voltar às datas</button>'+
@@ -4184,11 +4193,12 @@ function abrirPedidoPeloNome(pedidoNome){
   abrirDetalhePedido(p.id);
 }
 function exportarResumoExcel(){
-  if(!resumoOpCache.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
+  var linhasParaExportar=resumoDataSelecionada?resumoLinhasDetalheAtual():ordenarLinhasResumo(resumoOpCache);
+  if(!linhasParaExportar||!linhasParaExportar.length){toast('Nada para exportar — carregue o resumo primeiro');return;}
   var linhas=[['Data','Hora','Pedido','Operador','Baia','Peça','Código','Quantidade']];
-  ordenarLinhasResumo(resumoOpCache).forEach(function(l){ linhas.push([_dataBR(l.data),l.hora?String(l.hora).substring(0,5):'',l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
+  linhasParaExportar.forEach(function(l){ linhas.push([_dataBR(l.data),l.hora?String(l.hora).substring(0,5):'',l.pedido,l.operador,l.baia,l.nome,l.codigo,l.quantidade]); });
   var hoje=new Date();
-  var nome='resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+  var nome=resumoDataSelecionada?('resumo_'+resumoDataSelecionada):('resumo_'+hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0'));
   var payload=JSON.stringify({linhas:linhas,nome:nome}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar o Excel');return;}
@@ -4207,9 +4217,10 @@ function exportarResumoExcel(){
   w.document.write(h);w.document.close();
 }
 function imprimirResumoPDF(){
-  if(!resumoOpCache.length){toast('Nada para gerar — carregue o resumo primeiro');return;}
+  var linhas=resumoDataSelecionada?resumoLinhasDetalheAtual():ordenarLinhasResumo(resumoOpCache);
+  if(!linhas||!linhas.length){toast('Nada para gerar — carregue o resumo primeiro');return;}
   var ini=document.getElementById('resumoDataInicio').value, fim=document.getElementById('resumoDataFim').value;
-  var linhas=ordenarLinhasResumo(resumoOpCache);
+  var subtitulo=resumoDataSelecionada?_dataBR(resumoDataSelecionada):(ini&&fim?(_dataBR(ini)+' até '+_dataBR(fim)):'Todo o período');
   var totalQtd=linhas.reduce(function(s,l){return s+l.quantidade;},0);
   var pedidosUnicos={}; linhas.forEach(function(l){pedidosUnicos[l.pedido]=true;});
   var operadoresUnicos={}; linhas.forEach(function(l){operadoresUnicos[l.operador]=true;});
@@ -4238,7 +4249,7 @@ function imprimirResumoPDF(){
     '@page{size:A4;margin:14mm}'+
     '</style></head><body>'+
     '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
-    '<div class="hdr-t"><h1>Resumo — Pedido × Operador × Peça</h1><div class="sub">'+(ini&&fim?(_dataBR(ini)+' até '+_dataBR(fim)):'Todo o período')+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
+    '<div class="hdr-t"><h1>Resumo — Pedido × Operador × Peça</h1><div class="sub">'+subtitulo+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div></div>'+
     '<div class="kpis">'+
       '<div class="kpi"><div class="v">'+Object.keys(datasUnicas).length+'</div><div class="l">Dias</div></div>'+
       '<div class="kpi"><div class="v">'+Object.keys(pedidosUnicos).length+'</div><div class="l">Pedidos</div></div>'+
