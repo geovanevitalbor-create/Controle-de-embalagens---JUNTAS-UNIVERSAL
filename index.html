@@ -1395,7 +1395,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="md-body">
       <div id="naoEncontradosResumo" style="font-size:12px;color:var(--td);margin-bottom:10px"></div>
       <div id="naoEncontradosLista" style="display:flex;flex-direction:column;max-height:44vh;overflow-y:auto;margin-bottom:14px;border:1px solid var(--bd);border-radius:8px;font-family:var(--mo);font-size:12.5px"></div>
-      <div style="font-size:11px;color:var(--td);margin-bottom:14px">Esses nomes não batem com nenhum produto cadastrado — cadastre-os em Admin › Peças (ou corrija a grafia na planilha) e importe de novo.</div>
+      <div style="font-size:11px;color:var(--td);margin-bottom:14px">Esses códigos não batem com nenhuma peça cadastrada — cadastre-os em Admin › Peças (ou confira se digitou certo) e importe de novo.</div>
       <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovNaoEncontrados')">Fechar</button><button class="btn-ok green" onclick="baixarListaNaoEncontrados()">⬇ Baixar Excel</button></div>
     </div>
   </div>
@@ -3560,12 +3560,14 @@ function adicionarProdutosSelecionados(){
 }
 
 // ── Importar/baixar modelo Excel (colunas: Produto | Quantidade — Produto é o nome, igual ao cadastro de Peças) ──
+// Modelo simplificado: só Peça (o código já cadastrado) e Quantidade — sem aba de referência
+// pra copiar nome. Agora que a importação casa pelo código exato (ver processarImportExcelPedido),
+// quem está montando o pedido já digita/cola o código que tem em mãos — normalmente vindo da
+// própria planilha do cliente — sem precisar caçar o nome certo numa lista de 100+ linhas.
 function baixarModeloPedidoExcel(){
-  var exemploNome=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].nome:'NOME_DO_PRODUTO_AQUI';
-  var linhasItens=[['Produto','Quantidade'],[exemploNome,10]];
-  var linhasDados=[['Produtos cadastrados — copie o nome exato daqui pra coluna Produto da aba Itens']];
-  (produtosAdmin||[]).forEach(function(p){ linhasDados.push([p.nome]); });
-  var payload=JSON.stringify({itens:linhasItens,dados:linhasDados}).replace(/</g,'\\u003c');
+  var exemploCod=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].codigo:'CODIGO_AQUI';
+  var linhasItens=[['Peça','Quantidade'],[exemploCod,10]];
+  var payload=JSON.stringify({itens:linhasItens}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar o modelo');return;}
   var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Gerando modelo...</title>'+
@@ -3576,24 +3578,23 @@ function baixarModeloPedidoExcel(){
     '<body><div class="sp" id="sp"></div><div id="msg">Gerando modelo...</div>'+
     '<button class="b" id="bd" onclick="baixar()">⬇ Baixar novamente</button>'+
     '<script>var D='+payload+';function baixar(){try{var wb=XLSX.utils.book_new();'+
-    'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:32},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
-    'var s2=XLSX.utils.aoa_to_sheet(D.dados);s2["!cols"]=[{wch:40}];XLSX.utils.book_append_sheet(wb,s2,"Dados");'+
-    'XLSX.writeFile(wb,"modelo_pedido.xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! Aba Itens: preencha Produto e Quantidade. Aba Dados: lista de nomes válidos pra copiar (sem dropdown automático, mas evita erro de digitação). Depois importe de volta no Cadastrar Pedido.";document.getElementById("bd").style.display="inline-block";}'+
+    'var s1=XLSX.utils.aoa_to_sheet(D.itens);s1["!cols"]=[{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,s1,"Itens");'+
+    'XLSX.writeFile(wb,"modelo_pedido.xlsx");document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Pronto! Preencha Peça (código já cadastrado) e Quantidade, uma linha por item. Depois importe de volta no Cadastrar Pedido.";document.getElementById("bd").style.display="inline-block";}'+
     'catch(e){document.getElementById("sp").style.display="none";document.getElementById("msg").textContent="Falha ao gerar: "+e.message;}}'+
     'window.onload=function(){setTimeout(baixar,300);};<\/script></body></html>';
   w.document.write(h);w.document.close();
 }
-// Quando a importação de Excel encontra nomes que não batem com nenhum produto cadastrado,
+// Quando a importação de Excel encontra códigos que não batem com nenhuma peça cadastrada,
 // mostra a lista completa num modal — não tenta mais baixar sozinho (window.open logo após
 // ler e processar o arquivo quase sempre é bloqueado como pop-up, por não ser mais uma
 // resposta síncrona a um clique). O Excel só é gerado se a pessoa clicar em "Baixar Excel"
 // dentro do modal — aí sim é um clique direto, e o navegador deixa passar.
 var naoEncontradosAtual=[];
-function abrirNaoEncontrados(nomes){
-  if(!nomes||!nomes.length)return;
-  naoEncontradosAtual=nomes;
-  document.getElementById('naoEncontradosResumo').textContent=nomes.length+' produto(s) da planilha não batem com nenhum cadastrado:';
-  document.getElementById('naoEncontradosLista').innerHTML=nomes.map(function(n,i){
+function abrirNaoEncontrados(codigos){
+  if(!codigos||!codigos.length)return;
+  naoEncontradosAtual=codigos;
+  document.getElementById('naoEncontradosResumo').textContent=codigos.length+' código(s) da planilha não bate(m) com nenhuma peça cadastrada:';
+  document.getElementById('naoEncontradosLista').innerHTML=codigos.map(function(n,i){
     return '<div style="padding:8px 12px;'+(i?'border-top:1px solid var(--bd);':'')+'">'+escAttr(n)+'</div>';
   }).join('');
   document.getElementById('ovNaoEncontrados').classList.remove('hidden');
@@ -3601,7 +3602,7 @@ function abrirNaoEncontrados(nomes){
 function baixarListaNaoEncontrados(){
   var nomes=naoEncontradosAtual;
   if(!nomes||!nomes.length)return;
-  var linhas=[['Produto não encontrado no cadastro','Total: '+nomes.length]];
+  var linhas=[['Código não encontrado no cadastro','Total: '+nomes.length]];
   nomes.forEach(function(n){ linhas.push([n,'']); });
   var payload=JSON.stringify({linhas:linhas}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
@@ -3640,21 +3641,22 @@ function handleImportExcelPedido(fileInput){
   reader.onerror=function(){ alert('Falha ao ler o arquivo.'); };
   reader.readAsArrayBuffer(file);
 }
+// Casa pelo CÓDIGO da peça (não mais pelo nome) — é a chave exata que já existe no cadastro
+// e que o cliente também usa na própria planilha dele, então não depende de digitar o nome
+// igualzinho ao que está no sistema. Aceita a coluna como "Peça" (modelo novo) ou "Produto"
+// (planilhas antigas já em uso), pra não quebrar quem já tinha o arquivo pronto.
 function processarImportExcelPedido(rows){
-  var porNome={};
-  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
   var achados=0, naoAchados=[];
   (rows||[]).forEach(function(r){
-    var nomeRaw=String(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')).trim();
+    var codRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
     var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
-    if(!nomeRaw||!qtd||qtd<=0)return;
-    var cod=porNome[nomeRaw.toLowerCase()];
-    if(!cod){ naoAchados.push(nomeRaw); return; }
+    if(!codRaw||!qtd||qtd<=0)return;
+    if(!Object.prototype.hasOwnProperty.call(produtosCache,codRaw)){ naoAchados.push(codRaw); return; }
     achados++;
-    cadPedAdicionar(cod,produtosCache[cod],qtd);
+    cadPedAdicionar(codRaw,produtosCache[codRaw],qtd);
   });
   renderCadPedItens();
-  if(!achados&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
+  if(!achados&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Peça/Quantidade'); return; }
   if(naoAchados.length){
     toast('⚠ '+achados+' importado(s), '+naoAchados.length+' não encontrado(s)');
     abrirNaoEncontrados(naoAchados);
@@ -5344,18 +5346,15 @@ function handleImportExcelItemPedido(fileInput,pedidoId){
   reader.readAsArrayBuffer(file);
 }
 async function processarImportExcelItemPedido(rows,pedidoId){
-  var porNome={};
-  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
   var paraAdicionar=[], naoAchados=[];
   (rows||[]).forEach(function(r){
-    var nomeRaw=String(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')).trim();
+    var codRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
     var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
-    if(!nomeRaw||!qtd||qtd<=0)return;
-    var cod=porNome[nomeRaw.toLowerCase()];
-    if(!cod){ naoAchados.push(nomeRaw); return; }
-    paraAdicionar.push({codigo:cod,nome:produtosCache[cod],qtd:qtd});
+    if(!codRaw||!qtd||qtd<=0)return;
+    if(!Object.prototype.hasOwnProperty.call(produtosCache,codRaw)){ naoAchados.push(codRaw); return; }
+    paraAdicionar.push({codigo:codRaw,nome:produtosCache[codRaw],qtd:qtd});
   });
-  if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
+  if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Peça/Quantidade'); return; }
   if(!paraAdicionar.length){
     toast('⚠ Nenhum item reconhecido');
     abrirNaoEncontrados(naoAchados);
