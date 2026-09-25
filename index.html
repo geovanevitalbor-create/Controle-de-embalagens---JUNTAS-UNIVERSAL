@@ -1388,6 +1388,19 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
   </div>
 </div>
 
+<!-- MODAL PRODUTOS NÃO ENCONTRADOS (import de Excel em Cadastrar/Editar Pedido) -->
+<div class="ov hidden" id="ovNaoEncontrados">
+  <div class="md" style="max-width:480px">
+    <div class="md-hdr"><span class="md-title">Não encontrados</span><button class="md-x" onclick="fecharOv('ovNaoEncontrados')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button></div>
+    <div class="md-body">
+      <div id="naoEncontradosResumo" style="font-size:12px;color:var(--td);margin-bottom:10px"></div>
+      <div id="naoEncontradosLista" style="display:flex;flex-direction:column;max-height:44vh;overflow-y:auto;margin-bottom:14px;border:1px solid var(--bd);border-radius:8px;font-family:var(--mo);font-size:12.5px"></div>
+      <div style="font-size:11px;color:var(--td);margin-bottom:14px">Esses nomes não batem com nenhum produto cadastrado — cadastre-os em Admin › Peças (ou corrija a grafia na planilha) e importe de novo.</div>
+      <div class="md-acts"><button class="btn-cncl" onclick="fecharOv('ovNaoEncontrados')">Fechar</button><button class="btn-ok green" onclick="baixarListaNaoEncontrados()">⬇ Baixar Excel</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL FATURAR UM DIA — NF pra tudo que um pedido embalou numa data -->
 <div class="ov hidden" id="ovFaturarDia">
   <div class="md" style="max-width:440px">
@@ -3571,10 +3584,22 @@ function baixarModeloPedidoExcel(){
   w.document.write(h);w.document.close();
 }
 // Quando a importação de Excel encontra nomes que não batem com nenhum produto cadastrado,
-// baixa automaticamente uma planilha com o total e a lista completa desses nomes — pra
-// virar a base de trabalho de quem for cadastrar essas peças em Admin > Peças. Antes isso
-// só aparecia truncado (15 nomes) dentro de um alert(), difícil de usar como checklist.
-function baixarListaNaoEncontrados(nomes){
+// mostra a lista completa num modal — não tenta mais baixar sozinho (window.open logo após
+// ler e processar o arquivo quase sempre é bloqueado como pop-up, por não ser mais uma
+// resposta síncrona a um clique). O Excel só é gerado se a pessoa clicar em "Baixar Excel"
+// dentro do modal — aí sim é um clique direto, e o navegador deixa passar.
+var naoEncontradosAtual=[];
+function abrirNaoEncontrados(nomes){
+  if(!nomes||!nomes.length)return;
+  naoEncontradosAtual=nomes;
+  document.getElementById('naoEncontradosResumo').textContent=nomes.length+' produto(s) da planilha não batem com nenhum cadastrado:';
+  document.getElementById('naoEncontradosLista').innerHTML=nomes.map(function(n,i){
+    return '<div style="padding:8px 12px;'+(i?'border-top:1px solid var(--bd);':'')+'">'+escAttr(n)+'</div>';
+  }).join('');
+  document.getElementById('ovNaoEncontrados').classList.remove('hidden');
+}
+function baixarListaNaoEncontrados(){
+  var nomes=naoEncontradosAtual;
   if(!nomes||!nomes.length)return;
   var linhas=[['Produto não encontrado no cadastro','Total: '+nomes.length]];
   nomes.forEach(function(n){ linhas.push([n,'']); });
@@ -3631,8 +3656,8 @@ function processarImportExcelPedido(rows){
   renderCadPedItens();
   if(!achados&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
   if(naoAchados.length){
-    toast('⚠ '+achados+' importado(s), '+naoAchados.length+' não encontrado(s) — baixando lista');
-    baixarListaNaoEncontrados(naoAchados);
+    toast('⚠ '+achados+' importado(s), '+naoAchados.length+' não encontrado(s)');
+    abrirNaoEncontrados(naoAchados);
   }else{
     toast('✔ '+achados+' item(ns) importado(s) do Excel');
   }
@@ -5332,8 +5357,8 @@ async function processarImportExcelItemPedido(rows,pedidoId){
   });
   if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Produto/Quantidade'); return; }
   if(!paraAdicionar.length){
-    toast('⚠ Nenhum item reconhecido — baixando lista');
-    baixarListaNaoEncontrados(naoAchados);
+    toast('⚠ Nenhum item reconhecido');
+    abrirNaoEncontrados(naoAchados);
     return;
   }
   toast('⏳ Processando '+paraAdicionar.length+' item(ns)...');
@@ -5361,8 +5386,8 @@ async function processarImportExcelItemPedido(rows,pedidoId){
   if(falhas.length) msg+=' — '+falhas.length+' falharam ao salvar';
   toast(msg);
   if(naoAchados.length){
-    toast('⚠ '+naoAchados.length+' não encontrado(s) no cadastro — baixando lista');
-    baixarListaNaoEncontrados(naoAchados);
+    toast('⚠ '+naoAchados.length+' não encontrado(s) no cadastro');
+    abrirNaoEncontrados(naoAchados);
   }
 }
 function abrirDetalhePedido(id){
