@@ -1082,6 +1082,11 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
           <input class="adm-search" id="prodSearchInp" type="text" placeholder="Buscar por código EAN ou peça..." oninput="renderProdList()" autocomplete="off">
           <button class="adm-btn-ghost" onclick="carregarProdutosAdmin()" title="Recarregar">↻</button>
         </div>
+        <div class="fat-filters" id="prodFiltroTipoRow">
+          <button class="fat-filter active" id="prodFiltroTipoBtnTodos" onclick="setProdFiltroTipo('')">Todos</button>
+          <button class="fat-filter" id="prodFiltroTipoBtnAcabado" onclick="setProdFiltroTipo('acabado')">Acabado</button>
+          <button class="fat-filter" id="prodFiltroTipoBtnComponente" onclick="setProdFiltroTipo('componente')">Componente</button>
+        </div>
         <div class="adm-count" id="prodCount"></div>
         <div class="adm-list" id="prodList"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
       </section>
@@ -1970,6 +1975,7 @@ let bipCamStream=null, bipCamInterval=null;
 // Serve para validar as leituras na hora (e offline) sem consultar o banco a cada bipada.
 let produtosCache=null;
 let produtosAdmin=[]; // lista [{codigo,nome,tipo}] usada na tela Admin
+var prodFiltroTipo=''; // '' | 'acabado' | 'componente' — filtro dos pills Todos/Acabado/Componente na lista de Peças
 // {codigo: 'acabado'|'componente'} — cache separado do produtosCache (que é só {codigo:nome}
 // e é lido pesado na validação de bipagem) pra não arriscar mexer naquele formato. Usado só
 // pra decidir qual etiqueta do cliente imprimir (ver tipoProdutoPorCodigo/montarImprimirEtqCliente).
@@ -6848,9 +6854,22 @@ function carregarProdutosAdmin(){
       .listarProdutos();
   }catch(e){ el.innerHTML='<div class="adm-empty">📡 '+e.message+'</div>'; }
 }
+// Os pills Todos/Acabado/Componente já existiam no HTML, mas essa função nunca foi escrita
+// — botão morto. Marca o filtro, acende o pill certo e re-renderiza a lista.
+function setProdFiltroTipo(tipo){
+  prodFiltroTipo=tipo;
+  document.getElementById('prodFiltroTipoBtnTodos').classList.toggle('active',tipo==='');
+  document.getElementById('prodFiltroTipoBtnAcabado').classList.toggle('active',tipo==='acabado');
+  document.getElementById('prodFiltroTipoBtnComponente').classList.toggle('active',tipo==='componente');
+  renderProdList();
+}
 function renderProdList(){
   var q=(document.getElementById('prodSearchInp').value||'').trim().toLowerCase();
-  var lista=(produtosAdmin||[]).filter(function(p){ return !q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1; });
+  var lista=(produtosAdmin||[]).filter(function(p){
+    var bateBusca=!q||String(p.nome).toLowerCase().indexOf(q)!==-1||String(p.codigo).toLowerCase().indexOf(q)!==-1;
+    var bateTipo=!prodFiltroTipo||p.tipo===prodFiltroTipo;
+    return bateBusca&&bateTipo;
+  });
   var el=document.getElementById('prodList');
   var cntEl=document.getElementById('prodCount');
   if(cntEl) cntEl.textContent=produtosAdmin.length?(lista.length+' de '+produtosAdmin.length+' peça(s)'):'';
@@ -6875,12 +6894,13 @@ function renderProdList(){
       '</div>';
     }
     var codEsc=p.codigo.replace(/'/g,"\\'");
+    var tipoLbl=p.tipo==='componente'?'Componente':'Acabado';
+    var tipoCor=p.tipo==='componente'?'var(--pu)':'var(--gn)';
     return '<div class="prod-item">'+
       '<div class="prod-item-info">'+
+        '<div class="prod-item-row"><span class="prod-item-tag">NOME</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span></div>'+
         '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+escAttr(p.codigo)+'</span></div>'+
-        '<div class="prod-item-row"><span class="prod-item-tag">NOME</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span>'+
-          (p.tipo==='componente'?'<span style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.3);font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0">Componente</span>':'')+
-        '</div>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">TIPO</span><span class="prod-item-nome" style="color:'+tipoCor+'">'+tipoLbl+'</span></div>'+
       '</div>'+
       '<div class="prod-item-acts">'+
         '<button class="adm-icon-btn edit" onclick="editProd(\''+codEsc+'\')" title="Editar">'+ICO_EDIT+'</button>'+
