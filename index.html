@@ -1067,7 +1067,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <h2 class="adm-panel-title">Peças</h2>
         <div class="adm-addcard">
           <div class="adm-field"><label class="adm-field-lbl">Código de barras (EAN)</label><input autocomplete="off" class="adm-input" id="addProdCod" placeholder="Ex: 7891234567890" onkeydown="if(event.key==='Enter')document.getElementById('addProdNome').focus()"></div>
-          <div class="adm-field"><label class="adm-field-lbl">Código Sabó</label><input autocomplete="off" class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
+          <div class="adm-field"><label class="adm-field-lbl">Nome da Peça</label><input autocomplete="off" class="adm-input" id="addProdNome" placeholder="Ex: 10023" onkeydown="if(event.key==='Enter')addProd()"></div>
           <div class="adm-field" style="flex:0 0 100%">
             <label class="adm-field-lbl">Tipo — decide qual etiqueta do cliente imprime</label>
             <div style="display:flex;gap:8px">
@@ -3565,7 +3565,11 @@ function adicionarProdutosSelecionados(){
 // quem está montando o pedido já digita/cola o código que tem em mãos — normalmente vindo da
 // própria planilha do cliente — sem precisar caçar o nome certo numa lista de 100+ linhas.
 function baixarModeloPedidoExcel(){
-  var exemploNome=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].nome:'CODIGO_AQUI';
+  // Pega o primeiro produto cujo nome pareça mesmo um código curto (não um EAN de 12-13
+  // dígitos digitado no campo errado por engano) — sem isso, se o 1º produto do cadastro
+  // tiver um erro de digitação, o exemplo da planilha sai enganoso.
+  var exemploProd=(produtosAdmin||[]).find(function(p){ return p.nome&&String(p.nome).trim().length<=10; })||(produtosAdmin&&produtosAdmin[0]);
+  var exemploNome=exemploProd?exemploProd.nome:'CODIGO_AQUI';
   var linhasItens=[['Peça','Quantidade'],[exemploNome,10]];
   var payload=JSON.stringify({itens:linhasItens}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
@@ -6874,7 +6878,7 @@ function renderProdList(){
     return '<div class="prod-item">'+
       '<div class="prod-item-info">'+
         '<div class="prod-item-row"><span class="prod-item-tag">EAN</span><span class="prod-item-cod">'+escAttr(p.codigo)+'</span></div>'+
-        '<div class="prod-item-row"><span class="prod-item-tag">SABÓ</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span>'+
+        '<div class="prod-item-row"><span class="prod-item-tag">NOME</span><span class="prod-item-nome">'+escAttr(p.nome)+'</span>'+
           (p.tipo==='componente'?'<span style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.3);font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0">Componente</span>':'')+
         '</div>'+
       '</div>'+
@@ -6897,7 +6901,7 @@ function addProd(){
   var nome=document.getElementById('addProdNome').value.trim();
   var errEl=document.getElementById('addProdErr');
   errEl.style.display='none';
-  if(!cod||!nome){errEl.textContent='Preencha o código EAN e o Código Sabó.';errEl.style.display='block';return;}
+  if(!cod||!nome){errEl.textContent='Preencha o código EAN e o nome da peça.';errEl.style.display='block';return;}
   if(produtosAdmin.some(function(p){return p.codigo===cod;})){errEl.textContent='Já existe uma peça com esse código EAN.';errEl.style.display='block';return;}
   try{
     google.script.run
