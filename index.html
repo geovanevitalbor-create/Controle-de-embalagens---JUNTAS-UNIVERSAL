@@ -3565,8 +3565,8 @@ function adicionarProdutosSelecionados(){
 // quem está montando o pedido já digita/cola o código que tem em mãos — normalmente vindo da
 // própria planilha do cliente — sem precisar caçar o nome certo numa lista de 100+ linhas.
 function baixarModeloPedidoExcel(){
-  var exemploCod=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].codigo:'CODIGO_AQUI';
-  var linhasItens=[['Peça','Quantidade'],[exemploCod,10]];
+  var exemploNome=(produtosAdmin&&produtosAdmin.length)?produtosAdmin[0].nome:'CODIGO_AQUI';
+  var linhasItens=[['Peça','Quantidade'],[exemploNome,10]];
   var payload=JSON.stringify({itens:linhasItens}).replace(/</g,'\\u003c');
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para baixar o modelo');return;}
@@ -3645,24 +3645,33 @@ function handleImportExcelPedido(fileInput){
 // e que o cliente também usa na própria planilha dele, então não depende de digitar o nome
 // igualzinho ao que está no sistema. Aceita a coluna como "Peça" (modelo novo) ou "Produto"
 // (planilhas antigas já em uso), pra não quebrar quem já tinha o arquivo pronto.
+// Tudo ou nada: se QUALQUER peça da planilha não bater com o cadastro, a importação
+// inteira é rejeitada — nenhum item entra na lista, mesmo os que bateram certinho. Sem isso,
+// dava pra cadastrar um pedido faltando peça sem perceber, só porque uma linha da planilha
+// tinha o código errado ou a peça ainda não tinha sido cadastrada.
+// Casa pelo campo "nome" do cadastro — que é onde fica o código curto que o cliente usa
+// (ex: Código Sabó), não o codigo_produto (esse é o código de barras, usado só pra bipagem).
 function processarImportExcelPedido(rows){
-  var achados=0, naoAchados=[];
+  var porNome={};
+  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
+  var validos=[], naoAchados=[];
   (rows||[]).forEach(function(r){
-    var codRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
+    var nomeRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
     var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
-    if(!codRaw||!qtd||qtd<=0)return;
-    if(!Object.prototype.hasOwnProperty.call(produtosCache,codRaw)){ naoAchados.push(codRaw); return; }
-    achados++;
-    cadPedAdicionar(codRaw,produtosCache[codRaw],qtd);
+    if(!nomeRaw||!qtd||qtd<=0)return;
+    var cod=porNome[nomeRaw.toLowerCase()];
+    if(!cod){ naoAchados.push(nomeRaw); return; }
+    validos.push({codigo:cod,qtd:qtd});
   });
-  renderCadPedItens();
-  if(!achados&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Peça/Quantidade'); return; }
+  if(!validos.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Peça/Quantidade'); return; }
   if(naoAchados.length){
-    toast('⚠ '+achados+' importado(s), '+naoAchados.length+' não encontrado(s)');
+    toast('⛔ Importação cancelada — '+naoAchados.length+' peça(s) não encontrada(s)');
     abrirNaoEncontrados(naoAchados);
-  }else{
-    toast('✔ '+achados+' item(ns) importado(s) do Excel');
+    return;
   }
+  validos.forEach(function(it){ cadPedAdicionar(it.codigo,produtosCache[it.codigo],it.qtd); });
+  renderCadPedItens();
+  toast('✔ '+validos.length+' item(ns) importado(s) do Excel');
 }
 
 var salvandoPedidoEsperado=false;
@@ -5345,18 +5354,24 @@ function handleImportExcelItemPedido(fileInput,pedidoId){
   reader.onerror=function(){ alert('Falha ao ler o arquivo.'); };
   reader.readAsArrayBuffer(file);
 }
+// Tudo ou nada, igual ao cadastro novo: se alguma peça não bater, nada é adicionado ao
+// pedido — nem as que bateram certinho — até a planilha ser corrigida e reimportada.
+// Casa pelo "nome" (código curto do cliente), não pelo codigo_produto (código de barras).
 async function processarImportExcelItemPedido(rows,pedidoId){
+  var porNome={};
+  Object.keys(produtosCache).forEach(function(cod){ porNome[String(produtosCache[cod]).trim().toLowerCase()]=cod; });
   var paraAdicionar=[], naoAchados=[];
   (rows||[]).forEach(function(r){
-    var codRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
+    var nomeRaw=String(r['Peça']!=null?r['Peça']:(r['peça']!=null?r['peça']:(r['Produto']!=null?r['Produto']:(r['produto']!=null?r['produto']:'')))).trim();
     var qtd=parseInt(r['Quantidade']!=null?r['Quantidade']:(r['quantidade']!=null?r['quantidade']:0),10);
-    if(!codRaw||!qtd||qtd<=0)return;
-    if(!Object.prototype.hasOwnProperty.call(produtosCache,codRaw)){ naoAchados.push(codRaw); return; }
-    paraAdicionar.push({codigo:codRaw,nome:produtosCache[codRaw],qtd:qtd});
+    if(!nomeRaw||!qtd||qtd<=0)return;
+    var cod=porNome[nomeRaw.toLowerCase()];
+    if(!cod){ naoAchados.push(nomeRaw); return; }
+    paraAdicionar.push({codigo:cod,nome:produtosCache[cod],qtd:qtd});
   });
   if(!paraAdicionar.length&&!naoAchados.length){ toast('Planilha vazia ou sem as colunas Peça/Quantidade'); return; }
-  if(!paraAdicionar.length){
-    toast('⚠ Nenhum item reconhecido');
+  if(naoAchados.length){
+    toast('⛔ Importação cancelada — '+naoAchados.length+' peça(s) não encontrada(s)');
     abrirNaoEncontrados(naoAchados);
     return;
   }
@@ -5384,10 +5399,6 @@ async function processarImportExcelItemPedido(rows,pedidoId){
   var msg='✔ '+okCount+' item(ns) processado(s)'+(somados?(' ('+somados+' somado(s) em item já existente)'):'');
   if(falhas.length) msg+=' — '+falhas.length+' falharam ao salvar';
   toast(msg);
-  if(naoAchados.length){
-    toast('⚠ '+naoAchados.length+' não encontrado(s) no cadastro');
-    abrirNaoEncontrados(naoAchados);
-  }
 }
 function abrirDetalhePedido(id){
   var p=pedidosEsperados.find(function(x){return x.id===id;});
