@@ -880,6 +880,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <button class="adm-tab" data-t="resumo" onclick="fatTab('resumo')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M9 9.5V20"/></svg></span>Resumo</button>
         <button class="adm-tab" data-t="pedidos" onclick="fatTab('pedidos')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 7.5l9-4.5 9 4.5-9 4.5-9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg></span>Pedidos</button>
         <button class="adm-tab" data-t="transportadoras" onclick="fatTab('transportadoras')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3 16.5V6.5a1 1 0 0 1 1-1h9v11"/><path d="M13 9.5h4l3.5 3.5v3.5h-2"/><circle cx="7" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/></svg></span>Transportadoras</button>
+        <button class="adm-tab" data-t="sessoes" onclick="fatTab('sessoes')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6v2.5H9z" fill="currentColor" stroke="none"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg></span>Sessões</button>
         <!-- Aba "Histórico" removida do menu — painel e função continuam no código
              (fpane-historico, renderHistoricoFatSec), só não tem mais botão de acesso.
              Ficou redundante: o filtro "Todos" da aba Pedidos já lista qualquer pedido
@@ -954,6 +955,49 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
         <section class="fat-panel" id="fpane-transportadoras">
           <h2 class="adm-panel-title">Transportadoras</h2>
           <div id="transportadorasSec"><div class="fat-spin-wrap"><div class="fat-spinner"></div></div></div>
+        </section>
+
+        <section class="fat-panel" id="fpane-sessoes">
+          <h2 class="adm-panel-title">Sessões</h2>
+          <div class="ped-filterbar">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:150px">
+                <span class="ped-filterbar-lbl">Operador</span>
+                <select class="adm-search" id="fatHistOpSel" onchange="filtrarHist()"><option value="">Todos os operadores</option></select>
+              </div>
+              <div style="flex:1;min-width:150px">
+                <span class="ped-filterbar-lbl">Pedido</span>
+                <select class="adm-search" id="fatHistPedSel" onchange="filtrarHist()"><option value="">Todos os pedidos</option></select>
+              </div>
+              <div style="flex:1;min-width:120px">
+                <span class="ped-filterbar-lbl">Nota fiscal</span>
+                <input autocomplete="off" class="adm-search" id="fatHistNfBusca" placeholder="Nº da NF..." oninput="filtrarHist()">
+              </div>
+              <button class="adm-btn-ghost" onclick="carregarHist()" title="Recarregar" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
+              <div>
+                <span class="ped-filterbar-lbl">Data da embalagem</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input autocomplete="off" class="adm-search" id="fatHistDataInicio" type="date" onchange="filtrarHist()" style="max-width:150px">
+                  <span class="rel-dates-sep">até</span>
+                  <input autocomplete="off" class="adm-search" id="fatHistDataFim" type="date" onchange="filtrarHist()" style="max-width:150px">
+                  <button class="adm-btn-ghost" onclick="limparPeriodoHist()" title="Limpar período"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
+                </div>
+              </div>
+              <div style="flex:1;min-width:200px">
+                <span class="ped-filterbar-lbl">Peças</span>
+                <button class="adm-search" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="abrirFiltroPecasHist()">
+                  <span>Filtrar por peças <span id="fatHistPecasCountLabel" style="color:var(--brand2);font-weight:600"></span></span>
+                  <span style="color:var(--td)">▾</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="fatHistLimiteAviso" style="display:none;align-items:center;gap:8px;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:9px 12px;font-size:11px;margin-bottom:10px">
+            Mostrando as 200 finalizações mais recentes — pode haver embalagens mais antigas fora dessa lista. Use os filtros de período pra reduzir o intervalo.
+          </div>
+          <div class="adm-list" id="fatHistLista"><div class="adm-spin-wrap"><div class="fat-spinner"></div></div></div>
         </section>
 
         <section class="fat-panel" id="fpane-pedidos">
@@ -1116,7 +1160,7 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
                 <input autocomplete="off" class="adm-search" id="histDataInicio" type="date" onchange="filtrarHist()" style="max-width:150px">
                 <span class="rel-dates-sep">até</span>
                 <input autocomplete="off" class="adm-search" id="histDataFim" type="date" onchange="filtrarHist()" style="max-width:150px">
-                <button class="adm-btn-ghost" onclick="document.getElementById('histDataInicio').value='';document.getElementById('histDataFim').value='';filtrarHist();" title="Limpar período"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
+                <button class="adm-btn-ghost" onclick="limparPeriodoHist()" title="Limpar período"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg></button>
               </div>
             </div>
             <div style="flex:1;min-width:200px">
@@ -1945,7 +1989,7 @@ function toggleCfgSwitch(inp){
   salvarCfgSistema();
   if(chave==='avisoPendenciasFat') renderBannerPendenciasFat();
   if(chave==='avisoProntoFinalizar') renderBannerProntoFinalizar();
-  if(chave==='avisoLimiteHist'){ var elh=document.getElementById('histLimiteAviso'); if(elh) elh.style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none'; }
+  if(chave==='avisoLimiteHist'){ ['histLimiteAviso','fatHistLimiteAviso'].forEach(function(id){ var elh=document.getElementById(id); if(elh) elh.style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none'; }); }
   if(chave==='avisoProgresso') atualizarAvisoProgresso();
   if(chave.indexOf('chart')===0&&relatorioAtual) renderRelatorioFaturamento(relatorioAtual);
   if(chave==='mostrarDicas') aplicarVisibilidadeDicas();
@@ -4086,6 +4130,7 @@ function fatTab(t){
   if(t==='historico') renderHistoricoFatSec();
   if(t==='embalagens') carregarFat();
   if(t==='transportadoras') carregarTransportadoras();
+  if(t==='sessoes') abrirHistPara(HIST_IDS_FAT);
   if(t==='resumo'){
     if(!document.getElementById('resumoDataInicio').value) setPeriodoResumo('30d',document.getElementById('resumoBtn30'));
     else carregarResumoOperadorPeca();
@@ -6534,7 +6579,7 @@ function admTab(t){
   for(var j=0;j<panes.length;j++) panes[j].classList.remove('active');
   var p=document.getElementById('pane-'+t); if(p)p.classList.add('active');
   if(t==='prod') carregarProdutosAdmin();
-  if(t==='hist') carregarHist();
+  if(t==='hist') abrirHistPara(HIST_IDS_ADMIN);
   if(t==='config') renderConfigPanel();
 }
 // Renderiza os switches de liga/desliga — via JS (não HTML fixo) porque precisa refletir o
@@ -7002,19 +7047,31 @@ function saveProdEdit(cod){
 // ═══════════════════════════════════════
 // ADMIN — HISTÓRICO (todas as embalagens finalizadas, agrupadas por pedido)
 // ═══════════════════════════════════════
-var histTodas=[]; // cache bruto de todas as embalagens vindas do servidor
+var histTodas=[]; // cache bruto de todas as embalagens vindas do servidor — compartilhado entre Admin e Faturamento
 var histOpenSet={}, histPedOpenSet={}; // {pedido: bool} grupo aberto / {sessao: bool} sessão aberta
 var histAcoesMenuAberto=null; // sessao (string) com o menu Relatório/Etiquetas/Cliente aberto, ou null
 var histPecasFiltro=[]; // códigos selecionados no filtro por peças
+// Essa tela de Sessões existe em dois lugares (Admin > Histórico e Faturamento > Sessões) —
+// mesmo dado, mesmas funções, só o conjunto de elementos na tela muda. histIds aponta pro
+// conjunto certo; abrirHistPara() troca esse ponteiro antes de carregar, ao entrar em cada aba.
+var HIST_IDS_ADMIN={opSel:'histOpSel',pedSel:'histPedSel',nfBusca:'histNfBusca',dataInicio:'histDataInicio',dataFim:'histDataFim',lista:'histLista',limiteAviso:'histLimiteAviso',pecasLabel:'histPecasCountLabel'};
+var HIST_IDS_FAT={opSel:'fatHistOpSel',pedSel:'fatHistPedSel',nfBusca:'fatHistNfBusca',dataInicio:'fatHistDataInicio',dataFim:'fatHistDataFim',lista:'fatHistLista',limiteAviso:'fatHistLimiteAviso',pecasLabel:'fatHistPecasCountLabel'};
+var histIds=HIST_IDS_ADMIN;
+function abrirHistPara(ids){ histIds=ids; carregarHist(); }
+function limparPeriodoHist(){
+  document.getElementById(histIds.dataInicio).value='';
+  document.getElementById(histIds.dataFim).value='';
+  filtrarHist();
+}
 function carregarHist(){
-  var el=document.getElementById('histLista');
+  var el=document.getElementById(histIds.lista);
   el.innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>';
   try{
     google.script.run
       .withSuccessHandler(function(d){
         if(d&&d.status==='ok'){
           histTodas=d.embalagens||[];
-          document.getElementById('histLimiteAviso').style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none';
+          document.getElementById(histIds.limiteAviso).style.display=(cfg.avisoLimiteHist&&histTodas.length>=200)?'flex':'none';
           popularHistFiltros();
           filtrarHist();
         }else{
@@ -7032,7 +7089,7 @@ function popularHistFiltros(){
     if(e.pedido&&pedsSet.indexOf(e.pedido)===-1) pedsSet.push(e.pedido);
   });
   opsSet.sort(); pedsSet.sort();
-  var selOp=document.getElementById('histOpSel'), selPed=document.getElementById('histPedSel');
+  var selOp=document.getElementById(histIds.opSel), selPed=document.getElementById(histIds.pedSel);
   var opAtual=selOp.value, pedAtual=selPed.value;
   selOp.innerHTML='<option value="">Todos os operadores</option>'+opsSet.map(function(o){return '<option value="'+escAttr(o)+'"'+(o===opAtual?' selected':'')+'>'+escAttr(o)+'</option>';}).join('');
   selPed.innerHTML='<option value="">Todos os pedidos</option>'+pedsSet.map(function(p){return '<option value="'+escAttr(p)+'"'+(p===pedAtual?' selected':'')+'>'+escAttr(p)+'</option>';}).join('');
@@ -7042,10 +7099,10 @@ function togHistPed(sessao){ histPedOpenSet[sessao]=!histPedOpenSet[sessao]; fil
 function toggleHistAcoesMenu(sessao){ histAcoesMenuAberto=(histAcoesMenuAberto===sessao)?null:sessao; filtrarHist(); }
 function fecharHistAcoesMenu(){ histAcoesMenuAberto=null; filtrarHist(); }
 function filtrarHist(){
-  var op=document.getElementById('histOpSel').value;
-  var ped=document.getElementById('histPedSel').value;
-  var nf=(document.getElementById('histNfBusca').value||'').trim().toLowerCase();
-  var di=document.getElementById('histDataInicio').value, df=document.getElementById('histDataFim').value;
+  var op=document.getElementById(histIds.opSel).value;
+  var ped=document.getElementById(histIds.pedSel).value;
+  var nf=(document.getElementById(histIds.nfBusca).value||'').trim().toLowerCase();
+  var di=document.getElementById(histIds.dataInicio).value, df=document.getElementById(histIds.dataFim).value;
   atualizarLabelPecasHist();
   var lista=histTodas.filter(function(e){
     if(op&&e.operador!==op) return false;
@@ -7065,7 +7122,7 @@ function filtrarHist(){
   renderHist(lista);
 }
 function renderHist(lista){
-  var el=document.getElementById('histLista');
+  var el=document.getElementById(histIds.lista);
   if(!histTodas.length){ el.innerHTML='<div class="adm-empty full">Nenhuma embalagem finalizada ainda.</div>'; return; }
   if(!lista.length){ el.innerHTML='<div class="adm-empty full">Nenhum resultado com esse filtro.</div>'; return; }
   var grupos={}, ordem=[];
@@ -7255,8 +7312,8 @@ function toggleFiltroPecaHist(cod){
 function limparFiltroPecasHist(){ histPecasFiltro=[]; renderFiltroPecasHist(); atualizarLabelPecasHist(); filtrarHist(); }
 function aplicarFiltroPecasHist(){ fecharOv('ovFiltrarPecasHist'); atualizarLabelPecasHist(); filtrarHist(); }
 function atualizarLabelPecasHist(){
-  var lbl=document.getElementById('histPecasCountLabel'); if(!lbl)return;
-  lbl.textContent=histPecasFiltro.length?('('+histPecasFiltro.length+' selecionada'+(histPecasFiltro.length===1?'':'s')+')'):'';
+  var txt=histPecasFiltro.length?('('+histPecasFiltro.length+' selecionada'+(histPecasFiltro.length===1?'':'s')+')'):'';
+  ['histPecasCountLabel','fatHistPecasCountLabel'].forEach(function(id){ var lbl=document.getElementById(id); if(lbl) lbl.textContent=txt; });
 }
 
 // ═══════════════════════════════════════
