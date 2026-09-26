@@ -1622,31 +1622,6 @@ const Backend={
     await sbFetch('DELETE','/embalagens?sessao=eq.'+s,null);
     return {status:'ok'};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
-  // Fecha sozinho, sem depender de ninguém clicar em nada, qualquer sessão "em andamento"
-  // (finalizada:false) de um dia ANTERIOR ao de hoje — esquecida pelo operador, tablet
-  // travou, aba fechada no meio. Critério é só a data: se já virou o dia seguinte e a sessão
-  // continua aberta, ela nunca mais vai receber bipe nenhum (cada dia/pedido novo abre sua
-  // própria sessão), então não faz sentido ficar "em andamento" pra sempre esperando alguém
-  // notar. Zerada (nenhuma caixa) -> apaga, igual cancelarSessaoAbandonada faria; COM caixa
-  // fechada -> só marca finalizada:true, preservando a produção real (nunca apaga dado real
-  // só porque o operador esqueceu de apertar "Finalizar").
-  async fecharSessoesAbandonadasAntigas(hojeISO){ try{
-    var pendentes=await sbFetch('GET','/embalagens?finalizada=eq.false&data_embalagem=lt.'+hojeISO+'&select=sessao',null);
-    if(!pendentes||!pendentes.length) return {status:'ok',fechadas:0,apagadas:0};
-    var sessoes=pendentes.map(function(e){return e.sessao;});
-    var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
-    var sessoesComCaixa={};
-    (caixasTodas||[]).forEach(function(c){ sessoesComCaixa[c.sessao]=true; });
-    var comCaixa=sessoes.filter(function(s){return sessoesComCaixa[s];});
-    var semCaixa=sessoes.filter(function(s){return !sessoesComCaixa[s];});
-    if(comCaixa.length){
-      await sbFetch('PATCH','/embalagens?sessao=in.('+comCaixa.map(function(s){return encodeURIComponent(s);}).join(',')+')',{finalizada:true});
-    }
-    if(semCaixa.length){
-      await sbFetch('DELETE','/embalagens?sessao=in.('+semCaixa.map(function(s){return encodeURIComponent(s);}).join(',')+')',null);
-    }
-    return {status:'ok',fechadas:comCaixa.length,apagadas:semCaixa.length};
-  }catch(e){ return {status:'erro',msg:String(e)}; } },
   // ── FATURAMENTO PARCIAL — a unidade é (pedido + data de embalagem): "fatura o que o
   // pedido X embalou no dia Y". Tabela: faturamentos_parciais (ver SQL no chat).
   // Lista os dias em que um pedido teve embalagem, com total de unidades/caixas do dia e,
@@ -2018,27 +1993,8 @@ function irPara(id){
     validarCampos();
     setTimeout(function(){ tentarAbrirWizardBip(0); },120);
   }
-  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');fecharSessoesAbandonadasAntigas();}
+  if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');}
   if(id==='adm'){carregarConfigs();admTab('op');}
-}
-// Chamado uma vez ao entrar em Faturamento — fecha sozinho qualquer sessão "em andamento"
-// esquecida de um dia anterior (zerada -> apaga; com caixa -> finaliza). Substitui o antigo
-// botão manual "Cancelar sessão" (removido da aba Finalizações, que também saiu). Best-effort:
-// silencioso se não achar nada ou se falhar — nunca trava a tela por causa dessa limpeza.
-function fecharSessoesAbandonadasAntigas(){
-  if(!online) return;
-  var hojeISO=fmtDataISO(new Date());
-  try{
-    google.script.run
-      .withSuccessHandler(function(d){
-        if(d&&d.status==='ok'&&(d.fechadas||d.apagadas)){
-          toast('🧹 '+(d.fechadas+d.apagadas)+' sessão(ões) antiga(s) fechada(s) automaticamente');
-          carregarPedidosEsperados();
-        }
-      })
-      .withFailureHandler(function(){})
-      .fecharSessoesAbandonadasAntigas(hojeISO);
-  }catch(e){}
 }
 // Espera ops/baias carregarem do servidor antes de abrir o popup — sem isso, numa conexão
 // mais lenta a checagem única falhava e o operador ficava sem popup e sem aviso nenhum.
@@ -5175,9 +5131,10 @@ function carregarEventosPedido(pedidoId){
 // bipagem (iniciada/finalizada/faturada, via pedEsperFinalizacoes) numa timeline única,
 // ordenada por data — mais recente primeiro. Substitui a antiga renderEventosPedidoHtml, que
 // só mostrava fechado/reaberto/finalizado isolados, sem cruzar com o que realmente aconteceu
-// na produção. Esta é a única visão de histórico do pedido agora — a aba "Finalizações" (com
-// drill-down por sessão, cancelar sessão travada e PDF por finalização) foi removida; sessão
-// travada some sozinha no dia seguinte via fecharSessoesAbandonadasAntigas().
+// na produção. A aba "Finalizações" (drill-down por sessão, cancelar sessão travada, PDF por
+// finalização) foi removida, e o fechamento automático que a substituía também saiu (apagava
+// sessão sozinho sem revisão humana — risco demais). Ver Admin > Histórico pra visão/gestão
+// de sessões travadas.
 function coletarRastreabilidade(p){
   var itens=[];
   if(p.criadoEm){
