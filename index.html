@@ -1605,7 +1605,28 @@ const Backend={
   async salvarNF(sessao,nf,faturado,cliente,dataFat){ try{ await sbFetch('POST','/notas_fiscais?on_conflict=sessao',{sessao:sessao,nf:nf||null,faturado:!!faturado,cliente:cliente||null,data_faturamento:dataFat?dataFat:null,atualizado_em:new Date().toISOString()},{'Prefer':'resolution=merge-duplicates,return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async salvarConfiguracoes(config){ try{ var t=config.tipo==='operador'?'/operadores':'/baias'; await sbFetch('DELETE',t+'?id=gt.0',null); if(config.valores&&config.valores.length){ await sbFetch('POST',t,config.valores.map(function(v){return {nome:v,ativo:true};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async carregarConfiguracoes(){ try{ var ops=await sbFetch('GET','/operadores?select=nome&order=nome.asc',null); var bs=await sbFetch('GET','/baias?select=nome&order=nome.asc',null); return {status:'ok',operadores:(ops||[]).map(function(o){return o.nome;}),baias:(bs||[]).map(function(b){return b.nome;})}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async sincronizarFila(fila){ try{ var n=0; for(var i=0;i<(fila||[]).length;i++){ var item=fila[i]; if(item.tipo==='scan'){ await Backend.registrarScanApp(item); n++; } if(item.tipo==='finalizar'){ await Backend.registrarFinalizacaoApp(item.dados); n++; } if(item.tipo==='iniciarSessao'){ await Backend.iniciarSessaoEmbalagem(item.dados); n++; } if(item.tipo==='fecharCaixa'){ await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); n++; } if(item.tipo==='finalizarSimples'){ await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); n++; } } return {status:'ok',processados:n}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Antes, essa função só CONTAVA quantos itens tentou processar — nunca conferia se cada
+  // um deu certo de verdade (os métodos chamados aqui engolem o próprio erro e devolvem
+  // {status:'erro'} em vez de lançar exceção, então o loop nunca via a falha). Resultado: ela
+  // sempre voltava "ok" pro front-end, que então apagava a fila inteira — inclusive o que
+  // tinha falhado silenciosamente. Agora devolve exatamente quais itens deram certo, pra só
+  // esses saírem da fila local; o que falhar continua lá e tenta de novo na próxima sincronização.
+  async sincronizarFila(fila){ try{
+    var ok=[], falhas=0;
+    for(var i=0;i<(fila||[]).length;i++){
+      var item=fila[i], r=null;
+      try{
+        if(item.tipo==='scan'){ r=await Backend.registrarScanApp(item); }
+        else if(item.tipo==='finalizar'){ r=await Backend.registrarFinalizacaoApp(item.dados); }
+        else if(item.tipo==='iniciarSessao'){ r=await Backend.iniciarSessaoEmbalagem(item.dados); }
+        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); }
+        else if(item.tipo==='finalizarSimples'){ r=await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); }
+        else { r={status:'ok'}; } // tipo desconhecido na fila — não trava tentando de novo pra sempre
+      }catch(e){ r={status:'erro',msg:String(e)}; }
+      if(r&&r.status==='ok'){ ok.push(item); } else { falhas++; }
+    }
+    return {status:'ok',ok:ok,processados:ok.length,falhas:falhas};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Apaga uma sessão de bipagem travada "em andamento" que nunca foi finalizada — junto com
   // qualquer caixa/item que ela já tivesse fechado antes de ser abandonada (aba fechada no
@@ -2137,7 +2158,28 @@ function addFila(item){fila.push(item);salvarFila();atualizaOffl();}
 function atualizaOffl(){const el=document.getElementById('offlEl');if(fila.length){el.className='offl show';el.textContent='⏳ '+fila.length+' item(ns) pendente(s)';}else{el.className='offl';}}
 function sincFila(){
   if(!fila.length)return;
-  try{google.script.run.withSuccessHandler(function(r){if(r&&r.status==='ok'){fila=[];salvarFila();atualizaOffl();toast('✔ Fila sincronizada');}}).withFailureHandler(function(){}).sincronizarFila(fila);}catch{}
+  var snapshot=fila.slice();
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(!r||r.status!=='ok') return;
+        if(r.falhas){
+          // Ficou algo pra trás — tira só o que o servidor confirmou, mantém o resto (mais o
+          // que tiver entrado na fila nesse meio-tempo) pra tentar de novo na próxima.
+          var okStrs={}; (r.ok||[]).forEach(function(it){ okStrs[JSON.stringify(it)]=(okStrs[JSON.stringify(it)]||0)+1; });
+          fila=fila.filter(function(item){
+            var k=JSON.stringify(item);
+            if(okStrs[k]>0){ okStrs[k]--; return false; }
+            return true;
+          });
+          salvarFila();atualizaOffl();
+        }else{
+          fila=[];salvarFila();atualizaOffl();toast('✔ Fila sincronizada');
+        }
+      })
+      .withFailureHandler(function(){})
+      .sincronizarFila(snapshot);
+  }catch{}
 }
 atualizaOffl();
 
@@ -2262,6 +2304,8 @@ function registrar(codigo){
     if(Object.prototype.hasOwnProperty.call(produtosCache,chave)){
       var checagemTipo=checarContraTipo(chave);
       if(checagemTipo.status==='tipo_incompativel'){ mostrarTipoIncompativel(chave,produtosCache[chave],checagemTipo.tipoPeca); return; }
+      var checagemMistura=checarMisturaCaixaAcabado(chave);
+      if(checagemMistura.status==='mistura'){ mostrarMisturaCaixaAcabado(chave,produtosCache[chave],checagemMistura.codigoAtual,checagemMistura.nomeAtual); return; }
       var checagem=checarContraPedido(chave);
       if(checagem.status==='fora'){ mostrarForaDoPedido(chave,produtosCache[chave]); return; }
       if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,produtosCache[chave]); return; }
@@ -2280,6 +2324,8 @@ function registrar(codigo){
           if(d&&d.encontrado){
             var checagemTipo=checarContraTipo(chave);
             if(checagemTipo.status==='tipo_incompativel'){ mostrarTipoIncompativel(chave,d.nome,checagemTipo.tipoPeca); return; }
+            var checagemMistura=checarMisturaCaixaAcabado(chave);
+            if(checagemMistura.status==='mistura'){ mostrarMisturaCaixaAcabado(chave,d.nome,checagemMistura.codigoAtual,checagemMistura.nomeAtual); return; }
             var checagem=checarContraPedido(chave);
             if(checagem.status==='fora'){ mostrarForaDoPedido(chave,d.nome); return; }
             if(checagem.status==='excedido'){ mostrarSaldoExcedido(chave,d.nome); return; }
@@ -2421,6 +2467,28 @@ function mostrarTipoIncompativel(codigo,nome,tipoPeca){
   animZone('error');beepAtencao();showFb('⛔ Tipo incompatível: '+nome,'err');
   setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
 }
+// Numa sessão de Acabado, cada CAIXA só pode ter um produto — misturar peças diferentes na
+// mesma caixa quebraria a etiqueta do cliente (mostra um único EAN13 + quantidade por caixa).
+// Componente pode misturar à vontade — vira um kit com várias peças na mesma caixa, e a
+// etiqueta dele (QR) já foi pensada pra isso. Só entra em jogo depois que a caixa já tem pelo
+// menos um item; o mesmo código de novo só soma quantidade, não conta como mistura.
+function checarMisturaCaixaAcabado(codigo){
+  if(sess.tipo!=='acabado') return {status:'ok'};
+  var codigosNaCaixa=Object.keys(cxAtual);
+  if(!codigosNaCaixa.length||codigosNaCaixa.indexOf(codigo)!==-1) return {status:'ok'};
+  return {status:'mistura',codigoAtual:codigosNaCaixa[0],nomeAtual:cxAtual[codigosNaCaixa[0]].nome};
+}
+function mostrarMisturaCaixaAcabado(codigo,nome,codigoAtual,nomeAtual){
+  document.getElementById('scanInput').disabled=true;
+  document.getElementById('btnBipCam').disabled=true;
+  if(bipCamStream && bipCamInterval){clearInterval(bipCamInterval);bipCamInterval=null;}
+  document.getElementById('naoExisteTitle').textContent='FECHE A CAIXA PRIMEIRO';
+  document.getElementById('naoExisteSub').textContent='Essa caixa já tem '+nomeAtual+' — em Acabado, cada caixa só pode ter um produto. Feche a caixa atual antes de bipar '+nome+'.';
+  document.getElementById('naoExisteCod').textContent=codigo;
+  document.getElementById('naoExisteOv').classList.remove('hidden');
+  animZone('error');beepAtencao();showFb('⛔ Feche a caixa antes de trocar de peça: '+nome,'err');
+  setTimeout(function(){document.getElementById('naoExisteBtn').focus();},50);
+}
 
 // ═══════════════════════════════════════
 // QUANTIDADE MANUAL — protegido por senha admin (pedirSenhaQtdManual -> checkSenha -> abrirQtdManual)
@@ -2455,6 +2523,10 @@ function confirmarQtdManual(){
     var tipoSessaoLblM=sess.tipo==='acabado'?'Acabado':'Componente';
     var tipoPecaLblM=checagemTipoManual.tipoPeca==='acabado'?'Acabado':'Componente';
     err.textContent='Essa peça é '+tipoPecaLblM+', mas a sessão é '+tipoSessaoLblM+' — não é permitido misturar tipos.';err.style.display='block';return;
+  }
+  var checagemMisturaManual=checarMisturaCaixaAcabado(cod);
+  if(checagemMisturaManual.status==='mistura'){
+    err.textContent='Essa caixa já tem '+checagemMisturaManual.nomeAtual+' — em Acabado, cada caixa só pode ter um produto. Feche a caixa atual antes de adicionar essa peça.';err.style.display='block';return;
   }
   // Mesma regra do pedido que já vale na bipagem normal — manual não é mais válvula de
   // escape do saldo, só um jeito mais rápido de contar quando já se sabe a quantidade certa.
