@@ -1087,12 +1087,20 @@ select.adm-search{appearance:none;-webkit-appearance:none;cursor:pointer;padding
     <div class="hdr-r"><span class="clk" id="clk4">00:00</span></div>
   </header>
   <div class="screen-body">
-    <div class="pg-pad" style="display:flex;align-items:center;justify-content:center;height:100%">
-      <div class="dash-state">
-        <div class="dash-state-ico">🚧</div>
-        <div class="dash-state-txt">Cadastrar, listar (lista e kanban) e acompanhar pedidos por aqui chega na próxima etapa.</div>
+    <div class="pg-pad">
+      <div class="fat-toolbar">
+        <div><div class="fat-title">Pedidos</div><div class="fat-sub" id="venPedCount"></div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="fat-filter active" id="venViewBtnLista" onclick="venSetView('lista')">☰ Lista</button>
+          <button class="fat-filter" id="venViewBtnKanban" onclick="venSetView('kanban')">▦ Kanban</button>
+          <button class="btn-reload" onclick="carregarPedidosEsperados()">↻ Atualizar</button>
+        </div>
       </div>
+      <input autocomplete="off" class="fat-search" id="venPedBusca" placeholder="Buscar por número do pedido, código ou peça..." oninput="venRenderPedidos()">
+      <div id="venPedLista" style="margin-top:12px"></div>
+      <div id="venPedKanban" style="display:none;gap:12px;margin-top:12px;overflow-x:auto;padding-bottom:8px"></div>
     </div>
+    <button class="fab-add" onclick="abrirCadastrarPedido()" title="Novo Pedido">+</button>
   </div>
 </div>
 
@@ -2091,6 +2099,7 @@ function irPara(id){
     setTimeout(function(){ tentarAbrirWizardBip(0); },120);
   }
   if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');}
+  if(id==='ven'){carregarPedidosEsperados();venSetView('lista');}
   if(id==='adm'){carregarConfigs();admTab('op');}
 }
 // Espera ops/baias carregarem do servidor antes de abrir o popup — sem isso, numa conexão
@@ -3824,7 +3833,7 @@ var pedidosEsperados=[];
 function carregarPedidosEsperados(){
   try{
     google.script.run
-      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); renderBannerProntoFinalizar(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); } })
+      .withSuccessHandler(function(d){ if(d&&d.status==='ok'){ pedidosEsperados=d.pedidos||[]; renderPedidosEsperados(); atualizarProgressoPedidosAbertos(); renderBannerProntoFinalizar(); if(document.getElementById('fpane-historico').classList.contains('active')) renderHistoricoFatSec(); if(document.getElementById('venPedLista')) venRenderPedidos(); } })
       .withFailureHandler(function(){})
       .listarPedidosEsperados();
   }catch(e){}
@@ -4482,6 +4491,79 @@ function gerarResumoPDF(linhas,datasSelecionadas){
   var w=window.open('','_blank');
   if(!w){toast('Libere pop-ups para gerar o PDF');return;}
   w.document.write(h);w.document.close();
+}
+
+// ═══════════════════════════════════════
+// PEDIDOS (tela Vendas) — Fase 2. Reaproveita pedidosEsperados/carregarPedidosEsperados e o
+// modal compartilhado abrirDetalhePedido (o mesmo que o Faturamento usa) em vez de duplicar
+// a lógica de criar/editar itens/abrir/fechar — só dá a esse dado uma lista e um kanban
+// próprios, sem os avisos de faturamento que só fazem sentido na tela de Faturamento.
+// O painel de notificações (Fase 3) e tirar criar/editar pedido do Faturamento (Fase 4)
+// ainda não entraram — hoje as duas telas continuam podendo criar/editar pedido.
+// ═══════════════════════════════════════
+var venView='lista'; // 'lista' | 'kanban'
+function venSetView(v){
+  venView=v;
+  document.getElementById('venViewBtnLista').classList.toggle('active',v==='lista');
+  document.getElementById('venViewBtnKanban').classList.toggle('active',v==='kanban');
+  document.getElementById('venPedLista').style.display=(v==='lista')?'block':'none';
+  document.getElementById('venPedKanban').style.display=(v==='kanban')?'flex':'none';
+  venRenderPedidos();
+}
+function venFiltrarPedidosBusca(lista){
+  var q=(document.getElementById('venPedBusca').value||'').trim().toLowerCase();
+  if(!q) return lista;
+  return lista.filter(function(p){
+    return String(p.pedido).toLowerCase().indexOf(q)!==-1||
+      (p.itens||[]).some(function(it){ return String(it.codigo||'').toLowerCase().indexOf(q)!==-1||String(it.nome||'').toLowerCase().indexOf(q)!==-1; });
+  });
+}
+function venRenderPedidos(){
+  var lista=venFiltrarPedidosBusca(pedidosEsperados||[]);
+  var cntEl=document.getElementById('venPedCount');
+  if(cntEl) cntEl.textContent=(pedidosEsperados||[]).length?(lista.length+' de '+pedidosEsperados.length+' pedido(s)'):'';
+  if(venView==='lista') venRenderPedidosLista(lista); else venRenderPedidosKanban(lista);
+}
+// Mesmo card visual da aba Pedidos do Faturamento (classe .ped-card), sem o selo de pendência
+// de faturar nem o "pronto pra finalizar" — isso é assunto do Faturamento, não de Vendas.
+function venPedidoCardHtml(p){
+  var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
+  var totEmb=p.totalEmbalado||0;
+  var pct=totEsp>0?Math.min(100,Math.round(totEmb/totEsp*100)):0;
+  var sub=p.finalizado?(p.itens.length+' produto(s) · '+totEmb+' un. embaladas ao todo'):(p.itens.length+' produto(s) · '+totEmb+' / '+totEsp+' un. embaladas');
+  var badge=p.finalizado?'<span class="ped-badge" style="background:var(--pud);color:var(--pu);border:1px solid rgba(37,99,235,.35)">✔ Finalizado</span>':('<span class="ped-badge '+(p.fechado?'fat':'emb')+'">'+(p.fechado?'Fechado':'Aberto')+'</span>');
+  return '<div class="ped-card" style="margin-bottom:6px;cursor:pointer" onclick="abrirDetalhePedido('+p.id+')">'+
+    '<div class="ped-hdr">'+
+      '<div><div class="ped-num">'+escAttr(p.pedido)+'</div><div class="ped-sub">'+sub+'</div>'+
+      (p.finalizado?'':'<div style="background:var(--bg);border-radius:20px;height:5px;margin-top:5px;overflow:hidden;max-width:200px"><div style="background:var(--ac);height:100%;width:'+pct+'%"></div></div>')+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+badge+'</div>'+
+    '</div>'+
+  '</div>';
+}
+function venRenderPedidosLista(lista){
+  var el=document.getElementById('venPedLista'); if(!el)return;
+  if(!(pedidosEsperados||[]).length){ el.innerHTML='<div class="fat-empty">Nenhum pedido cadastrado ainda — toque no + pra criar o primeiro.</div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="fat-empty">Nenhum pedido encontrado com esse filtro.</div>'; return; }
+  el.innerHTML=lista.map(venPedidoCardHtml).join('');
+}
+// Colunas batem exatamente com os status que o app já rastreia (fechado/finalizado) — não
+// inventa estágio novo tipo "em produção" que não existe como campo em lugar nenhum.
+function venRenderPedidosKanban(lista){
+  var el=document.getElementById('venPedKanban'); if(!el)return;
+  if(!(pedidosEsperados||[]).length){ el.innerHTML='<div class="fat-empty">Nenhum pedido cadastrado ainda — toque no + pra criar o primeiro.</div>'; return; }
+  var colunas=[
+    {titulo:'Aberto',filtro:function(p){return !p.fechado&&!p.finalizado;}},
+    {titulo:'Fechado',filtro:function(p){return p.fechado&&!p.finalizado;}},
+    {titulo:'Finalizado',filtro:function(p){return !!p.finalizado;}}
+  ];
+  el.innerHTML=colunas.map(function(col){
+    var itens=lista.filter(col.filtro);
+    return '<div style="flex:1;min-width:260px;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;align-self:flex-start">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--f-d);font-size:16px;letter-spacing:.02em">'+col.titulo+'</span><span class="bdg">'+itens.length+'</span></div>'+
+      (itens.length?itens.map(venPedidoCardHtml).join(''):'<div style="font-size:11px;color:var(--td);padding:10px 0;text-align:center">Nenhum pedido</div>')+
+    '</div>';
+  }).join('');
 }
 
 // ═══════════════════════════════════════
