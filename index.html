@@ -1967,7 +1967,12 @@ const Backend={
   async atualizarItemPedido(itemId,novaQuantidade){ try{ await sbFetch('PATCH','/itens_pedido?id=eq.'+itemId,{quantidade_esperada:novaQuantidade}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async removerItemPedido(itemId){ try{ await sbFetch('DELETE','/itens_pedido?id=eq.'+itemId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async adicionarItemPedido(pedidoId,codigo,nome,quantidade){ try{ var r=await sbFetch('POST','/itens_pedido',{pedido_id:pedidoId,codigo_produto:codigo,nome_produto:nome,quantidade_esperada:quantidade},{'Prefer':'return=representation'}); var novoId=r&&r[0]&&r[0].id; return {status:'ok',itemId:novoId||null}; }catch(e){ return {status:'erro',msg:String(e)}; } },
-  async buscarProgressoPedido(pedido){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var itens=(itensEsp||[]).map(function(it){ var emb=embaladoMap[it.codigo_produto]||0; var esp=Number(it.quantidade_esperada)||0; return {codigo:it.codigo_produto,nome:it.nome_produto,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Devolve UMA entrada por CÓDIGO (soma as linhas duplicadas do mesmo código no pedido — dado
+  // antigo, ex.: 2000 + 1488). Antes devolvia uma entrada por LINHA, cada uma com o embalado TOTAL
+  // do código: o modal somava esse total N vezes (embalado dobrado) e o tablet ficava só com a
+  // última linha (esperado errado). sessaoExcluir: deixa uma sessão de fora da conta do embalado
+  // (o tablet passa a própria sessão, porque ele soma o que ela já bipou por conta própria).
+  async buscarProgressoPedido(pedido,sessaoExcluir){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}).filter(function(x){return !sessaoExcluir||x!==sessaoExcluir;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var porCodigo={}, ordemCod=[]; (itensEsp||[]).forEach(function(it){ var c=it.codigo_produto; if(!porCodigo[c]){ porCodigo[c]={nome:it.nome_produto,esperado:0}; ordemCod.push(c); } porCodigo[c].esperado+=Number(it.quantidade_esperada)||0; }); var itens=ordemCod.map(function(c){ var emb=embaladoMap[c]||0; var esp=porCodigo[c].esperado; return {codigo:c,nome:porCodigo[c].nome,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'fechado',motivo:null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Finalizar é mais definitivo que fechar: além de sumir da lista do operador (fechado:true
   // junto), marca finalizado:true — o front para de mostrar saldo/progresso desse pedido,
@@ -2097,6 +2102,8 @@ function irPara(id){
   document.getElementById('scr-'+id).classList.add('active');
   if(id==='bip'){
     validarCampos();
+    // Sessão em andamento: renova o progresso do pedido (cadastro mudou, outra bancada bipou...)
+    if(sess.ped) buscarProgressoParaSessAtual(sess.ped,true);
     setTimeout(function(){ tentarAbrirWizardBip(0); },120);
   }
   if(id==='fat'){carregarPedidosEsperados();iniciarPollingFaturamento();fatTab('dashboard');}
@@ -5452,6 +5459,54 @@ function formatarQuandoTimeline(iso,temHora){
     return temHora?d.toLocaleString('pt-BR'):d.toLocaleDateString('pt-BR');
   }catch(e){ return String(iso); }
 }
+// ── Aba "Sessões" do modal de detalhe do pedido — mostra as sessões de bipagem desse pedido
+// específico, com expandir pra ver as caixas. Só visualização (sem editar/excluir caixa —
+// pra isso já existe o Admin > Histórico); busca fresca a cada pedido aberto, sem depender do
+// cache de Admin/Faturamento (que pode nunca ter sido carregado nesta sessão do navegador).
+var sessoesPedidoCache=[];
+var sessoesPedidoCarregadoPara=null; // pedido (string) cujas sessões já estão em sessoesPedidoCache, ou null
+var sessoesPedidoOpenSet={}; // {sessao: bool}
+function carregarSessoesPedido(pedidoNum){
+  try{
+    google.script.run
+      .withSuccessHandler(function(d){
+        sessoesPedidoCache=(d&&d.status==='ok')?(d.embalagens||[]).filter(function(e){return e.pedido===pedidoNum;}):[];
+        sessoesPedidoCarregadoPara=pedidoNum;
+        renderDetalhePedido();
+      })
+      .withFailureHandler(function(){ sessoesPedidoCache=[]; sessoesPedidoCarregadoPara=pedidoNum; renderDetalhePedido(); })
+      .listarEmbalagens(true);
+  }catch(e){ sessoesPedidoCache=[]; sessoesPedidoCarregadoPara=pedidoNum; renderDetalhePedido(); }
+}
+function toggleSessaoPedido(sessao){ sessoesPedidoOpenSet[sessao]=!sessoesPedidoOpenSet[sessao]; renderDetalhePedido(); }
+function renderSessoesPedidoHtml(){
+  if(!sessoesPedidoCache.length) return '<div style="font-size:12px;color:var(--td);padding:14px 0">Nenhuma sessão de bipagem registrada ainda pra esse pedido.</div>';
+  return sessoesPedidoCache.map(function(e){
+    var aberto=!!sessoesPedidoOpenSet[e.sessao];
+    var sessEsc=String(e.sessao).replace(/'/g,"\\'");
+    return '<div class="cx-detalhe" style="padding:0;overflow:hidden;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;cursor:pointer" onclick="toggleSessaoPedido(\''+sessEsc+'\')">'+
+        '<div><div style="font-family:var(--mo);font-weight:600;font-size:12px">'+e.data+(e.hora?' '+e.hora:'')+(e.finalizada===false?' <span style="color:var(--yw);font-size:9px;font-family:var(--f-b);letter-spacing:0;font-weight:600">· em andamento</span>':'')+'</div>'+
+        '<div style="font-size:10px;color:var(--td);margin-top:2px">'+(e.operador||'—')+' · '+(e.baia||'—')+' · '+(e.totalCaixas||0)+' cx · '+(e.totalUnid||0)+' un.'+(e.nf?(' · NF '+escAttr(e.nf)):'')+'</div></div>'+
+        '<span style="font-size:16px;color:var(--td);transition:transform .15s;transform:rotate('+(aberto?'90':'0')+'deg)">›</span>'+
+      '</div>'+
+      (aberto?(
+        '<div style="padding:0 12px 12px;border-top:1px dashed var(--bd)">'+
+        '<div style="display:flex;gap:6px;margin:10px 0;flex-wrap:wrap">'+
+          '<button class="btn-gh" style="width:auto;padding:7px 12px;font-size:10px;letter-spacing:0;text-transform:none" onclick="rRel(\''+sessEsc+'\')">🖨 Relatório</button>'+
+          '<button class="btn-gh" style="width:auto;padding:7px 12px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--brand2)" onclick="rEtq(\''+sessEsc+'\')">🏷 Etiquetas</button>'+
+          (e.cliLote?('<button class="btn-gh" style="width:auto;padding:7px 12px;font-size:10px;letter-spacing:0;text-transform:none;color:var(--gn)" onclick="rCli(\''+sessEsc+'\')">📦 Etq. Cliente</button>'):'')+
+        '</div>'+
+        (e.caixas&&e.caixas.length?e.caixas.map(function(cx){
+          return '<div class="cx-detalhe" style="margin-bottom:6px"><div class="cx-detalhe-hdr"><span class="cx-detalhe-n">📦 Caixa '+cx.num+'</span><span class="cx-detalhe-meta">'+(cx.totalUnid||0)+' un · '+(cx.peso||0)+' kg</span></div>'+
+            (cx.itens&&cx.itens.length?cx.itens.map(function(it){return '<div style="font-size:11px;color:var(--tm);padding:2px 0">• '+escAttr(it.nome)+' × '+it.qty+'</div>';}).join(''):'<div style="font-size:11px;color:var(--td)">Sem itens</div>')+
+          '</div>';
+        }).join(''):'<div style="font-size:11px;color:var(--td)">Sem caixas registradas.</div>')+
+        '</div>'
+      ):'')+
+    '</div>';
+  }).join('');
+}
 function renderRastreabilidadeHtml(p){
   var carregandoEventos=(pedEventosCache[p.id]===undefined);
   var carregandoFin=(pedEsperFinalizacoes[p.pedido]===undefined);
@@ -5642,6 +5697,8 @@ function abrirDetalhePedido(id){
   filtroItensPedido='';
   paginaItensPedido=1;
   exportMenuAberto=false;
+  sessoesPedidoCarregadoPara=null;
+  sessoesPedidoOpenSet={};
   document.getElementById('detPedTitulo').textContent=p.pedido;
   renderDetalhePedido();
   carregarEventosPedido(id);
@@ -5723,11 +5780,14 @@ function renderDetalhePedido(){
   var abaBtnHtml=function(id,label){ return '<button class="fat-filter'+(abaDetalhePedido===id?' active':'')+'" onclick="setAbaDetalhePedido(\''+id+'\')">'+label+'</button>'; };
   var painelUnico='<div class="dp2-panel">'+
     '<div class="dp2-panel-hd" style="flex-wrap:wrap;gap:8px">'+
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+abaBtnHtml('itens','Itens')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+abaBtnHtml('itens','Itens')+abaBtnHtml('sessoes','Sessões')+abaBtnHtml('rastreabilidade','Rastreabilidade')+'</div>'+
       (abaDetalhePedido==='itens'&&podeEditarItens?('<button class="btn-gh" style="width:auto;padding:5px 12px;font-size:10px;letter-spacing:0;text-transform:none;margin:0" onclick="setModoEdicaoPedido('+(modoEdicaoPedido?'null':"'escolha'")+')">'+(modoEdicaoPedido?'✔ Concluir':'✎ Editar')+'</button>'):'')+
     '</div>'+
     '<div class="dp2-panel-bd">'+
-      (abaDetalhePedido==='itens'?itensBodyHtml:renderRastreabilidadeHtml(p))+
+      (abaDetalhePedido==='itens'?itensBodyHtml:(abaDetalhePedido==='rastreabilidade'?renderRastreabilidadeHtml(p):(function(){
+        if(sessoesPedidoCarregadoPara!==p.pedido){ carregarSessoesPedido(p.pedido); return '<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>'; }
+        return renderSessoesPedidoHtml();
+      })()))+
     '</div>'+
   '</div>';
 
@@ -5789,7 +5849,7 @@ function agruparItensPorCodigo(itens){
     var cod=it.codigo;
     if(!mapa[cod]){ mapa[cod]={codigo:cod,nome:it.nome,qtdEsperada:0,embalado:0,ids:[]}; ordem.push(cod); }
     mapa[cod].qtdEsperada+=Number(it.qtdEsperada)||0;
-    mapa[cod].embalado+=Number(it.embalado)||0;
+    mapa[cod].embalado=Math.max(mapa[cod].embalado,Number(it.embalado)||0); // é o total do CÓDIGO, repetido em cada linha — somar dobrava
     mapa[cod].ids.push(it.id);
   });
   return ordem.map(function(cod){
@@ -6598,7 +6658,7 @@ function exportarPedidoDetalheExcel(){
   var finLista=pedEsperFinalizacoes[p.pedido];
   if(!Array.isArray(finLista)){toast('Aguarde o histórico carregar antes de exportar');return;}
   var itensLinhas=[['Produto','Código','Original','Embalado','Saldo']];
-  p.itens.forEach(function(it){
+  agruparItensPorCodigo(p.itens).forEach(function(it){
     var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
     itensLinhas.push([it.nome,it.codigo,esp,emb,sld]);
   });
@@ -6638,7 +6698,7 @@ function imprimirPedidoPDF(){
   if(!Array.isArray(finLista)){toast('Aguarde o histórico carregar antes de exportar');return;}
   var totEsp=(p.totalEsperado!=null)?p.totalEsperado:p.itens.reduce(function(s,it){return s+(Number(it.qtdEsperada)||0);},0);
   var totEmb=p.totalEmbalado||0;
-  var linhasItens=p.itens.map(function(it){
+  var linhasItens=agruparItensPorCodigo(p.itens).map(function(it){
     var emb=it.embalado||0, esp=Number(it.qtdEsperada)||0, sld=(it.saldo!=null)?it.saldo:Math.max(0,esp-emb);
     return '<tr><td>'+escAttr(it.nome)+' ('+escAttr(it.codigo)+')</td><td style="text-align:right">'+esp+'</td><td style="text-align:right">'+emb+'</td><td style="text-align:right">'+sld+'</td></tr>';
   }).join('');
@@ -6954,7 +7014,13 @@ function checarConcorrenciaPedido(pedido){
       .verificarConcorrenciaPedido(pedido,sess.id);
   }catch(e){}
 }
-function buscarProgressoParaSessAtual(pedido){
+// embaladoServidor = o que as OUTRAS sessões já embalaram desse código: a sessão atual fica de
+// fora da busca (vai junto o sess.id), porque o tablet soma à parte o que ela já bipou
+// (sess.itens). Antes a busca incluía a própria sessão — refazer a foto no meio da sessão
+// contava as mesmas peças duas vezes e o tablet travava com saldo sobrando.
+// silencioso=true (renovação automática): se falhar, mantém a foto que já tinha em vez de zerar
+// — zerar desliga os bloqueios de "fora do pedido"/"saldo excedido" por um soluço de rede.
+function buscarProgressoParaSessAtual(pedido,silencioso){
   try{
     google.script.run
       .withSuccessHandler(function(d){
@@ -6963,19 +7029,20 @@ function buscarProgressoParaSessAtual(pedido){
           d.itens.forEach(function(it){ mapa[it.codigo]={nome:it.nome,esperado:it.esperado,embaladoServidor:it.embalado}; });
           sess.pedidoProgresso=mapa;
         }else{
-          sess.pedidoProgresso=null;
+          if(!silencioso) sess.pedidoProgresso=null;
           console.error('buscarProgressoPedido retornou erro:',d&&d.msg);
         }
         salvarSess();
         atualizarAvisoProgresso();
       })
       .withFailureHandler(function(e){
-        sess.pedidoProgresso=null; salvarSess();
+        if(!silencioso) sess.pedidoProgresso=null;
+        salvarSess();
         console.error('buscarProgressoPedido falhou (rede/conexão):',e);
         atualizarAvisoProgresso();
       })
-      .buscarProgressoPedido(pedido);
-  }catch(e){ sess.pedidoProgresso=null; salvarSess(); }
+      .buscarProgressoPedido(pedido,sess.id);
+  }catch(e){ if(!silencioso) sess.pedidoProgresso=null; salvarSess(); }
 }
 function confirmarOperBaia(){
   var lote=document.getElementById('inpLotePop').value.trim();
