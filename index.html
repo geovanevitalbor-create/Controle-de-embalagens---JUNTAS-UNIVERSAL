@@ -1646,6 +1646,45 @@ async function sbFetch(method, path, body, extraHeaders){
   if(resp.ok){ try{ return text?JSON.parse(text):[]; }catch(e){ return []; } }
   throw new Error('Supabase '+method+' '+path+' HTTP '+resp.status+': '+text);
 }
+// ── Paginação ────────────────────────────────────────────────────────────────────────────
+// O Supabase devolve no máximo 1000 linhas por consulta e, quando passa disso, CORTA EM
+// SILÊNCIO: não dá erro, a resposta só vem menor. Com 1129 caixas no banco, o Histórico mostrava
+// 24 das 29 caixas de uma sessão (a busca ordena por nº da caixa, então as de número mais alto
+// são as primeiras a ficar de fora) e o relatório/etiqueta saía incompleto. O mesmo corte atingia
+// progresso do pedido (trava do tablet), pendências de faturar, relatório de faturamento e Resumo.
+// sbFetchAll pega página por página até acabar. Quem chama PRECISA passar um order= que desempate
+// tudo — sem isso, linha repete ou some entre uma página e a próxima.
+async function sbFetchAll(path){
+  var PAGINA=1000, out=[], offset=0, total=null, fim=false;
+  var headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'count=exact'};
+  for(var volta=0; volta<1000; volta++){
+    var url=SB_REST+path+(path.indexOf('?')===-1?'?':'&')+'limit='+PAGINA+'&offset='+offset;
+    var resp=await fetch(url,{method:'GET',headers:headers});
+    var text=await resp.text();
+    if(resp.status===416 && offset>0){ fim=true; break; } // pediu além do fim: acabou
+    if(!resp.ok) throw new Error('Supabase GET '+path+' HTTP '+resp.status+': '+text);
+    var rows=text?JSON.parse(text):[]; // se vier lixo, estoura de propósito em vez de seguir com dado cortado
+    for(var k=0;k<rows.length;k++) out.push(rows[k]);
+    var cr=resp.headers.get('Content-Range'), m=cr&&cr.match(/\/(\d+)$/);
+    if(m) total=Number(m[1]);
+    offset+=rows.length;
+    if(!rows.length || (total!==null && offset>=total)){ fim=true; break; }
+  }
+  if(!fim) throw new Error('Paginação não terminou: '+path);
+  return out;
+}
+// Para filtros "campo=in.(a,b,c)" com listas grandes: divide a lista em grupos (URL curta, nada
+// perto do limite) e pagina cada grupo. Cada item da lista já deve vir pronto pra URL.
+async function sbFetchPorLista(pathComToken,lista,tamanho){
+  tamanho=tamanho||150;
+  var grupos=[]; for(var i=0;i<lista.length;i+=tamanho) grupos.push(lista.slice(i,i+tamanho));
+  var out=[];
+  for(var g=0;g<grupos.length;g+=6){
+    var lote=await Promise.all(grupos.slice(g,g+6).map(function(grp){ return sbFetchAll(pathComToken.replace('{LISTA}',grp.join(','))); }));
+    lote.forEach(function(rows){ for(var k=0;k<rows.length;k++) out.push(rows[k]); });
+  }
+  return out;
+}
 function _hora(h){ if(!h)return null; if(typeof h==='string'&&h.length<=8)return h; try{var d=new Date(h); if(!isNaN(d))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}catch(e){} return String(h).substring(0,8); }
 function _dataISO(b){ if(!b)return null; var p=String(b).split('/'); if(p.length!==3)return b; return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); }
 function _dataBR(i){ if(!i)return ''; var p=String(i).split('-'); if(p.length!==3)return i; return p[2]+'/'+p[1]+'/'+p[0]; }
@@ -1663,15 +1702,15 @@ const Backend={
     var emb=await sbFetch('GET','/embalagens?select=*'+filtroFin+'&order=id.desc&limit=200',null);
     if(!emb||!emb.length) return {status:'ok',embalagens:[]};
     var fatMapSessao={}, fatMapDia={};
-    try{ var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,sessao,nf,cliente',null); (fats||[]).forEach(function(f){ if(f.sessao) fatMapSessao[f.sessao]=f; else fatMapDia[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
+    try{ var fats=await sbFetchAll('/faturamentos_parciais?select=pedido,data_embalagem,sessao,nf,cliente&order=id.asc'); (fats||[]).forEach(function(f){ if(f.sessao) fatMapSessao[f.sessao]=f; else fatMapDia[f.pedido+'|'+f.data_embalagem]=f; }); }catch(e9){}
     var sessoes=emb.map(function(e){return e.sessao;}).filter(function(s,i,arr){return s&&arr.indexOf(s)===i;});
     var caixasPorSessao={};
     if(sessoes.length){
-      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao,numero,peso,total_unidades&order=numero.asc',null);
+      var caixasTodas=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id,sessao,numero,peso,total_unidades&order=numero.asc,id.asc',sessoes.map(function(s){return encodeURIComponent(s);}),100);
       var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
       var itensPorCaixa={};
       if(caixaIds.length){
-        var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+        var itensTodos=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,quantidade.asc,nome_produto.asc',caixaIds,150);
         (itensTodos||[]).forEach(function(it){ if(!itensPorCaixa[it.caixa_id]) itensPorCaixa[it.caixa_id]=[]; itensPorCaixa[it.caixa_id].push({codigo:it.codigo_produto,nome:it.nome_produto,qty:it.quantidade}); });
       }
       (caixasTodas||[]).forEach(function(cx){
@@ -1744,11 +1783,11 @@ const Backend={
     var sessoesTodas=finalizacoes.map(function(f){return f.sessao;}).filter(function(s){return s;});
     if(sessoesTodas.length){
       try{
-        var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoesTodas.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao,numero,peso,total_unidades&order=numero.asc',null);
+        var caixasTodas=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id,sessao,numero,peso,total_unidades&order=numero.asc,id.asc',sessoesTodas.map(function(s){return encodeURIComponent(s);}),100);
         var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
         var itensPorCaixa={};
         if(caixaIds.length){
-          var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+          var itensTodos=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,quantidade.asc,nome_produto.asc',caixaIds,150);
           (itensTodos||[]).forEach(function(it){ if(!itensPorCaixa[it.caixa_id]) itensPorCaixa[it.caixa_id]=[]; itensPorCaixa[it.caixa_id].push({codigo:it.codigo_produto,nome:it.nome_produto,qty:it.quantidade}); });
         }
         var caixasPorSessao={};
@@ -1818,7 +1857,7 @@ const Backend={
     return {status:'ok',eventos:ordem.map(function(k){return grupos[k];})};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   async buscarRelatorioFaturamento(dataInicio,dataFim){ try{
-    var fats=await sbFetch('GET','/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc',null);
+    var fats=await sbFetchAll('/faturamentos_parciais?data_faturamento=gte.'+dataInicio+'&data_faturamento=lte.'+dataFim+'&select=*&order=data_faturamento.desc,id.asc');
     if(!fats||!fats.length) return {status:'ok',registros:[],totalNFs:0,totalUnidades:0,totalCaixas:0,pecas:[]};
     var embsPorFat=await Promise.all(fats.map(function(f){
       if(f.sessao) return sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(f.sessao)+'&select=sessao,total_caixas,total_unidades,cliente_transp',null);
@@ -1837,10 +1876,10 @@ const Backend={
     // período de 6 meses com muitas finalizações.
     var pecas=[];
     if(todasSessoes.length){
-      var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+todasSessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id',null);
+      var caixasTodas=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id&order=id.asc',todasSessoes.map(function(s){return encodeURIComponent(s);}),100);
       var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
       if(caixaIds.length){
-        var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=nome_produto,codigo_produto,quantidade',null);
+        var itensTodos=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=nome_produto,codigo_produto,quantidade&order=codigo_produto.asc,nome_produto.asc,quantidade.asc',caixaIds,150);
         var mapaPecas={};
         (itensTodos||[]).forEach(function(it){
           var k=it.codigo_produto||it.nome_produto; if(!k)return;
@@ -1867,8 +1906,8 @@ const Backend={
   // Pendências de faturamento: pega TODAS as embalagens e TODOS os faturamentos parciais numa
   // consulta cada (não uma por pedido) e cruza no JS — pedido+dia sem faturamento vira pendência.
   async buscarPendenciasFaturamento(){ try{
-    var embs=await sbFetch('GET','/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades,finalizada',null);
-    var fats=await sbFetch('GET','/faturamentos_parciais?select=pedido,data_embalagem,sessao',null);
+    var embs=await sbFetchAll('/embalagens?select=pedido,data_embalagem,sessao,total_caixas,total_unidades,finalizada&order=id.asc');
+    var fats=await sbFetchAll('/faturamentos_parciais?select=pedido,data_embalagem,sessao&order=id.asc');
     var fatSessaoSet={}, fatDiaSet={};
     (fats||[]).forEach(function(f){ if(f.sessao) fatSessaoSet[f.sessao]=true; else fatDiaSet[f.pedido+'|'+f.data_embalagem]=true; });
     var porPedido={}; var sessoesPendentes=[];
@@ -1883,10 +1922,10 @@ const Backend={
     var pecas=[];
     if(sessoesPendentes.length){
       try{
-        var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoesPendentes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id',null);
+        var caixasTodas=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id&order=id.asc',sessoesPendentes.map(function(s){return encodeURIComponent(s);}),100);
         var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
         if(caixaIds.length){
-          var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=nome_produto,codigo_produto,quantidade',null);
+          var itensTodos=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=nome_produto,codigo_produto,quantidade&order=codigo_produto.asc,nome_produto.asc,quantidade.asc',caixaIds,150);
           var mapaPecas={};
           (itensTodos||[]).forEach(function(it){ var k=it.codigo_produto||it.nome_produto; if(!k)return; if(!mapaPecas[k]) mapaPecas[k]={codigo:it.codigo_produto||'',nome:it.nome_produto||k,unidades:0}; mapaPecas[k].unidades+=Number(it.quantidade)||0; });
           pecas=Object.values(mapaPecas).sort(function(a,b){return b.unidades-a.unidades;});
@@ -1904,17 +1943,17 @@ const Backend={
     var filtroData='';
     if(dataInicio) filtroData+='&data_embalagem=gte.'+dataInicio;
     if(dataFim) filtroData+='&data_embalagem=lte.'+dataFim;
-    var embs=await sbFetch('GET','/embalagens?select=sessao,pedido,operador,baia,data_embalagem,hora_embalagem'+filtroData,null);
+    var embs=await sbFetchAll('/embalagens?select=sessao,pedido,operador,baia,data_embalagem,hora_embalagem'+filtroData+'&order=id.asc');
     if(!embs||!embs.length) return {status:'ok',linhas:[]};
     var infoPorSessao={};
     embs.forEach(function(e){ infoPorSessao[e.sessao]={pedido:e.pedido,operador:e.operador||'—',baia:e.baia||'—',data:e.data_embalagem,hora:e.hora_embalagem||''}; });
     var sessoes=Object.keys(infoPorSessao);
-    var caixasTodas=await sbFetch('GET','/caixas?sessao=in.('+sessoes.map(function(s){return encodeURIComponent(s);}).join(',')+')&select=id,sessao',null);
+    var caixasTodas=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id,sessao&order=id.asc',sessoes.map(function(s){return encodeURIComponent(s);}),100);
     var sessaoPorCaixa={};
     (caixasTodas||[]).forEach(function(c){ sessaoPorCaixa[c.id]=c.sessao; });
     var caixaIds=(caixasTodas||[]).map(function(c){return c.id;});
     if(!caixaIds.length) return {status:'ok',linhas:[]};
-    var itensTodos=await sbFetch('GET','/itens_caixa?caixa_id=in.('+caixaIds.join(',')+')&select=caixa_id,codigo_produto,nome_produto,quantidade',null);
+    var itensTodos=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,quantidade.asc,nome_produto.asc',caixaIds,150);
     var mapa={}, ordem=[];
     (itensTodos||[]).forEach(function(it){
       var sessao=sessaoPorCaixa[it.caixa_id]; if(!sessao)return;
@@ -1972,7 +2011,7 @@ const Backend={
   // do código: o modal somava esse total N vezes (embalado dobrado) e o tablet ficava só com a
   // última linha (esperado errado). sessaoExcluir: deixa uma sessão de fora da conta do embalado
   // (o tablet passa a própria sessão, porque ele soma o que ela já bipou por conta própria).
-  async buscarProgressoPedido(pedido,sessaoExcluir){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}).filter(function(x){return !sessaoExcluir||x!==sessaoExcluir;}); var embaladoMap={}; if(sessoes.length){ var sf=sessoes.map(function(s){return encodeURIComponent(s);}).join(','); var cxs=await sbFetch('GET','/caixas?sessao=in.('+sf+')&select=id',null); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var idf=caixaIds.join(','); var itensCx=await sbFetch('GET','/itens_caixa?caixa_id=in.('+idf+')&select=codigo_produto,quantidade',null); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var porCodigo={}, ordemCod=[]; (itensEsp||[]).forEach(function(it){ var c=it.codigo_produto; if(!porCodigo[c]){ porCodigo[c]={nome:it.nome_produto,esperado:0}; ordemCod.push(c); } porCodigo[c].esperado+=Number(it.quantidade_esperada)||0; }); var itens=ordemCod.map(function(c){ var emb=embaladoMap[c]||0; var esp=porCodigo[c].esperado; return {codigo:c,nome:porCodigo[c].nome,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  async buscarProgressoPedido(pedido,sessaoExcluir){ try{ var p=encodeURIComponent(String(pedido||'').trim()); var pedRows=await sbFetch('GET','/pedidos?pedido=eq.'+p+'&select=id,fechado',null); if(!pedRows||!pedRows.length)return {status:'erro',msg:'Pedido não cadastrado.'}; var pedidoId=pedRows[0].id; var itensEsp=await sbFetch('GET','/itens_pedido?pedido_id=eq.'+pedidoId+'&select=codigo_produto,nome_produto,quantidade_esperada',null); var embs=await sbFetch('GET','/embalagens?pedido=eq.'+p+'&select=sessao',null); var sessoes=(embs||[]).map(function(e){return e.sessao;}).filter(function(x){return !sessaoExcluir||x!==sessaoExcluir;}); var embaladoMap={}; if(sessoes.length){ var cxs=await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id&order=id.asc',sessoes.map(function(s){return encodeURIComponent(s);}),100); var caixaIds=(cxs||[]).map(function(c){return c.id;}); if(caixaIds.length){ var itensCx=await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=codigo_produto,quantidade&order=codigo_produto.asc,quantidade.asc',caixaIds,150); (itensCx||[]).forEach(function(it){ embaladoMap[it.codigo_produto]=(embaladoMap[it.codigo_produto]||0)+(Number(it.quantidade)||0); }); } } var porCodigo={}, ordemCod=[]; (itensEsp||[]).forEach(function(it){ var c=it.codigo_produto; if(!porCodigo[c]){ porCodigo[c]={nome:it.nome_produto,esperado:0}; ordemCod.push(c); } porCodigo[c].esperado+=Number(it.quantidade_esperada)||0; }); var itens=ordemCod.map(function(c){ var emb=embaladoMap[c]||0; var esp=porCodigo[c].esperado; return {codigo:c,nome:porCodigo[c].nome,esperado:esp,embalado:emb,saldo:Math.max(0,esp-emb)}; }); var totalEsperado=itens.reduce(function(s,it){return s+it.esperado;},0); var totalEmbalado=itens.reduce(function(s,it){return s+it.embalado;},0); return {status:'ok',pedidoId:pedidoId,fechado:pedRows[0].fechado===true,itens:itens,totalEsperado:totalEsperado,totalEmbalado:totalEmbalado,totalSaldo:Math.max(0,totalEsperado-totalEmbalado)}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async fecharPedidoEsperado(pedidoId){ try{ await sbFetch('PATCH','/pedidos?id=eq.'+pedidoId,{fechado:true}); try{ await sbFetch('POST','/pedido_eventos',{pedido_id:pedidoId,tipo:'fechado',motivo:null}); }catch(e2){} return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Finalizar é mais definitivo que fechar: além de sumir da lista do operador (fechado:true
   // junto), marca finalizado:true — o front para de mostrar saldo/progresso desse pedido,
