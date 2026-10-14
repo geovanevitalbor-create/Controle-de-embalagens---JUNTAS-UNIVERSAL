@@ -2908,7 +2908,7 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
 
       <div id="popStepLote" style="display:none">
         <div id="avisoConcorrenciaPop" style="display:none;background:var(--ywd);border:1px solid rgba(251,191,36,.35);color:var(--yw);border-radius:8px;padding:10px 12px;font-size:11px;margin-bottom:12px;line-height:1.5"></div>
-        <div class="md-row"><label class="lbl req">Lote de Fabricação <span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">(10 números)</span></label><input autocomplete="off" class="inp" type="text" inputmode="numeric" pattern="[0-9]*" id="inpLotePop" placeholder="Ex: 0085426122" oninput="loteFiltrarEntrada(this)" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
+        <div class="md-row"><label class="lbl req">Lote de Fabricação <span style="font-weight:400;opacity:.7;text-transform:none;letter-spacing:0">(10 caracteres: letras e números)</span></label><input autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="inp" type="text" inputmode="text" style="text-transform:uppercase" id="inpLotePop" placeholder="Ex: AB12345678" oninput="loteFiltrarEntrada(this)" onkeydown="if(event.key==='Enter')confirmarOperBaia()"><div id="lotePopErr" style="color:var(--rd);font-size:11px;display:none;margin-top:4px">Informe o lote — é ele que vai na etiqueta do cliente.</div></div>
         <button class="btn-ok green" onclick="confirmarOperBaia()" style="width:100%;padding:16px;font-size:16px;margin-top:6px">Confirmar e iniciar</button>
         <button class="btn-gh" style="margin-top:10px" onclick="voltarStepPop(4)">← Voltar</button>
       </div>
@@ -8481,21 +8481,21 @@ function buscarProgressoParaSessAtual(pedido,silencioso){
 // de uma peça cadastrada. Não bloqueia "só números" nem por tamanho — lote só de data (20261007) é legítimo.
 function loteParecerEAN(v){
   v=String(v||'').trim();
-  if(!/^\d+$/.test(v)) return false;
-  if(Object.prototype.hasOwnProperty.call(produtosTipoCache,v)) return true;
-  if(v.length!==13 && v.length!==14) return false;
+  if(!v) return false;
+  if(Object.prototype.hasOwnProperty.call(produtosTipoCache,v) || Object.prototype.hasOwnProperty.call(produtosTipoCache,v.toUpperCase())) return true;
+  if(!/^\d+$/.test(v) || (v.length!==13 && v.length!==14)) return false;
   var soma=0;
   for(var i=0;i<v.length-1;i++){ soma+=(+v.charAt(v.length-2-i))*(i%2===0?3:1); }
   return ((10-(soma%10))%10)===(+v.charAt(v.length-1));
 }
-// Lote = exatamente 10 números. NÃO corta o excesso em silêncio: se cortasse, um EAN bipado (13 dígitos)
+// Lote = exatamente 10 caracteres, letras (A-Z) e números (v25; antes só números). NÃO corta o excesso em silêncio: se cortasse, um EAN bipado (13 dígitos)
 // viraria os 10 primeiros e passaria como lote — o defeito que gravou o EAN na etiqueta do cliente. Em vez
 // disso, qualquer tecla fora do padrão (letra, símbolo, 9º dígito) marca o campo como "sujo"; a
 // confirmação é recusada enquanto estiver sujo. Quem digitou errado limpa apertando Backspace; um leitor
 // de código de barras não aperta Backspace, então o bipe continua bloqueado.
-var MSG_LOTE_FORMATO='⚠ O lote tem exatamente 10 números. Se você bipou um código de barras, apague e digite o lote.';
+var MSG_LOTE_FORMATO='⚠ O lote tem exatamente 10 caracteres (letras e números, sem símbolo nem espaço). Se você bipou um código de barras, apague e digite o lote.';
 function loteFiltrarEntrada(el){
-  var cru=el.value, dig=cru.replace(/\D/g,''), antes=+(el.dataset.len||0);
+  var cru=el.value, dig=cru.replace(/[^0-9A-Za-z]/g,''), antes=+(el.dataset.len||0);
   var errLote=document.getElementById('lotePopErr');
   if(dig.length!==cru.length || dig.length>10){
     el.dataset.sujo='1'; errLote.textContent=MSG_LOTE_FORMATO; errLote.style.display='block';
@@ -8507,20 +8507,20 @@ function loteFiltrarEntrada(el){
 function confirmarOperBaia(){
   var inpLote=document.getElementById('inpLotePop');
   var errLote=document.getElementById('lotePopErr');
-  var lote=inpLote.value.trim();
+  var lote=inpLote.value.trim().toUpperCase();
   if(!lote){
     // campo vazio mas já marcado como "sujo" = bipou algo que foi todo descartado (ex.: só letras): mostra a regra
     // e zera a marca — senão a próxima tentativa, digitada certa, seria recusada por causa do bipe anterior.
     var tinhaLixo=inpLote.dataset.sujo==='1';
-    errLote.textContent=tinhaLixo?MSG_LOTE_FORMATO:'Informe o lote — são 10 números, é ele que vai na etiqueta do cliente.';
+    errLote.textContent=tinhaLixo?MSG_LOTE_FORMATO:'Informe o lote — são 10 caracteres (letras e números), é ele que vai na etiqueta do cliente.';
     errLote.style.display='block'; inpLote.dataset.sujo=''; inpLote.dataset.len='0'; inpLote.focus(); return;
   }
-  if(inpLote.dataset.sujo==='1' || !/^\d{10}$/.test(lote)){
+  if(inpLote.dataset.sujo==='1' || !/^[0-9A-Z]{10}$/.test(lote)){
     errLote.textContent=MSG_LOTE_FORMATO; errLote.style.display='block';
     inpLote.value=''; inpLote.dataset.sujo=''; inpLote.dataset.len='0'; inpLote.focus(); return;
   }
   if(loteParecerEAN(lote)){
-    errLote.textContent='⚠ Isso é o código de barras (EAN) de uma peça, não um lote. Digite o lote de fabricação (10 números, ex: 0085426122).';
+    errLote.textContent='⚠ Isso é o código de barras (EAN) de uma peça, não um lote. Digite o lote de fabricação (10 caracteres, ex: AB12345678).';
     errLote.style.display='block'; inpLote.value=''; inpLote.focus(); return;
   }
   document.getElementById('lotePopErr').style.display='none';
