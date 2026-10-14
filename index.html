@@ -94,7 +94,8 @@ function interpretarCodigoDigitado(texto) {
     return { ok: true, seq: Number(seq) };
   }
   if (t.length === 12) return { ok: true, id: t };
-  return { ok: false, erro: 'Código não reconhecido. Digite o nº da etiqueta (ex. 4821-7).' };
+  if (/[A-Z]/.test(t) || t.length > 12) return { ok: false, erro: 'O código antigo tem 12 letras e números (ex.: A6C6-76D6-BF41). Você digitou ' + t.length + '. Confira na etiqueta.' };
+  return { ok: false, erro: 'Código não reconhecido. Digite o número curto (ex.: 4821-7) ou o código antigo completo (ex.: A6C6-76D6-BF41).' };
 }
 // Logo Vitalbor em preto puro (sem degradê) — impressora térmica não imprime cor e degradê vira chuvisco
 var LOGO_VITALBOR_PB = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAioAAAA+CAQAAACv4ficAAAEl0lEQVR42u1d25JbIQyrGP7/l9WXzna23SScc2zwRe5jN4BtSRhCAL9kMlkU48e/QHwnsODG3vFESyZcWobBKBgiC3TNJl1xwkC45Fam0LOHaKJyJrV069VKJvaKyrrPPAZ9bKexHxK5eRT09XumkhU6iUsuac1UrFf3/Ky0cXttzxV5mSkpxSSrS79FVZ5Mobh/J+qFs8LykYMjMcRpKIZdSC6LgkOaEzyM7yM5qZiyDxQhk+xuLFgoF3wlKpIVkU5R2OUni8WZr0Slu6xoASSx2BMRLiPy779UsjL/cYNJ04lE7Uu+4hvcyHrvhAiWPmuBUwPPUWgG8vx6D1vasv22yPOUB7dkhuGy/fxcDl0/vxaXezhb7nkUmkdzyKHqlCoVjD1GYTACz3PWi96PUrBnwpYrxRkNogc3FGHDCLZ4P55pUjFZQZBx5KUbmvgZeQQ8zb3xttjJCBHVFMpKTD8tf2EWmpljYR117YutqrOQzTkESCBUq7i3ePinptPRdaZPtex69F8dS2Dz/NA83mHFfYrkF2ABRUR1ipjydPkjk6lKzBeHo9IvUbGHheZyxWUH4sIKuURlHy26LH4gHLQUVEhUZFr8yFwEVaJiTREWJh4fRpDFaYWEudLyRyaTpBzsccl7icq1ZPF20FXZVYhP783mRe9nonChCfEqEKre+wRskOH7/uNnUcnnlrYHJZcx6pFz1xHYe44bI8erSiVr6uFEFS6GfSUFaEm0Hsf1650bf+z//PafTBoE1SwyCUoY/0eJIFHPaByav6yvucxEqM4IeXtrwShDJR7vqfLiR7L800TGpnn9kNlad9RSpEghG3XI2FFaPno8RKaAC4S+VaCmswIezxdEYGL4Y0MvEt61SoZJx31dVvthgmsbtTXmV82rqsE89hFw+8Jp9ELGfBuIvPUKjKBEEU+13jIr8lcrsJikx+UuVK30qoaeyWVFUYXR9ehZUHj51cK50KDeV5bZA1r5ySSjl6qzsdRkzgc6aBLOc5+W5VomxKphca61adgw0yTeuhKquxjSprfscs05N5PYF6RwaZOBRlMajE0XEOU8mNuHptlcnkkmLMQ1bHZ085vkU6JVzytsbZMSFatgah6XSVxVqciCQZ1tooPSkfs2minuPFw/s+HiB6kJEHHpYbtpjQM8UKWisnUrZLW/9DkKrIO8uXWw9cBVt06x/TXTvTt/NZ3c6R2uDF7I47xX4ARIxV4oQtuyMmcUrcpreCTOtPTRgx1VZuJstcqTOuG5rMR9f+hr9HVufvO+2E+i9SwKVeLHgyhmAElZ6KHazW+5idd1x+BOrcLNOaFRP1i6Re7/lpgHebPYHoJeAZJcPpct768reHwMrlEeJQEkSmWqU/qJrs8hekTxchSdlzSbq86J7B+KxpafREWyItuFBraLDpJk5oaNXMM9DFNkS28weletVe4tPWzuUzxxJ+OHW2tHYSCoWlG2ogqKDb+CXvI6F93W5dc9ZuJ+b9eczzVuiCqOe//mNM284ETiL7m2BLMjIXzjZxdthI/burSgIrwoCslkspOEYwMfZTLZH/sNass8zmeOUQEAAAAASUVORK5CYII=';
@@ -1440,7 +1441,8 @@ select.inp-pos option{color:#000;background:#fff}
 .lv-digitar{margin-top:12px;padding:12px 14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(26,26,46,.08)}
 .lv-digitar label{display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--texto2)}
 .lv-digitar-linha{display:flex;gap:8px}
-.lv-digitar input{flex:1;min-width:0;height:54px;padding:0 14px;border:2px solid var(--cinza3);border-radius:12px;font-size:20px;font-weight:800;color:var(--azul);font-variant-numeric:tabular-nums;background:#fff}
+.lv-digitar input{flex:1;min-width:0;height:54px;padding:0 14px;border:2px solid var(--cinza3);border-radius:12px;font-size:20px;font-weight:800;color:var(--azul);font-variant-numeric:tabular-nums;background:#fff;text-transform:uppercase;letter-spacing:.5px;user-select:text}
+.lv-digitar input::placeholder{text-transform:none;letter-spacing:0;font-weight:700;color:#9aa1b2}
 .lv-digitar input:focus{outline:none;border-color:var(--azul3)}
 .lv-digitar-ret{margin-top:10px;padding:10px 12px;border-radius:10px;border-left:6px solid #34d27b;background:#eaf7ef;color:#155c3a;font-size:15px;line-height:1.35}
 .lv-digitar-ret[data-tipo="aviso"]{border-left-color:#f5b041;background:#fff6e5;color:#6b4300}
@@ -1848,9 +1850,9 @@ table.mov-tabela tr:nth-child(even) td:first-child{background:#f0f1f4}
         <section class="lv-col-leitor">
           <div id="mov-leitor"></div>
           <form class="lv-digitar" onsubmit="movDigitarCodigo();return false" autocomplete="off">
-            <label for="mov-input-digitado">A câmera não leu? Digite o número da etiqueta</label>
+            <label for="mov-input-digitado">A câmera não leu? Digite o número curto ou o código antigo da etiqueta</label>
             <div class="lv-digitar-linha">
-              <input type="text" id="mov-input-digitado" inputmode="numeric" enterkeyhint="go" placeholder="Ex.: 4821-7"/>
+              <input type="text" id="mov-input-digitado" inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 4821-7 ou A6C6-76D6-BF41"/>
               <button type="submit">Adicionar</button>
             </div>
             <div class="lv-digitar-ret" id="mov-digitar-ret" hidden></div>
@@ -3656,8 +3658,8 @@ function iniciarContagemBalanco(id,escopoCodigo,escopoNome){
       '<div class="mov-scan-lbl">Bipe cada caixa que estiver fisicamente no chão de fábrica</div>'+
       '<div id="bal-leitor"></div>'+
       '<form class="lv-digitar" onsubmit="balDigitarCodigo();return false" autocomplete="off">'+
-        '<label for="bal-input-digitado">A câmera não leu? Digite o número da etiqueta</label>'+
-        '<div class="lv-digitar-linha"><input type="text" id="bal-input-digitado" inputmode="numeric" enterkeyhint="go" placeholder="Ex.: 4821-7"/><button type="submit">Adicionar</button></div>'+
+        '<label for="bal-input-digitado">A câmera não leu? Digite o número curto ou o código antigo da etiqueta</label>'+
+        '<div class="lv-digitar-linha"><input type="text" id="bal-input-digitado" inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="Ex.: 4821-7 ou A6C6-76D6-BF41"/><button type="submit">Adicionar</button></div>'+
       '</form>'+
     '</div>'+
     '<div class="mov-ultima vis"><div class="mov-ultima-hd">Caixas bipadas nesta contagem</div>'+
@@ -5268,7 +5270,7 @@ function movDigitarCodigo(){
   inp.value='';
   google.script.run
     .withSuccessHandler(function(r){
-      if(!r||!r.ok){ movRetorno('erro','Número não aceito',(r&&r.erro)||'Código não reconhecido.'); if(!inp.value) inp.value=v; return; }
+      if(!r||!r.ok){ movRetorno('erro','Código não aceito',(r&&r.erro)||'Código não reconhecido.'); if(!inp.value) inp.value=v; return; }
       movAdicionarCaixa(r.id);
     })
     .withFailureHandler(function(){ movRetorno('erro','Sem conexão','Não deu para conferir o número. Tente de novo.'); if(!inp.value) inp.value=v; })
