@@ -8527,6 +8527,11 @@ function confirmarOperBaia(){
   document.getElementById('selOp').value=popOpSel;
   document.getElementById('selBaia').value=popBaiaSel;
   sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.tipo=popTipoSel; sess.lote=lote;
+  // v26: sess.data é carimbada em novaSess() (ao carregar a página ou ao finalizar a sessão anterior). Tablet que fica
+  // ligado de um dia para o outro sem recarregar registrava a sessão com a data de ONTEM e a hora de HOJE
+  // (iniciarSessaoNoServidorSeNecessario manda sess.data e a hora de agora). A data da sessão é a de quando ela COMEÇA —
+  // aqui. Só reata a data de sessão ainda vazia (nenhum bipe, nenhuma caixa); reabrir o assistente no meio da sessão não mexe.
+  if(!sess.scans && !cxFech.length && !Object.keys(cxAtual||{}).length) sess.data=new Date().toLocaleDateString('pt-BR');
   salvarSess();
   validarCampos();
   fecharOv('ovOperBaia');
