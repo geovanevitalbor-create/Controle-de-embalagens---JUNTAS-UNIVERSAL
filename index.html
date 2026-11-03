@@ -3106,14 +3106,14 @@ const Backend={
   // tinha falhado silenciosamente. Agora devolve exatamente quais itens deram certo, pra só
   // esses saírem da fila local; o que falhar continua lá e tenta de novo na próxima sincronização.
   async sincronizarFila(fila){ try{
-    var ok=[], falhas=0, recusados=[];
+    var ok=[], falhas=0, recusados=[], caixasIds=[];   // v28: ids das caixas gravadas pela fila
     for(var i=0;i<(fila||[]).length;i++){
       var item=fila[i], r=null;
       try{
         if(item.tipo==='scan'){ r=await Backend.registrarScanApp(item); }
         else if(item.tipo==='finalizar'){ r=await Backend.registrarFinalizacaoApp(item.dados); }
         else if(item.tipo==='iniciarSessao'){ r=await Backend.iniciarSessaoEmbalagem(item.dados); }
-        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); }
+        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); if(r&&r.status==='ok'&&r.caixaId&&item.dados.caixa&&item.dados.caixa.uid) caixasIds.push({uid:item.dados.caixa.uid,caixaId:r.caixaId}); }
         else if(item.tipo==='finalizarSimples'){ r=await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); }
         else { r={status:'ok'}; } // tipo desconhecido na fila — não trava tentando de novo pra sempre
       }catch(e){ r={status:'erro',msg:String(e)}; }
@@ -3121,7 +3121,7 @@ const Backend={
       else if(r&&r.status==='recusado'){ ok.push(item); recusados.push({item:item,detalhe:r.detalhe}); }   // v24: o servidor disse NÃO (pedido completo): sai da fila e o tablet é avisado
       else { falhas++; }
     }
-    return {status:'ok',ok:ok,processados:ok.length,falhas:falhas,recusados:recusados};
+    return {status:'ok',ok:ok,processados:ok.length,falhas:falhas,recusados:recusados,caixasIds:caixasIds};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Apaga uma sessão de bipagem travada "em andamento" que nunca foi finalizada — junto com
@@ -3700,6 +3700,7 @@ function sincFila(){
           return true;
         });
         salvarFila();atualizaOffl();
+        try{ aplicarIdsCaixasSincronizadas(r.caixasIds); }catch(e){ console.error(e); }   // v28
         if(!r.falhas) toast('✔ Fila sincronizada');
         if(r.recusados&&r.recusados.length){ try{ abRecusados(r.recusados); }catch(e){ console.error(e); } }
       })
@@ -4321,7 +4322,7 @@ function okPeso(){
   document.getElementById('btnOkPeso').disabled=true;
   document.getElementById('btnOkPeso').textContent='Fechando...';
 
-  var novaCaixa=Object.assign({},pendingCx,{peso:peso,etqImpressa:false});
+  var novaCaixa=Object.assign({},pendingCx,{peso:peso,etqImpressa:false,uid:gerarUidCaixa()});   // v28: uid = chave da caixa no tablet
   cxFech.push(novaCaixa);
   pendingCx=null;cxAtual={};
   document.getElementById('cxCount').textContent='0';
@@ -4338,7 +4339,7 @@ function okPeso(){
     try{
       google.script.run
         .withSuccessHandler(function(r){
-          if(r&&r.status==='ok'&&r.caixaId){ novaCaixa.id=r.caixaId; salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
+          if(r&&r.status==='ok'&&r.caixaId){ novaCaixa.id=r.caixaId; aplicarIdCaixaPorUid(novaCaixa.uid,r.caixaId); salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
           else{ addFila(payloadFila); }
         })
         .withFailureHandler(function(){ addFila(payloadFila); })
@@ -4395,8 +4396,8 @@ function imprimirEtiquetaCaixaAtual(){
 // cliente. Guarda o que falta (caixas/pedido/sessão/lote) em etqClienteCtxPendente até
 // confirmar, e chama aoConfirmar() depois de imprimir pra quem chamou terminar sua limpeza.
 var etqClienteCtxPendente=null;
-function abrirFormEtqCliente(caixas,pedido,sessaoId,lote,aoConfirmar){
-  etqClienteCtxPendente={caixas:caixas,pedido:pedido,sessaoId:sessaoId,lote:lote,aoConfirmar:aoConfirmar};
+function abrirFormEtqCliente(caixas,pedido,sessaoId,lote,aoConfirmar,aoFalhar){
+  etqClienteCtxPendente={caixas:caixas,pedido:pedido,sessaoId:sessaoId,lote:lote,aoConfirmar:aoConfirmar,aoFalhar:aoFalhar};
   document.getElementById('etqCliData').value=new Date().toLocaleDateString('pt-BR');
   document.getElementById('ovEtqClienteInfo').classList.remove('hidden');
   setTimeout(function(){document.getElementById('etqCliData').focus();},150);
@@ -4408,7 +4409,9 @@ function confirmarFormEtqCliente(){
   var ctx=etqClienteCtxPendente;
   etqClienteCtxPendente=null;
   fecharOv('ovEtqClienteInfo');
-  montarImprimirEtqCliente(ctx.caixas,ctx.pedido,ctx.sessaoId,ctx.lote,dataFab,null);
+  // v28: só conta como impressa se a etiqueta saiu de fato (antes a caixa ficava marcada como
+  // etiquetada mesmo quando a janela nem abria). Bloqueada → quem chamou decide o que fazer.
+  if(montarImprimirEtqCliente(ctx.caixas,ctx.pedido,ctx.sessaoId,ctx.lote,dataFab,null)!==true){ if(ctx.aoFalhar) ctx.aoFalhar(); return; }
   // Salva no servidor pra não se perder — sem isso, reimprimir depois (Admin > Histórico,
   // ou Faturamento antes de faturar) saía com "DATA FABR." em branco, porque esse valor só
   // existia localmente, pro print da hora, e nunca tinha ido pro banco.
@@ -4422,11 +4425,13 @@ function imprimirEtiquetaClienteCaixaAtual(){
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
   var cxRef=caixaAguardandoEtq;
   fecharOv('ovEtqCx');
-  abrirFormEtqCliente([cxRef], sess.ped, sess.id, sess.lote, function(){
-    cxRef.etqImpressa=true;
-    caixaAguardandoEtq=null;
-    salvarSess();renderCxFech();atualizarBtnFin();
-    focusScan();
+  esperarIdCaixa(cxRef,function(){   // v28: espera o número do banco chegar (até 6 s)
+    abrirFormEtqCliente([cxRef], sess.ped, sess.id, sess.lote, function(){
+      cxRef.etqImpressa=true;
+      caixaAguardandoEtq=null;
+      salvarSess();renderCxFech();atualizarBtnFin();
+      focusScan();
+    }, function(){ abrirEtqCxObrigatoria(cxRef); });   // v28: bloqueada → volta para a escolha (a interna continua liberada)
   });
 }
 // Reimprimir uma caixa específica direto da lista (caso o "Depois" tenha sido usado, ou a impressão falhe)
@@ -4441,9 +4446,11 @@ function imprimirEtiquetaCaixaIdx(idx){
 function imprimirEtiquetaClienteCaixaIdx(idx){
   var cx=cxFech[idx]; if(!cx)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  abrirFormEtqCliente([cx], sess.ped, sess.id, sess.lote, function(){
-    cx.etqImpressa=true;
-    salvarSess();renderCxFech();atualizarBtnFin();
+  esperarIdCaixa(cx,function(){   // v28
+    abrirFormEtqCliente([cx], sess.ped, sess.id, sess.lote, function(){
+      cx.etqImpressa=true;
+      salvarSess();renderCxFech();atualizarBtnFin();
+    });
   });
 }
 // Monta e imprime a etiqueta de UMA caixa. Sem "/total" porque nesse momento ainda pode
@@ -11105,40 +11112,136 @@ function impTudo(){ impRel(); setTimeout(impEtq,600); }
 // (11) é data de fabricação em GS1; lote oficial seria (10) — mantido assim por pedido do
 // cliente, documentado aqui para não se perder).
 // ═══════════════════════════════════════
-// SSCC: 18 dígitos. Fonte primária = caixas.id (estável, não muda entre sessões); fallback
-// = timestamp da sessão + número da caixa, usado quando a caixa ainda não tem id do servidor
-// (ex: impressão offline, antes de sincronizar).
-function gerarSSCCCaixa(cx,sessaoId){
-  var base;
-  if(cx.id){
-    base=String(cx.id).padStart(11,'0');
-  }else{
-    var hash=String(sessaoId||'').split('').reduce(function(a,c){return ((a<<5)-a+c.charCodeAt(0))|0;},0);
-    base=String(Math.abs(hash)).padStart(8,'0').slice(0,8)+String(cx.num||0).padStart(3,'0');
-  }
-  var corpo=('00'+base).slice(-17);
+// ═══════════════════════════════════════
+// QR DA ETIQUETA DO CLIENTE — formato pedido pelo Sabó (11/08/2026):
+//   (00) SSCC, 12 posições numéricas · (02) Código Sabó · (11) lote · (37) quantidade
+//   exemplo do Sabó: (00)123456789012(02)1234(11)0020123456(37)1000
+// Os parênteses vão como texto (não é o FNC1 do GS1 de verdade) e (11) aqui é o lote, não a
+// data do GS1 — é o que o cliente pediu.
+//
+// SSCC = id da caixa no banco (caixas.id) com 11 dígitos, zeros à esquerda, + 1 dígito
+// verificador (módulo 10, mesma conta do GS1). Só existe com o id do banco: um número
+// inventado no tablet não é único entre tablets e mudaria na reimpressão. Sem id, a etiqueta
+// do cliente não sai (a interna continua liberada) — ver validarQRCliente.
+//
+// Até 03/11/2026 o SSCC saía com 14 dígitos: "00" + exatamente estes 12 (a conta pedia 18 e
+// não completava). Para achar uma caixa antiga pelo SSCC velho, tire o "00" do começo.
+// ═══════════════════════════════════════
+function ssccDigitoVerificador(corpo){
   var soma=0;
-  for(var i=0;i<corpo.length;i++){ var d=parseInt(corpo[corpo.length-1-i],10); soma+=(i%2===0?3:1)*d; }
-  var dv=(10-(soma%10))%10;
-  return corpo+dv;
+  for(var i=0;i<corpo.length;i++){ soma+=(i%2===0?3:1)*(corpo.charCodeAt(corpo.length-1-i)-48); }
+  return (10-(soma%10))%10;
+}
+function gerarSSCCCaixa(cx){
+  var id=(cx&&cx.id!=null)?String(cx.id).trim():'';
+  if(!/^[0-9]{1,11}$/.test(id)||/^0+$/.test(id)) return null;
+  var corpo=('00000000000'+id).slice(-11);
+  return corpo+ssccDigitoVerificador(corpo);
+}
+// Confere os 4 campos do QR de UMA caixa contra o formato do Sabó antes de qualquer impressão.
+// Devolve {ok, qr, erros:[...]} — qr só vem preenchido quando ok.
+function validarQRCliente(cx,lote){
+  var erros=[];
+  var sscc=gerarSSCCCaixa(cx);
+  if(!sscc){
+    var temId=cx&&cx.id!=null&&String(cx.id).trim()!=='';
+    if(temId) erros.push('número da caixa no banco inválido ('+cx.id+')');
+    else erros.push('a caixa ainda não foi gravada no servidor (sem o número do banco o SSCC não é único)');
+  }
+  var itens=(cx&&cx.itens)||[];
+  var prod=itens.length?String(itens[0].nome==null?'':itens[0].nome).trim():'';
+  if(!prod) erros.push('peça sem Código Sabó (nome da peça vazio)');
+  else if(/[()]/.test(prod)) erros.push('Código Sabó "'+prod+'" tem parênteses');
+  else if(/\s/.test(prod)) erros.push('Código Sabó "'+prod+'" tem espaço');
+  else if(/^[0-9]{13,14}$/.test(prod)) erros.push('Código Sabó "'+prod+'" tem cara de EAN/GTIN ('+prod.length+' dígitos) — corrija o nome da peça em Admin › Peças');
+  var lt=(lote==null)?'':String(lote);
+  if(!/^[A-Z0-9]{10}$/.test(lt)) erros.push('lote "'+lt+'" fora do padrão (10 letras maiúsculas/números)');
+  var qtd=Number(cx&&cx.totalUnid);
+  var soma=itens.reduce(function(s,it){ return s+(Number(it&&it.qty)||0); },0);
+  if(!(qtd>0)||Math.floor(qtd)!==qtd) erros.push('quantidade inválida ('+(cx?cx.totalUnid:'')+')');
+  else if(soma!==qtd) erros.push('quantidade da caixa ('+qtd+') diferente da soma das peças ('+soma+')');
+  var qr=null;
+  if(!erros.length){
+    qr='(00)'+sscc+'(02)'+prod+'(11)'+lt+'(37)'+qtd;
+    if(!/^\(00\)[0-9]{12}\(02\)[^()\s]+\(11\)[A-Z0-9]{10}\(37\)[1-9][0-9]*$/.test(qr)){ erros.push('QR montado fora do padrão: '+qr); qr=null; }
+  }
+  return {ok:!erros.length, qr:qr, erros:erros, sscc:sscc, codSabo:prod};
 }
 // Resolve se uma peça é 'componente' ou 'acabado' pelo código (chave única no cadastro).
 function tipoProdutoPorCodigo(codigo){ return produtosTipoCache[codigo]==='componente'?'componente':'acabado'; }
+// (02) leva o Código Sabó (nome da peça), não o EAN — decisão do Thiago; o EAN vai no código de barras.
 function montarQRGS1(cx,pedido,sessaoId,lote){
-  var sscc=gerarSSCCCaixa(cx,sessaoId);
-  // (02) carrega o Código Sabó (nome), não o EAN — decisão explícita do Thiago, mesmo
-  // sabendo que isso não é o que o GS1 define pra esse AI (que é pra GTIN). O EAN já
-  // aparece como código de barras separado, em cima na etiqueta.
-  var codProduto=(cx.itens&&cx.itens[0])?cx.itens[0].nome:'';
-  var qtd=cx.totalUnid||0;
-  return '(00)'+sscc+'(02)'+codProduto+'(11)'+lote+'(37)'+qtd;
+  var v=validarQRCliente(cx,lote);
+  if(!v.ok) throw new Error('QR do cliente inválido: '+v.erros.join('; '));
+  return v.qr;
+}
+// v28: trava da etiqueta do cliente. Confere TODAS as caixas antes de abrir a janela de
+// impressão e testa gerar o QR aqui na janela principal (mesma biblioteca e mesmas opções da
+// janela da etiqueta). Qualquer problema → nada é impresso e a tela diz qual caixa e o quê.
+function qrClienteGeravel(texto,tam){
+  try{
+    if(typeof QRCode!=='function') return 'a biblioteca do QR não carregou (recarregue a página com internet)';
+    new QRCode(document.createElement('div'),{text:texto,width:tam,height:tam,correctLevel:QRCode.CorrectLevel.M});
+    return null;
+  }catch(e){ return 'o QR não pôde ser gerado ('+((e&&e.message)||e)+')'; }
+}
+// A gravação dessa caixa falhou e ela está na fila offline esperando a conexão (pelo uid).
+function caixaNaFila(cx){
+  if(!cx||!cx.uid) return false;
+  return (fila||[]).some(function(it){ return it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&it.dados.caixa.uid===cx.uid; });
+}
+function etqClienteConferir(caixas,lote){
+  var probs=[], semServidor=false, naFila=false;
+  (caixas||[]).forEach(function(cx){
+    var rot='Caixa '+(cx&&cx.num!=null?cx.num:'?');
+    var v=validarQRCliente(cx,lote);
+    if(!v.ok){ probs.push(rot+': '+v.erros.join('; ')); if(!v.sscc&&!(cx&&cx.id)){ semServidor=true; if(caixaNaFila(cx)) naFila=true; } return; }
+    var e1=qrClienteGeravel(v.qr,80);
+    if(!e1&&tipoProdutoPorCodigo(cx.itens[0].codigo)==='componente') e1=qrClienteGeravel(v.codSabo,74);
+    if(e1) probs.push(rot+': '+e1);
+  });
+  if(!probs.length) return true;
+  var dica='';
+  if(semServidor) dica=(online&&!naFila)
+    ? '\n\nA caixa ainda está sendo gravada no servidor. Espere alguns segundos e tente de novo.'
+    : '\n\nSem conexão (a caixa está na fila para gravar): imprima a etiqueta INTERNA agora. A do cliente sai pelo botão "reimprimir cliente" quando a caixa sincronizar (ou pelo Admin › Histórico).';
+  alert('ETIQUETA DO CLIENTE NÃO IMPRESSA — nada foi impresso.\n\n'+probs.join('\n')+dica);
+  return false;
+}
+// v28: cada caixa fechada no tablet ganha uma chave própria (uid). É por ela que o id do banco
+// volta para a caixa certa. O número da caixa não serve: "remover caixa" renumera as outras no
+// tablet e não apaga a caixa no banco, então sessão + número pode apontar para outra caixa.
+function gerarUidCaixa(){ return 'cx-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8); }
+function aplicarIdCaixaPorUid(uid,caixaId){
+  if(!uid||!caixaId) return false;
+  var alvos=(cxFech||[]).filter(function(c){ return c&&c.uid===uid; });
+  if(alvos.length!==1) return false;
+  if(!alvos[0].id) alvos[0].id=caixaId;
+  return true;
+}
+function aplicarIdsCaixasSincronizadas(lista){
+  var mudou=false;
+  (lista||[]).forEach(function(c){ if(c&&aplicarIdCaixaPorUid(c.uid,c.caixaId)) mudou=true; });
+  if(mudou){ salvarSess(); try{ renderCxFech(); }catch(e){ console.error(e); } }
+}
+// Na bipagem: se a caixa ainda não tem o número do banco (gravação a caminho), espera até 6 s
+// antes de abrir o formulário da etiqueta do cliente. Sem conexão não espera: a trava avisa.
+function esperarIdCaixa(cx,cb){
+  if(!cx||gerarSSCCCaixa(cx)||!online||caixaNaFila(cx)){ cb(); return; }
+  toast('Gravando a caixa no servidor…');
+  var t0=Date.now();
+  (function espera(){
+    if(gerarSSCCCaixa(cx)||!online||caixaNaFila(cx)||Date.now()-t0>6000){ cb(); return; }
+    setTimeout(espera,200);
+  })();
 }
 // Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
 // quando fornecido, mostra "Caixa N/Total"; senão mostra só "Caixa N".
 function totalCaixasKnownOrArr(totalCaixas,arr){ return totalCaixas!=null?totalCaixas:(arr?arr.length:null); }
 
 function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixasParam){
-  if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return;}
+  if(!caixas||!caixas.length){toast('Nenhuma caixa para gerar etiqueta');return false;}
+  if(!etqClienteConferir(caixas,lote)) return false;   // v28: QR fora do padrão do Sabó não imprime
   var labels=caixas.map(function(cx,idx){
     // Caixa é assumida de SKU único (mesmo padrão já usado no (02) do QR GS1, que só olha o
     // primeiro item) — por isso o tipo do primeiro item já decide o layout da caixa inteira.
@@ -11156,7 +11259,7 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     // Peso já foi digitado ao fechar a caixa (okPeso) — reaproveita cx.peso em vez de pedir
     // de novo na hora de imprimir a etiqueta.
     var pesoTxt=(cx.peso!=null&&cx.peso!=='')?(cx.peso+' kg'):'—';
-    return {ean:primeiroCod,qrGS1:qrGS1,qrNome:primeiroNome,ehComponente:ehComponente,html:'<div class="label-ac">'+
+    return {ean:primeiroCod,qrGS1:qrGS1,qrNome:String(primeiroNome==null?'':primeiroNome).trim(),ehComponente:ehComponente,html:'<div class="label-ac">'+
       '<div class="ac-row1">'+
         '<div class="ac-col-l">'+
           '<div class="ac-k">CÓDIGO SABÓ'+(ehComponente?' / COMPONENTE':'')+'</div><div class="ac-v">'+escAttr(primeiroNome||'—')+'</div>'+
@@ -11202,12 +11305,12 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
     '<script>var LBLS='+JSON.stringify(labels.map(function(l){return {ean:l.ean,qrGS1:l.qrGS1,qrNome:l.qrNome,comp:l.ehComponente};}))+';window.onload=function(){'+
     'var QRCodeLib=(window.opener&&window.opener.QRCode)||window.QRCode;'+
     'var JsBarcodeLib=(window.opener&&window.opener.JsBarcode)||window.JsBarcode;'+
-    'LBLS.forEach(function(l,i){'+
+    'var FALHOU=[];LBLS.forEach(function(l,i){'+
     'try{ if(!QRCodeLib) throw new Error("QRCode indisponível (aba principal não carregou)"); var elQ=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQ) new QRCodeLib(elQ,{text:l.qrGS1,width:80,height:80,correctLevel:QRCodeLib.CorrectLevel.M}); }'+
-    'catch(eq){ console.error("QR (GS1) falhou:",eq); var elQf=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQf) elQf.textContent="QR indisponível"; }'+
+    'catch(eq){ FALHOU.push(i); console.error("QR (GS1) falhou:",eq); var elQf=document.querySelector(\'.qr_x[data-idx="\'+i+\'"]\'); if(elQf) elQf.textContent="QR indisponível"; }'+
     'if(l.comp){'+
       'try{ if(!QRCodeLib) throw new Error("QRCode indisponível"); var elQ2=document.querySelector(\'.qr_x2[data-idx="\'+i+\'"]\'); if(elQ2) new QRCodeLib(elQ2,{text:l.qrNome,width:74,height:74,correctLevel:QRCodeLib.CorrectLevel.M}); }'+
-      'catch(eq2){ console.error("QR (nome) falhou:",eq2); }'+
+      'catch(eq2){ FALHOU.push(i); console.error("QR (nome) falhou:",eq2); }'+
     '}else{ var elB=document.querySelector(\'.barcode_x[data-idx="\'+i+\'"]\'); if(elB){'+
       'try{ if(!JsBarcodeLib) throw new Error("JsBarcode indisponível (aba principal não carregou)"); JsBarcodeLib(elB,l.ean,{format:"EAN13",width:1.5,height:42,margin:0,fontSize:11,displayValue:true}); }'+
       'catch(e1){ try{ if(!JsBarcodeLib) throw e1; JsBarcodeLib(elB,l.ean,{format:"CODE128",width:1.3,height:42,margin:0,fontSize:10,displayValue:true}); }'+
@@ -11216,11 +11319,13 @@ function montarImprimirEtqCliente(caixas,pedido,sessaoId,lote,dataFab,totalCaixa
       'catch(e2){ var t=document.createElementNS("http://www.w3.org/2000/svg","text"); t.setAttribute("x","2"); t.setAttribute("y","24"); t.setAttribute("class","bc-fallback"); t.textContent=l.ean||"(sem código)"; elB.appendChild(t); console.error("Código de barras falhou pros dois formatos:",l.ean,e1,e2); } }'+
     '} }'+
     '});'+
+    'if(FALHOU.length){ var av=document.createElement("div"); av.textContent="ETIQUETA NÃO IMPRESSA: o QR não pôde ser gerado. Não use esta etiqueta — feche esta janela e tente de novo."; av.style.cssText="font:700 16px Arial,sans-serif;color:#b91c1c;border:3px solid #b91c1c;padding:10px;margin:8px;background:#fff"; document.body.insertBefore(av,document.body.firstChild); return; }'+
     'window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},800);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
     '</body></html>';
   var w=window.open('','_blank');
-  if(!w){toast('Libere pop-ups para imprimir');return;}
+  if(!w){toast('Libere pop-ups para imprimir');return false;}
   w.document.write(h);w.document.close();
+  return true;
 }
 // Wrapper usado pelo Admin/Faturamento quando já se tem o array completo (mesma assinatura,
 // nome mais claro no contexto de "reimprimir com todos os dados que já tenho").
