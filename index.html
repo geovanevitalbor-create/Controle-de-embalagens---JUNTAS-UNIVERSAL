@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="app-versao" content="v31">
+<meta name="app-versao" content="v32">
 <meta name="theme-color" content="#00833E">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-embalagem.json">
@@ -1818,6 +1818,30 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 @supports not (container-type:inline-size){ @media (max-width:900px){ .hx-sessoes .c-u2{display:none} } }
 /* ───────────── INÍCIO v12: card "Admin" pequeno, vermelho, separado dos atalhos ───────────── */
 .sx-adm{display:flex;justify-content:center;margin-top:clamp(26px,5.5vh,48px)}
+/* v32: virada do dia, falta imprimir, limpar, pendentes */
+.v32-ov{z-index:595}
+.v32-p{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--tx)}
+.v32-res{margin:0 0 14px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--bd2);font-size:13px;line-height:1.6;color:var(--tm)}
+.v32-res b{color:var(--tx)}
+.v32-err{display:none;margin-top:6px;color:#f87171;font-size:12px}
+.v32-fls{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+.v32-fl{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 12px;border-radius:10px;border:1px solid var(--bd2);background:rgba(255,255,255,.03)}
+.v32-fl-t{min-width:0;font-size:13.5px}
+.v32-fl-t>span{color:var(--tm);font-size:12px;margin-left:4px}
+.v32-fl-s{font-size:12px;color:#fcd34d;margin-top:2px}
+.v32-fl-m{font-size:12px;color:var(--tm);margin-top:2px}
+.v32-fl-e{font-size:12px;color:#fca5a5;margin-top:4px;line-height:1.4}
+.v32-fl-e small{color:var(--td)}
+.v32-fl-a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.v32-bt{appearance:none;-webkit-appearance:none;border:1px solid var(--bd2);background:rgba(255,255,255,.06);color:var(--tx);border-radius:10px;padding:9px 12px;min-height:42px;font:600 13px 'Inter',system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.v32-bt:hover{background:rgba(255,255,255,.1)}
+.v32-bt.cli{border-color:rgba(251,191,36,.55);color:#fcd34d;background:rgba(251,191,36,.08)}
+.ov .btn-ok.v32-danger{background:#b91c1c;box-shadow:none}
+.ov .btn-ok.v32-danger:hover{background:#dc2626}
+.v32-fin-hint{margin:-2px 0 10px;font:600 12px/1.35 'Inter',system-ui,sans-serif;color:#fcd34d;text-align:center}
+#scr-bip .btn-fin.v32-pend{box-shadow:inset 0 0 0 2px rgba(251,191,36,.75)}
+.offl{cursor:pointer}
+@media (max-width:560px){.v32-fl{flex-direction:column;align-items:stretch}.v32-fl-a{justify-content:stretch}.v32-bt{flex:1}}
 /* v31: aviso de versão nova + versão na tela inicial */
 .upd-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:590;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:10px 10px 10px 16px;border-radius:14px;background:#0f2a1a;border:1px solid rgba(0,161,77,.55);color:#dff2e6;font:500 13px/1.4 'Inter',system-ui,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.5)}
 .upd-banner b{color:#fff}
@@ -2216,7 +2240,7 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
           <button class="btn-fin" id="btnFin" disabled onclick="abrirFin()">Finalizar Embalagem</button>
           <button class="btn-gh" onclick="pedirSenhaQtdManual()">Adicionar Qtd. Manual</button>
           <button class="btn-gh" onclick="impOffline()">Etiqueta Offline</button>
-          <button class="btn-gh" onclick="limpar()" style="color:var(--rd);border-color:var(--rdd)">Limpar sessão</button>
+          <button class="btn-gh" onclick="v32PedirLimpar()" style="color:var(--rd);border-color:var(--rdd)">Limpar sessão</button>
         </div>
       </div>
     </div>
@@ -3156,7 +3180,7 @@ const Backend={
   // tinha falhado silenciosamente. Agora devolve exatamente quais itens deram certo, pra só
   // esses saírem da fila local; o que falhar continua lá e tenta de novo na próxima sincronização.
   async sincronizarFila(fila){ try{
-    var ok=[], falhas=0, recusados=[], caixasIds=[];   // v28: ids das caixas gravadas pela fila
+    var ok=[], falhas=0, recusados=[], caixasIds=[], erros=[];   // v28: ids das caixas gravadas pela fila; v32: erro de cada item
     for(var i=0;i<(fila||[]).length;i++){
       var item=fila[i], r=null;
       try{
@@ -3169,9 +3193,19 @@ const Backend={
       }catch(e){ r={status:'erro',msg:String(e)}; }
       if(r&&r.status==='ok'){ ok.push(item); }
       else if(r&&r.status==='recusado'){ ok.push(item); recusados.push({item:item,detalhe:r.detalhe}); }   // v24: o servidor disse NÃO (pedido completo): sai da fila e o tablet é avisado
-      else { falhas++; }
+      else if(item.tipo==='scan' && r && r.status==='erro' && r.rede===false){ ok.push(item); }   // v32: bipe que o banco recusou de vez sai da fila (igual ao envio direto)
+      else { falhas++; erros.push({i:i,msg:String((r&&r.msg)||'sem resposta do servidor').slice(0,300)}); }
     }
-    return {status:'ok',ok:ok,processados:ok.length,falhas:falhas,recusados:recusados,caixasIds:caixasIds};
+    return {status:'ok',ok:ok,processados:ok.length,falhas:falhas,recusados:recusados,caixasIds:caixasIds,erros:erros};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // v32: confere no servidor se um pendente da fila já está lá (para tirar da fila sem perder nada)
+  async conferirItemFila(item){ try{
+    var d=(item&&item.dados)||{};
+    if(item.tipo==='fecharCaixa'){ var id=await Backend.acharCaixaJaGravada(d.sessaoId,d.caixa||{}); return {status:'ok',podeDescartar:!!id,caixaId:id||null,texto:id?('A caixa já está no servidor (nº '+id+').'):'Esta caixa NÃO está no servidor: descartar perde a caixa.'}; }
+    if(item.tipo==='iniciarSessao'){ var e=await sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(String(d.id||''))+'&select=id&limit=1',null); var tem=!!(e&&e.length); return {status:'ok',podeDescartar:tem,texto:tem?'A sessão já existe no servidor.':'A sessão NÃO existe no servidor.'}; }
+    if(item.tipo==='finalizarSimples'){ var f=await sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(String(d.sessaoId||''))+'&select=finalizada',null); var fin=!!(f&&f.length&&f.every(function(x){ return x.finalizada!==false; })); return {status:'ok',podeDescartar:fin,texto:fin?'A sessão já está finalizada no servidor.':'A sessão ainda NÃO está finalizada no servidor.'}; }
+    if(item.tipo==='scan') return {status:'ok',podeDescartar:true,texto:'Bipe avulso: as caixas não dependem dele.'};
+    return {status:'ok',podeDescartar:true,texto:'Item antigo da fila.'};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   async marcarEmbalagemFinalizada(sessaoId){ try{ var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{finalizada:true}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Apaga uma sessão de bipagem travada "em andamento" que nunca foi finalizada — junto com
@@ -3416,7 +3450,17 @@ const Backend={
   // Grava a sessão no servidor assim que operador/baia/pedido/lote são confirmados — não mais
   // só no fim. finalizada:false até confirmarFin() marcar como true. É essa gravação antecipada
   // que permite Faturamento enxergar progresso em andamento, não só sessões já terminadas.
-  async iniciarSessaoEmbalagem(s){ try{ await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,tipo_embalagem:s.tipo||null,finalizada:false},{'Prefer':'return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // v32: se a sessão já existe (o envio anterior gravou e só a resposta se perdeu), não grava de novo — antes o reenvio
+  // duplicava a sessão ou ficava preso na fila para sempre ("1 item pendente").
+  async iniciarSessaoEmbalagem(s){
+    var sid=encodeURIComponent(String((s&&s.id)||'').trim());
+    async function jaExiste(){ try{ var r=await sbFetch('GET','/embalagens?sessao=eq.'+sid+'&select=id&limit=1',null); return !!(r&&r.length); }catch(e2){ return false; } }
+    try{
+      if(await jaExiste()) return {status:'ok',jaExistia:true};
+      await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,tipo_embalagem:s.tipo||null,finalizada:false},{'Prefer':'return=representation'});
+      return {status:'ok'};
+    }catch(e){ if(await jaExiste()) return {status:'ok',jaExistia:true}; return {status:'erro',msg:String(e)}; }
+  },
   // Grava UMA caixa (e seus itens) assim que ela fecha, em vez de esperar o fim da sessão inteira.
   // v29: no REENVIO pela fila, confere antes se a caixa já está no banco — o envio anterior pode ter gravado e só a
   // resposta se perdeu (rede caiu no meio). Sem isso, cada reenvio criava uma caixa repetida (saldo e faturamento em dobro).
@@ -3774,9 +3818,16 @@ function carregarProdutos(){
 // v29: estado do envio das caixas. caixaEnviando[uid] = a caixa está indo direto para o servidor agora
 // (a fila não a manda junto, senão grava duas vezes). sincEmAndamento = um envio da fila por vez.
 var caixaEnviando={}, sincEmAndamento=false, sincIniciadoEm=0, sincAvisos=[];
-function addFila(item){fila.push(item);salvarFila();atualizaOffl();}
+function addFila(item){ if(item && typeof item==='object' && !item._em) item._em=Date.now(); fila.push(item);salvarFila();atualizaOffl();}   // v32: _em = desde quando está na fila
 // Pendentes de verdade = fila menos as caixas que estão sendo enviadas direto neste instante.
-function atualizaOffl(){const el=document.getElementById('offlEl');var n=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); }).length;if(n){el.className='offl show';el.textContent='⏳ '+n+' item(ns) pendente(s)';}else{el.className='offl';}}
+function atualizaOffl(){
+  const el=document.getElementById('offlEl');
+  var n=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); }).length;
+  if(n){ el.className='offl show'; el.textContent='⏳ '+n+' pendente'+(n===1?'':'s')+' · ver'; el.title='Ver o que ainda não chegou no servidor'; el.setAttribute('role','button');
+         el.onclick=function(){ if(typeof v32AbrirFila==='function') v32AbrirFila(); }; }   // v32: tocar mostra o que está preso
+  else{ el.className='offl'; }
+  try{ if(typeof v32FilaAberta==='function' && v32FilaAberta()) v32PintarFila(); }catch(e){}
+}
 function tirarCaixaDaFila(uid){
   if(!uid) return;
   var antes=fila.length;
@@ -3805,12 +3856,13 @@ function sincFila(aoTerminar){
             return true;
           });
           salvarFila();atualizaOffl();
+          try{ if(typeof v32RegistrarErros==='function') v32RegistrarErros(snapshot,r.erros); }catch(e){ console.error(e); }   // v32
           try{ aplicarIdsCaixasSincronizadas(r.caixasIds); }catch(e){ console.error(e); }   // v28
           if(!r.falhas) toast('✔ Fila sincronizada');
           if(r.recusados&&r.recusados.length){ try{ abRecusados(r.recusados); }catch(e){ console.error(e); } }
         }finally{ terminou(r); }
       })
-      .withFailureHandler(function(){ terminou(null); })
+      .withFailureHandler(function(){ try{ if(typeof v32RegistrarErros==='function') v32RegistrarErros(snapshot,snapshot.map(function(x,i){ return {i:i,msg:'sem conexão com o servidor'}; })); }catch(e){} terminou(null); })
       .sincronizarFila(snapshot);
   }catch(e){ terminou(null); }
 }
@@ -3919,6 +3971,7 @@ var emCooldown=false;
 // ─────────────────────────────────────────────────────────
 function registrar(codigo){
   if(emCooldown)return;
+  if(typeof v32BloqueioVirada==='function' && v32BloqueioVirada()) return;   // v32: sessão de ontem pendente
 
   var agora=Date.now();
   var ultima=ultimaLeitura[codigo]||0;
@@ -4005,7 +4058,7 @@ function contabilizar(codigo,nome){
   var baia=document.getElementById('selBaia').value;
   sess.op=op;sess.baia=baia;
   if(!sess.itens[codigo])sess.itens[codigo]={nome:nome,qty:0};
-  sess.itens[codigo].nome=nome;sess.itens[codigo].qty++;sess.scans++;
+  sess.itens[codigo].nome=nome;sess.itens[codigo].qty++;sess.scans++;sess.ultimaAtividade=Date.now();   // v32
   if(!cxAtual[codigo])cxAtual[codigo]={nome:nome,qty:0};
   cxAtual[codigo].nome=nome;cxAtual[codigo].qty++;
   var tot=Object.values(cxAtual).reduce(function(s,i){return s+i.qty;},0);
@@ -4173,11 +4226,12 @@ function confirmarQtdManual(){
   adicionarQtdManual(cod,nome,qtd);
 }
 function adicionarQtdManual(codigo,nome,qtd){
+  if(typeof v32BloqueioVirada==='function' && v32BloqueioVirada()) return;   // v32: sessão de ontem pendente
   var op=document.getElementById('selOp').value;
   var baia=document.getElementById('selBaia').value;
   sess.op=op;sess.baia=baia;
   if(!sess.itens[codigo])sess.itens[codigo]={nome:nome,qty:0};
-  sess.itens[codigo].nome=nome;sess.itens[codigo].qty+=qtd;sess.scans+=qtd;
+  sess.itens[codigo].nome=nome;sess.itens[codigo].qty+=qtd;sess.scans+=qtd;sess.ultimaAtividade=Date.now();   // v32
   if(!cxAtual[codigo])cxAtual[codigo]={nome:nome,qty:0};
   cxAtual[codigo].nome=nome;cxAtual[codigo].qty+=qtd;
   var tot=Object.values(cxAtual).reduce(function(s,i){return s+i.qty;},0);
@@ -4354,7 +4408,7 @@ function renderCxFech(){
   if(!cxFech.length){w.innerHTML='';return;}
   w.innerHTML=cxFech.map(function(cx,idx){
     var pendCli=cx.etqClientePendente===true;   // v29
-    var etqBtn = (cx.etqImpressa?'<span class="cx-etq-ok">✓ etiqueta impressa</span>':'')
+    var etqBtn = (cx.etqImpressa?'<span class="cx-etq-ok">✓ etiqueta impressa</span>':'<span class="cx-etq-ok" style="color:#fcd34d">⚠ falta imprimir</span>')
       +(pendCli?'<span class="cx-etq-ok" style="color:#fcd34d">'+(gerarSSCCCaixa(cx)?'⚠ falta a etiqueta do cliente':'⏳ cliente: esperando o servidor')+'</span>':'')
       +'<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ da caixa</button>'
       +'<button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 do cliente</button>';
@@ -4432,6 +4486,7 @@ function okPeso(){
 
   var novaCaixa=Object.assign({},pendingCx,{peso:peso,etqImpressa:false,uid:gerarUidCaixa()});   // v28: uid = chave da caixa no tablet
   cxFech.push(novaCaixa);
+  sess.ultimaAtividade=Date.now();   // v32
   pendingCx=null;cxAtual={};
   document.getElementById('cxCount').textContent='0';
   document.getElementById('btnCx').disabled=true;
@@ -4470,10 +4525,16 @@ function okPeso(){
 
 // Finalizar só libera com pelo menos 1 caixa fechada E todas com etiqueta impressa
 function atualizarBtnFin(){
-  var btn=document.getElementById('btnFin');
-  var temCaixa=cxFech.length>0;
-  var todasImpressas=cxFech.every(function(cx){return cx.etqImpressa===true && cx.etqClientePendente!==true;});   // v29: etiqueta do cliente pendente também segura
-  btn.disabled=!(temCaixa&&todasImpressas);
+  // v32: com caixa fechada o botão sempre responde (se falta etiqueta, abre a lista do que falta imprimir) e,
+  // embaixo dele, aparece quais caixas faltam. A trava continua: só finaliza com tudo impresso.
+  var btn=document.getElementById('btnFin'); if(!btn) return;
+  btn.disabled=!cxFech.length;
+  var L=(typeof v32Faltando==='function')?v32Faltando():[];
+  var h=document.getElementById('v32FinHint');
+  if(!h){ h=document.createElement('div'); h.id='v32FinHint'; h.className='v32-fin-hint'; btn.insertAdjacentElement('afterend',h); }
+  btn.classList.toggle('v32-pend',L.length>0);
+  h.textContent=L.length?('Falta imprimir: '+L.map(function(f){ return 'Cx '+f.cx.num; }).join(', ')):'';
+  h.style.display=L.length?'block':'none';
 }
 
 // ═══════════════════════════════════════
@@ -4605,21 +4666,8 @@ function abrirFin(){
   }
   var cxs=calcCaixas();
   if(!cxs.length){showFb('⚠ Nenhuma caixa para finalizar','err');return;}
-  var semPeso=cxs.filter(function(cx){return !cx.peso||cx.peso<=0;});
-  if(semPeso.length){
-    showFb('⚠ Há caixas sem peso informado. Isso não deveria acontecer — contate o suporte.','err');
-    return;
-  }
-  var pendCli=cxs.filter(function(cx){return cx.etqClientePendente===true;});   // v29
-  if(pendCli.length){
-    showFb('⚠ Falta a etiqueta do cliente da caixa '+pendCli.map(function(c){return c.num;}).join(', ')+' — imprima antes de finalizar','err');
-    return;
-  }
-  var semEtq=cxs.filter(function(cx){return !cx.etqImpressa;});
-  if(semEtq.length){
-    showFb('⚠ Ainda tem caixa sem etiqueta impressa — imprima antes de finalizar','err');
-    return;
-  }
+  // v32: falta etiqueta (ou peso) → janela com cada caixa e o botão de imprimir; quando zera, volta para cá sozinho
+  if(v32Faltando().length){ v32MostrarFaltando('fin'); return; }
   document.getElementById('finPedDisplay').textContent=sess.ped||'—';
   document.getElementById('cxPrev').innerHTML=cxs.map(function(cx){
     return '<div class="cx-prev-r"><span class="cx-prev-n">Cx '+cx.num+'</span><span class="cx-prev-i">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span><span class="cx-prev-u">'+cx.totalUnid+' un. · '+(cx.peso||0)+' kg</span></div>';
@@ -8653,6 +8701,7 @@ function confirmarOperBaia(){
   document.getElementById('selOp').value=popOpSel;
   document.getElementById('selBaia').value=popBaiaSel;
   sess.op=popOpSel; sess.baia=popBaiaSel; sess.ped=popPedSel; sess.tipo=popTipoSel; sess.lote=lote;
+  sess.ultimaAtividade=Date.now(); sess.diaConfirmado=(typeof v32Hoje==='function')?v32Hoje():'';   // v32
   // v26: sess.data é carimbada em novaSess() (ao carregar a página ou ao finalizar a sessão anterior). Tablet que fica
   // ligado de um dia para o outro sem recarregar registrava a sessão com a data de ONTEM e a hora de HOJE
   // (iniciarSessaoNoServidorSeNecessario manda sess.data e a hora de agora). A data da sessão é a de quando ela COMEÇA —
@@ -11918,6 +11967,328 @@ function toast(msg){
 })();
 </script>
 <script>
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   v32 — o que o operador vê quando algo está pendente (pedido do Thiago depois da sessão presa de 11→12/11)
+   1) Virada do dia: sessão que começou num dia anterior e ficou parada → "Ficou pendente finalizar a sessão de
+      ontem. Deseja continuar?". Não → Finalizar. Sim → digita o lote das peças de hoje: igual continua; diferente
+      finaliza a de ontem e abre a de hoje com o lote novo (o lote é da sessão inteira — trocar na de ontem mudaria a
+      etiqueta das caixas de ontem numa reimpressão). Caixa pela metade com lote diferente: pesar e fechar antes.
+   2) Finalizar sempre responde: mostra quais caixas falta imprimir, com o botão ao lado. Sem liberação por senha.
+   3) Limpar sessão com caixas: explica e pede a senha do admin.
+   4) Selo de pendentes: mostra o que está na fila, o último erro do servidor e deixa conferir/descartar (senha).
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+function v32Ov(id){
+  var ov=document.getElementById(id);
+  if(!ov){ ov=document.createElement('div'); ov.className='ov hidden v32-ov'; ov.id=id; document.body.appendChild(ov); }
+  return ov;
+}
+function v32PedirSenha(acao,titulo){ acaoPendenteMaster=acao; abrirSenha('admAcao',titulo||'🔒 Senha do Admin'); }
+function v32Pl(n,um,muitos){ return n+' '+(n===1?um:muitos); }
+
+// ── 1) VIRADA DO DIA ──────────────────────────────────────────────────────────────────────────
+var V32_PARADA_MS=2*3600*1000;   // turno que vira a meia-noite bipando não é interrompido
+var V32_TROCA=null;              // {lote, de} enquanto a troca de lote espera a caixa fechar / as etiquetas
+var V32_ESCOLHEU_NAO=null;       // id da sessão em que tocou "Não": não pergunta de novo; a bipagem segue travada até finalizar
+function v32DataISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function v32Hoje(){ return v32DataISO(new Date()); }
+function v32Ini(){ return (typeof _dataISO==='function' && sess && sess.data)?String(_dataISO(sess.data)):''; }
+function v32PecasAbertas(){ return Object.keys(cxAtual||{}).reduce(function(a,k){ return a+(Number(cxAtual[k]&&cxAtual[k].qty)||0); },0); }
+function v32TemTrabalho(){ return !!(cxFech.length || v32PecasAbertas() || (sess && sess.scans)); }
+function v32SessaoDeOntem(){
+  if(!sess || !sess.ped) return false;                          // assistente ainda não confirmado
+  var ini=v32Ini(), hoje=v32Hoje();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(ini) || ini>=hoje) return false;
+  if(sess.diaConfirmado===hoje) return false;                   // já respondeu "Sim" com o mesmo lote hoje
+  var ult=Number(sess.ultimaAtividade)||0;
+  if(ult && Date.now()-ult<V32_PARADA_MS) return false;         // ainda bipando (turno da noite)
+  return true;
+}
+function v32NaBipagem(){ var b=document.getElementById('scr-bip'); return !!(b && b.classList.contains('active')); }
+function v32OutraJanela(){ return !!document.querySelector('.ov:not(.hidden)'); }
+// chamado por registrar() e adicionarQtdManual(): true = não conta o bipe
+function v32BloqueioVirada(){
+  if(V32_TROCA){ showFb('⚠ Termine a troca de lote antes de bipar','warn'); v32ContinuarTroca(); return true; }
+  if(!v32SessaoDeOntem()) return false;
+  if(V32_ESCOLHEU_NAO===sess.id){ showFb('⚠ Finalize a sessão de ontem antes de bipar (botão Finalizar Embalagem)','warn'); return true; }
+  if(!v32OutraJanela()) v32MostrarVirada();
+  return true;
+}
+function v32ChecarVirada(){
+  try{
+    if(!v32NaBipagem()) return;
+    if(V32_TROCA){ v32ContinuarTroca(); return; }
+    if(!v32SessaoDeOntem() || V32_ESCOLHEU_NAO===sess.id || v32OutraJanela()) return;
+    if(!v32TemTrabalho()){ v32RecomecarVazia(); return; }
+    v32MostrarVirada();
+  }catch(e){ console.error('[virada]',e); }
+}
+// sessão de ontem sem nenhuma peça: não tem o que finalizar — limpa (no tablet e no servidor) e abre o assistente
+function v32RecomecarVazia(){
+  toast('Sessão de ontem sem nenhuma peça — comece a de hoje');
+  limpar();
+  setTimeout(function(){ try{ irPara('bip'); }catch(e){} },300);
+}
+function v32MostrarVirada(passo){
+  if(!sess || !sess.ped) return;
+  var ov=v32Ov('ovV32Virada');
+  var un=cxFech.reduce(function(a,c){ return a+(Number(c.totalUnid)||0); },0), ab=v32PecasAbertas();
+  var ini=v32Ini(), ontem=(ini===v32DataISO(new Date(Date.now()-864e5)));
+  var qual=ontem?'de ontem':'de '+_dataBR(ini).slice(0,5);
+  var resumo='<div class="v32-res"><b>'+escAttr(sess.op||'—')+'</b> · '+escAttr(sess.baia||'—')+' · Pedido <b>'+escAttr(sess.ped)+'</b> · Lote <b>'+escAttr(sess.lote||'—')+'</b><br>'+
+    v32Pl(cxFech.length,'caixa','caixas')+' · '+un+' peças'+(ab?' · caixa aberta com '+v32Pl(ab,'peça','peças'):'')+' · começou em '+escAttr(_dataBR(ini))+'</div>';
+  var corpo;
+  if(passo==='lote'){
+    corpo='<p class="v32-p">Digite o <b>lote das peças de hoje</b>:</p>'+
+      '<input autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="inp" type="text" inputmode="text" style="text-transform:uppercase;width:100%" id="v32Lote" placeholder="Ex: 0085426K12" oninput="loteFiltrarEntrada(this)" onkeydown="if(event.key===\'Enter\')v32ConfirmarLote()">'+
+      '<div id="v32LoteErr" class="v32-err"></div>'+
+      '<div class="md-acts"><button type="button" class="btn-cncl" onclick="v32MostrarVirada()">Voltar</button><button type="button" class="btn-ok" id="v32LoteOk" onclick="v32ConfirmarLote()">Continuar</button></div>';
+  }else{
+    corpo='<p class="v32-p">Ficou pendente finalizar a sessão '+qual+'. <b>Deseja continuar?</b></p>'+
+      '<div class="md-acts"><button type="button" class="btn-cncl" id="v32Nao" onclick="v32Nao()">Não — finalizar</button><button type="button" class="btn-ok" id="v32Sim" onclick="v32MostrarVirada(\'lote\')">Sim — continuar</button></div>';
+  }
+  ov.innerHTML='<div class="md" style="max-width:520px"><div class="md-hdr"><span class="md-title">Sessão '+qual+' pendente</span></div><div class="md-body">'+resumo+corpo+'</div></div>';
+  ov.classList.remove('hidden');
+  try{ clearTimeout(scanAutoTimer); scanBuf=''; }catch(e){}
+  if(passo==='lote') setTimeout(function(){ var i=document.getElementById('v32Lote'); if(i) i.focus(); },150);
+}
+function v32Nao(){
+  V32_ESCOLHEU_NAO=sess.id;
+  fecharOv('ovV32Virada');
+  abrirFin();
+}
+function v32ConfirmarLote(){
+  var inp=document.getElementById('v32Lote'), err=document.getElementById('v32LoteErr'); if(!inp) return;
+  var lote=(inp.value||'').trim().toUpperCase();
+  function erro(m){ err.textContent=m; err.style.display='block'; inp.value=''; inp.dataset.sujo=''; inp.dataset.len='0'; inp.focus(); }
+  if(!lote) return erro('Digite o lote — são 10 caracteres (letras e números).');
+  if(inp.dataset.sujo==='1' || !/^[0-9A-Z]{10}$/.test(lote)) return erro(MSG_LOTE_FORMATO);
+  if(loteParecerEAN(lote)) return erro('⚠ Isso é o código de barras (EAN) de uma peça, não um lote. Digite o lote de fabricação.');
+  if(lote===String(sess.lote||'').toUpperCase()){
+    sess.diaConfirmado=v32Hoje(); sess.ultimaAtividade=Date.now(); salvarSess();
+    fecharOv('ovV32Virada');
+    toast('✔ Continuando a sessão — lote '+lote);
+    setTimeout(focusScan,150);
+    return;
+  }
+  V32_TROCA={lote:lote, de:sess.id}; sess.v32Troca=V32_TROCA; salvarSess();
+  fecharOv('ovV32Virada');
+  v32ContinuarTroca();
+}
+// troca de lote: 1) caixa pela metade fecha antes  2) toda caixa de ontem com etiqueta  3) finaliza e abre a de hoje
+function v32ContinuarTroca(){
+  if(!V32_TROCA) return;
+  if(!sess || sess.id!==V32_TROCA.de){ v32CancelarTroca(true); return; }
+  if(v32OutraJanela()) return;                                  // peso/etiqueta/formulário abertos: espera
+  if(typeof esperandoCaixa!=='undefined' && esperandoCaixa) return;
+  if(v32PecasAbertas()){ v32AvisoCaixaAberta(); return; }
+  if(v32Faltando().length){ v32MostrarFaltando('troca'); return; }
+  v32TrocarSessao();
+}
+function v32CancelarTroca(silencioso){
+  V32_TROCA=null; if(sess && sess.v32Troca){ delete sess.v32Troca; salvarSess(); }
+  fecharOv('ovV32CxAberta');
+  if(!silencioso) toast('Troca de lote cancelada');
+}
+function v32AvisoCaixaAberta(){
+  var ov=v32Ov('ovV32CxAberta'), ab=v32PecasAbertas();
+  ov.innerHTML='<div class="md" style="max-width:520px"><div class="md-hdr"><span class="md-title">Caixa pela metade</span></div><div class="md-body">'+
+    '<p class="v32-p">A caixa aberta tem <b>'+v32Pl(ab,'peça','peças')+' do lote de ontem</b> ('+escAttr(sess.lote||'—')+'). Pese e feche essa caixa antes de começar o lote novo (<b>'+escAttr(V32_TROCA.lote)+'</b>) — ela sai com o lote de ontem.</p>'+
+    '<div class="md-acts"><button type="button" class="btn-cncl" onclick="v32CancelarTroca()">Cancelar troca</button><button type="button" class="btn-ok" id="v32FecharCx" onclick="v32FecharCaixaAberta()">Pesar e fechar a caixa</button></div></div></div>';
+  ov.classList.remove('hidden');
+}
+function v32FecharCaixaAberta(){ fecharOv('ovV32CxAberta'); fecharCaixa(); }   // depois da etiqueta, a troca continua sozinha
+function v32TrocarSessao(){
+  var T=V32_TROCA; if(!T || !sess) return;
+  var velha=sess, idVelha=sess.id;
+  // 1) finaliza a de ontem: o mesmo que o "Confirmar" do Finalizar faz no servidor (sem internet vai para a fila)
+  var payload={tipo:'finalizarSimples',dados:{sessaoId:idVelha}};
+  try{
+    if(online){
+      google.script.run
+        .withSuccessHandler(function(r){ if(!r||r.status!=='ok') addFila(payload); })
+        .withFailureHandler(function(){ addFila(payload); })
+        .marcarEmbalagemFinalizada(idVelha);
+    }else addFila(payload);
+  }catch(e){ addFila(payload); }
+  // 2) abre a de hoje com o lote novo, mesmo operador/baia/pedido/tipo
+  var nova=novaSess();
+  nova.op=velha.op; nova.baia=velha.baia; nova.ped=velha.ped; nova.tipo=velha.tipo; nova.lote=T.lote;
+  nova.data=new Date().toLocaleDateString('pt-BR'); nova.diaConfirmado=v32Hoje(); nova.ultimaAtividade=Date.now();
+  nova.pedidoProgresso=null;   // a busca abaixo traz o saldo já contando as caixas da sessão de ontem
+  sess=nova; cxFech=[]; cxAtual={}; V32_TROCA=null;
+  salvarSess();
+  document.getElementById('selOp').value=sess.op; document.getElementById('selBaia').value=sess.baia;
+  document.getElementById('sessId').textContent=sess.id;
+  document.getElementById('cxCount').textContent='0';
+  document.getElementById('btnCx').disabled=true;
+  renderCxFech(); renderTabela(null); renderStats(); atualizarBtnFin();
+  iniciarSessaoNoServidorSeNecessario();
+  buscarProgressoParaSessAtual(sess.ped);
+  validarCampos();
+  toast('✔ Sessão de ontem finalizada — sessão nova com o lote '+T.lote);
+  setTimeout(focusScan,200);
+}
+
+// ── 2) FINALIZAR MOSTRA O QUE FALTA IMPRIMIR ──────────────────────────────────────────────────
+function v32Faltando(){
+  var L=[];
+  (cxFech||[]).forEach(function(cx,idx){
+    if(!cx) return;
+    if(!(parseFloat(cx.peso)>0)) L.push({idx:idx,cx:cx,tipo:'peso'});
+    else if(cx.etqClientePendente===true) L.push({idx:idx,cx:cx,tipo:gerarSSCCCaixa(cx)?'cliente':'servidor'});
+    else if(!cx.etqImpressa) L.push({idx:idx,cx:cx,tipo:'semetq'});
+  });
+  return L;
+}
+var V32_FALTA=null;   // 'fin' (veio do Finalizar) | 'troca' (troca de lote) enquanto a janela "falta imprimir" está em uso
+function v32MostrarFaltando(origem){
+  V32_FALTA=origem||'fin';
+  var L=v32Faltando();
+  if(!L.length){ v32FaltandoResolvido(); return; }
+  var ov=v32Ov('ovV32Falta');
+  var linhas=L.map(function(f){
+    var cx=f.cx, txt, bts='';
+    if(f.tipo==='cliente'){ txt='falta a etiqueta do cliente'; bts='<button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Imprimir do cliente</button>'; }
+    else if(f.tipo==='servidor'){ txt='ainda não chegou no servidor (internet) — a etiqueta do cliente precisa do número dela'; bts='<button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Tentar a do cliente</button>'; }
+    else if(f.tipo==='semetq'){ txt='nenhuma etiqueta impressa'; bts='<button type="button" class="v32-bt" onclick="v32Imprimir('+f.idx+',\'caixa\')">🏷️ Da caixa</button><button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Do cliente</button>'; }
+    else txt='caixa sem peso — chame o suporte';
+    return '<div class="v32-fl" data-cx="'+cx.num+'"><div class="v32-fl-t"><b>Caixa '+cx.num+'</b> <span>'+(Number(cx.totalUnid)||0)+' un.</span><div class="v32-fl-s">'+txt+'</div></div><div class="v32-fl-a">'+bts+'</div></div>';
+  }).join('');
+  var troca=(V32_FALTA==='troca');
+  var intro=troca?'Para fechar a sessão de ontem e começar o lote novo, toda caixa precisa estar com etiqueta. Falta imprimir:'
+                 :'Para finalizar, toda caixa precisa estar com etiqueta. Falta imprimir:';
+  ov.innerHTML='<div class="md" style="max-width:600px"><div class="md-hdr"><span class="md-title">'+(troca?'Antes de trocar o lote':'Falta imprimir etiqueta')+'</span><button class="md-x" onclick="v32FecharFaltando()" aria-label="Fechar">✕</button></div><div class="md-body">'+
+    '<p class="v32-p">'+intro+'</p><div class="v32-fls">'+linhas+'</div>'+
+    '<div class="md-acts"><button type="button" class="btn-cncl" onclick="v32FecharFaltando()">'+(troca?'Cancelar troca':'Fechar')+'</button></div></div></div>';
+  ov.classList.remove('hidden');
+}
+function v32FecharFaltando(){
+  var o=V32_FALTA; V32_FALTA=null; clearInterval(v32VigiarFaltando.t);
+  fecharOv('ovV32Falta');
+  if(o==='troca') v32CancelarTroca();
+}
+function v32Imprimir(idx,tipo){
+  fecharOv('ovV32Falta');   // o formulário da etiqueta do cliente abre por cima
+  if(tipo==='cliente') imprimirEtiquetaClienteCaixaIdx(idx); else imprimirEtiquetaCaixaIdx(idx);
+  v32VigiarFaltando();
+}
+function v32VigiarFaltando(){
+  clearInterval(v32VigiarFaltando.t);
+  v32VigiarFaltando.t=setInterval(function(){
+    if(!V32_FALTA){ clearInterval(v32VigiarFaltando.t); return; }
+    if(v32OutraJanela()) return;                                              // formulário/espera ainda abertos
+    if(typeof esperandoCaixa!=='undefined' && esperandoCaixa) return;
+    clearInterval(v32VigiarFaltando.t);
+    v32MostrarFaltando(V32_FALTA);                                            // reabre com o que falta; vazio → segue
+  },600);
+}
+function v32FaltandoResolvido(){
+  var o=V32_FALTA; V32_FALTA=null; clearInterval(v32VigiarFaltando.t);
+  fecharOv('ovV32Falta');
+  toast('✔ Todas as caixas com etiqueta');
+  if(o==='troca') setTimeout(v32ContinuarTroca,200); else setTimeout(abrirFin,200);
+}
+
+// ── 3) LIMPAR SESSÃO COM CAIXAS PEDE A SENHA DO ADMIN ─────────────────────────────────────────
+function v32PedirLimpar(){
+  var ncx=cxFech.length, ab=v32PecasAbertas();
+  if(!ncx && !ab){ if(confirm('Limpar esta sessão e voltar ao início?')) limpar(); return; }
+  var ov=v32Ov('ovV32Limpar');
+  ov.innerHTML='<div class="md" style="max-width:520px"><div class="md-hdr"><span class="md-title">Limpar a sessão?</span><button class="md-x" onclick="fecharOv(\'ovV32Limpar\')" aria-label="Fechar">✕</button></div><div class="md-body">'+
+    '<p class="v32-p"><b>Limpar apaga esta sessão só deste tablet.</b> No servidor ela continua "em andamento"'+(ncx?' com '+v32Pl(ncx,'caixa','caixas'):'')+': não entra no relatório e não dá para faturar.'+(ab?' As '+v32Pl(ab,'peça','peças')+' da caixa aberta saem da contagem.':'')+'</p>'+
+    '<p class="v32-p">Para terminar o trabalho, use <b>Finalizar Embalagem</b>.</p>'+
+    '<div class="md-acts"><button type="button" class="btn-cncl" onclick="fecharOv(\'ovV32Limpar\')">Cancelar</button><button type="button" class="btn-ok v32-danger" id="v32LimparOk" onclick="v32LimparComSenha()">Limpar com a senha do admin</button></div></div></div>';
+  ov.classList.remove('hidden');
+}
+function v32LimparComSenha(){
+  fecharOv('ovV32Limpar');
+  v32PedirSenha(function(){ limpar(); },'🔒 Senha do Admin para limpar a sessão');
+}
+
+// ── 4) SELO DE PENDENTES: O QUE ESTÁ PRESO E POR QUÊ ──────────────────────────────────────────
+var V32_ERR_K='emb_ferr3';
+function v32ChaveItem(it){ try{ return JSON.stringify(it); }catch(e){ return ''; } }
+function v32LerErros(){ try{ return JSON.parse(localStorage.getItem(V32_ERR_K)||'{}')||{}; }catch(e){ return {}; } }
+function v32GravarErros(o){ try{ localStorage.setItem(V32_ERR_K,JSON.stringify(o)); }catch(e){} }
+function v32RegistrarErros(snapshot,erros){
+  var E=v32LerErros(), agora=Date.now(), vivos={};
+  (fila||[]).forEach(function(it){ vivos[v32ChaveItem(it)]=1; });
+  Object.keys(E).forEach(function(k){ if(!vivos[k]) delete E[k]; });
+  (erros||[]).forEach(function(e){
+    var it=snapshot&&snapshot[e.i]; if(!it) return;
+    var k=v32ChaveItem(it); if(!vivos[k]) return;
+    var o=E[k]||{n:0}; o.n++; o.msg=e.msg; o.em=agora; E[k]=o;
+  });
+  v32GravarErros(E);
+}
+function v32FilaAberta(){ var o=document.getElementById('ovV32Fila'); return !!(o && !o.classList.contains('hidden')); }
+function v32AbrirFila(){ v32PintarFila(); document.getElementById('ovV32Fila').classList.remove('hidden'); }
+function v32DescItem(it){
+  var d=(it&&it.dados)||{};
+  if(it.tipo==='fecharCaixa'){ var c=d.caixa||{}; return {t:'📦 Caixa '+(c.num||'?')+' · '+(c.totalUnid||0)+' un. · '+(c.peso||0)+' kg', s:'sessão '+(d.sessaoId||'—')}; }
+  if(it.tipo==='scan') return {t:'🔹 Bipe · '+(it.nome||it.codigo||'?')+' +'+(it.qty||1), s:'sessão '+(it.sessaoId||'—')+(it.ts?' · '+new Date(it.ts).toLocaleString('pt-BR'):'')};
+  if(it.tipo==='iniciarSessao') return {t:'▶️ Início da sessão · pedido '+(d.pedido||'—')+' · '+(d.operador||''), s:'sessão '+(d.id||'—')};
+  if(it.tipo==='finalizarSimples'||it.tipo==='finalizar') return {t:'✅ Finalização da sessão', s:'sessão '+(d.sessaoId||(d.session&&d.session.id)||'—')};
+  return {t:'• '+String(it.tipo||'item'), s:''};
+}
+function v32ErroAmigavel(msg){
+  var m=String(msg||'');
+  if(/Failed to fetch|NetworkError|Load failed|sem conex/i.test(m)) return 'sem conexão com o servidor';
+  if(/HTTP 409|23505|duplicate/i.test(m)) return 'o servidor diz que já existe (repetido)';
+  if(/HTTP 4\d\d/.test(m)) return 'o servidor recusou';
+  if(/HTTP 5\d\d/.test(m)) return 'erro no servidor';
+  return 'não foi';
+}
+function v32PintarFila(){
+  var ov=v32Ov('ovV32Fila'), E=v32LerErros();
+  var linhas=(fila||[]).map(function(it,i){
+    var D=v32DescItem(it), e=E[v32ChaveItem(it)], quando=it._em?new Date(it._em).toLocaleString('pt-BR'):'';
+    return '<div class="v32-fl"><div class="v32-fl-t"><b>'+escAttr(D.t)+'</b><div class="v32-fl-m">'+escAttr(D.s)+(quando?' · na fila desde '+escAttr(quando):'')+'</div>'+
+      (e?'<div class="v32-fl-e">Último erro: <b>'+escAttr(v32ErroAmigavel(e.msg))+'</b> ('+v32Pl(e.n,'tentativa','tentativas')+', às '+new Date(e.em).toLocaleTimeString('pt-BR')+')<br><small>'+escAttr(String(e.msg||'').slice(0,200))+'</small></div>'
+         :'<div class="v32-fl-m">Esperando a próxima tentativa.</div>')+
+      '</div><div class="v32-fl-a"><button type="button" class="v32-bt" onclick="v32DescartarItem('+i+')">Conferir e descartar</button></div></div>';
+  }).join('');
+  ov.innerHTML='<div class="md" style="max-width:660px"><div class="md-hdr"><span class="md-title">Pendentes deste tablet ('+(fila||[]).length+')</span><button class="md-x" onclick="fecharOv(\'ovV32Fila\')" aria-label="Fechar">✕</button></div><div class="md-body">'+
+    '<p class="v32-p">É o que ainda não chegou no servidor. O tablet tenta de novo sozinho a cada 10 segundos.</p>'+
+    (linhas?'<div class="v32-fls">'+linhas+'</div>':'<p class="v32-p"><b>Nada pendente.</b> Tudo chegou no servidor.</p>')+
+    '<div class="md-acts"><button type="button" class="btn-cncl" onclick="fecharOv(\'ovV32Fila\')">Fechar</button>'+(linhas?'<button type="button" class="btn-ok" id="v32FilaTentar" onclick="v32TentarFila()">Tentar enviar agora</button>':'')+'</div></div></div>';
+}
+function v32TentarFila(){
+  var b=document.getElementById('v32FilaTentar'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
+  sincFila(function(){ if(v32FilaAberta()) v32PintarFila(); });
+  setTimeout(function(){ if(v32FilaAberta()) v32PintarFila(); },20000);
+}
+function v32DescartarItem(i){
+  var it=fila[i]; if(!it) return;
+  var chave=v32ChaveItem(it);
+  fecharOv('ovV32Fila');
+  v32PedirSenha(function(){
+    toast('Conferindo no servidor…');
+    try{
+      google.script.run.withSuccessHandler(function(r){
+        var idx=-1; fila.forEach(function(x,j){ if(idx<0 && v32ChaveItem(x)===chave) idx=j; });
+        if(idx<0){ toast('Esse pendente já tinha saído da fila'); v32AbrirFila(); return; }
+        if(!r || r.status!=='ok'){ alert('Não consegui conferir no servidor ('+((r&&r.msg)||'sem conexão')+'). Nada foi descartado.'); v32AbrirFila(); return; }
+        if(!r.podeDescartar && !confirm(r.texto+'\n\nDescartar mesmo assim? Isso não pode ser desfeito.')){ v32AbrirFila(); return; }
+        var it2=fila[idx];
+        fila.splice(idx,1); salvarFila(); atualizaOffl();
+        if(r.caixaId && it2.tipo==='fecharCaixa' && it2.dados && it2.dados.caixa && it2.dados.caixa.uid){ try{ aplicarIdsCaixasSincronizadas([{uid:it2.dados.caixa.uid,caixaId:r.caixaId}]); }catch(e){ console.error(e); } }
+        toast(r.podeDescartar?'✔ Já estava no servidor — tirado da fila':'Descartado');
+        v32AbrirFila();
+      }).withFailureHandler(function(){ alert('Sem conexão — nada foi descartado.'); v32AbrirFila(); }).conferirItemFila(it);
+    }catch(e){ alert('Sem conexão — nada foi descartado.'); }
+  },'🔒 Senha do Admin para descartar um pendente');
+}
+
+// ── partida ───────────────────────────────────────────────────────────────────────────────────
+(function(){
+  try{ if(sess && sess.v32Troca && sess.v32Troca.de===sess.id) V32_TROCA=sess.v32Troca; }catch(e){}
+  try{ atualizarBtnFin(); atualizaOffl(); }catch(e){}
+  setInterval(v32ChecarVirada,2000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) setTimeout(v32ChecarVirada,500); });
+})();
+</script>
+<script>
 /* v31 — app instalado no tablet + atualização sozinha pelo GitHub.
    Como funciona: a cada 5 min (e quando o tablet acorda ou a internet volta) o app confere no GitHub se o Index.html
    mudou. Se a versão do arquivo novo (marcador <meta name="app-versao">) for outra e o arquivo estiver INTEIRO
@@ -11925,7 +12296,7 @@ function toast(msg){
    aberta, nada sendo gravado e 45 s sem toque nem bipe. A sessão, as caixas e a fila ficam no tablet (localStorage),
    então recarregar não perde nada. Em Faturamento/Admin/Pedidos só aparece o aviso com o botão "Atualizar agora".
    O build troca a versão aqui e no <meta> do topo — os dois têm de ser iguais. */
-var APP_VERSAO='v31';
+var APP_VERSAO='v32';
 var UPD={alvo:null, assinatura:null, ultimaChecagem:0, ultimoGet:0, ultimoToque:Date.now(), timer:null, aplicando:false};
 var UPD_INTERVALO_MS=5*60*1000, UPD_PARADO_MS=45*1000, UPD_GET_MS=30*60*1000, UPD_K='emb_upd1';
 
