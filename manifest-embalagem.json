@@ -1,10 +1,10 @@
 {
-  "id": "./Index.html",
+  "id": "./",
   "name": "Controle de Embalagem — Juntas Universal",
   "short_name": "Embalagem",
   "description": "Bipagem, caixas, etiquetas e relatórios da embalagem.",
   "lang": "pt-BR",
-  "start_url": "./Index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
