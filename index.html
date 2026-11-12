@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="app-versao" content="v31">
+<meta name="theme-color" content="#00833E">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest-embalagem.json">
+<link rel="icon" type="image/png" href="icone-embalagem-192.png">
+<link rel="apple-touch-icon" href="icone-embalagem-192.png">
 <title>Controle de Embalagem — Juntas Universal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1812,6 +1818,14 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 @supports not (container-type:inline-size){ @media (max-width:900px){ .hx-sessoes .c-u2{display:none} } }
 /* ───────────── INÍCIO v12: card "Admin" pequeno, vermelho, separado dos atalhos ───────────── */
 .sx-adm{display:flex;justify-content:center;margin-top:clamp(26px,5.5vh,48px)}
+/* v31: aviso de versão nova + versão na tela inicial */
+.upd-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:590;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:10px 10px 10px 16px;border-radius:14px;background:#0f2a1a;border:1px solid rgba(0,161,77,.55);color:#dff2e6;font:500 13px/1.4 'Inter',system-ui,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.upd-banner b{color:#fff}
+.upd-banner button{appearance:none;-webkit-appearance:none;border:0;border-radius:10px;background:#00833e;color:#fff;font:700 13px 'Inter',system-ui,sans-serif;padding:10px 14px;min-height:40px;cursor:pointer;white-space:nowrap}
+.upd-banner button:hover{background:#00a14d}
+@media (max-width:560px){.upd-banner{flex-direction:column;align-items:stretch;text-align:center}}
+.sx-ver{margin-top:12px;text-align:center;font:500 11px 'Inter',system-ui,sans-serif;color:var(--td);letter-spacing:.02em}
+@media (max-width:900px){ .sx-left>.sx-ver{order:10} }
 .sx-admbtn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;gap:11px;min-height:48px;padding:0 16px 0 9px;border-radius:14px;cursor:pointer;
   font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:-.005em;color:#fca5a5;
   background:rgba(220,38,38,.08);border:1px solid rgba(248,113,113,.38);
@@ -2105,6 +2119,7 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
           <span class="sx-admbtn-lk" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
         </button>
       </div>
+      <div class="sx-ver" id="appVersao"></div>
     </section>
     <aside class="sx-right" aria-label="Resumo de hoje">
       <div class="sx-sec"><span class="sx-tag">Hoje</span></div>
@@ -11902,5 +11917,119 @@ function toast(msg){
   setTimeout(function(){ try{ if(typeof online!=='undefined') pintar(online,'Sem conexão'); }catch(e){} },1500);
 })();
 </script>
+<script>
+/* v31 — app instalado no tablet + atualização sozinha pelo GitHub.
+   Como funciona: a cada 5 min (e quando o tablet acorda ou a internet volta) o app confere no GitHub se o Index.html
+   mudou. Se a versão do arquivo novo (marcador <meta name="app-versao">) for outra e o arquivo estiver INTEIRO
+   (termina com <!--APP-FIM--></html>), ele troca de versão num momento seguro: Início ou Bipagem, nenhuma janela
+   aberta, nada sendo gravado e 45 s sem toque nem bipe. A sessão, as caixas e a fila ficam no tablet (localStorage),
+   então recarregar não perde nada. Em Faturamento/Admin/Pedidos só aparece o aviso com o botão "Atualizar agora".
+   O build troca a versão aqui e no <meta> do topo — os dois têm de ser iguais. */
+var APP_VERSAO='v31';
+var UPD={alvo:null, assinatura:null, ultimaChecagem:0, ultimoGet:0, ultimoToque:Date.now(), timer:null, aplicando:false};
+var UPD_INTERVALO_MS=5*60*1000, UPD_PARADO_MS=45*1000, UPD_GET_MS=30*60*1000, UPD_K='emb_upd1';
+
+['keydown','pointerdown','touchstart'].forEach(function(ev){ document.addEventListener(ev,function(){ UPD.ultimoToque=Date.now(); },true); });
+
+function updVersaoDe(html){ var m=/<meta name="app-versao" content="([^"]+)"/.exec(String(html||'')); return m?m[1]:null; }
+function updCompleto(html){ return typeof html==='string' && html.length>200000 && /<!--APP-FIM-->\s*<\/html>\s*$/.test(html) && html.indexOf('<title>Controle de Embalagem')!==-1; }
+function updUrl(){ return location.pathname+'?vchk='+Date.now(); }
+function updAssinatura(r){ var h=r.headers, a=[h.get('etag')||'',h.get('last-modified')||''].join('|'); return a==='|'?null:a; }
+
+// Confere o GitHub. Primeiro só o cabeçalho (leve); baixa o arquivo inteiro só quando ele mudou (ou a cada 30 min).
+async function updChecar(forcar){
+  if(UPD.aplicando || (typeof navigator!=='undefined' && navigator.onLine===false)) return;
+  if(!forcar && Date.now()-UPD.ultimaChecagem<60000) return;
+  UPD.ultimaChecagem=Date.now();
+  try{
+    if(!forcar && UPD.assinatura && Date.now()-UPD.ultimoGet<UPD_GET_MS){
+      var hr=await fetch(updUrl(),{method:'HEAD',cache:'no-store'});
+      if(hr.ok && updAssinatura(hr)===UPD.assinatura) return;      // nada mudou no GitHub
+    }
+    var r=await fetch(updUrl(),{cache:'no-store'});
+    if(!r.ok) return;
+    var html=await r.text();
+    UPD.ultimoGet=Date.now(); UPD.assinatura=updAssinatura(r);
+    var v=updVersaoDe(html);
+    if(!v || v===APP_VERSAO){ if(UPD.alvo){ UPD.alvo=null; updPintar(); } return; }
+    if(!updCompleto(html)){ console.warn('[atualização] o arquivo no GitHub está incompleto ou não é do app — não troquei'); return; }
+    UPD.alvo=v; updPintar(); updAgendar();
+  }catch(e){ /* sem internet ou GitHub fora: tenta na próxima */ }
+}
+
+// Momento seguro para trocar sozinho.
+function updTelaSegura(){
+  var bip=document.getElementById('scr-bip');
+  if(bip && bip.classList.contains('active')) return true;
+  var ini=document.getElementById('startScreen');
+  return !!(ini && ini.style.display!=='none' && !document.querySelector('.screen.active'));
+}
+function updPodeAgora(){
+  if(document.querySelector('.ov:not(.hidden)')) return false;                       // peso, etiqueta, senha, finalizar…
+  if(typeof fechandoCaixa!=='undefined' && fechandoCaixa) return false;
+  if(typeof finalizandoEmbalagem!=='undefined' && finalizandoEmbalagem) return false;
+  if(typeof esperandoCaixa!=='undefined' && esperandoCaixa) return false;
+  if(typeof sincEmAndamento!=='undefined' && sincEmAndamento) return false;
+  if(typeof scanBuf!=='undefined' && scanBuf) return false;                            // bipe chegando
+  if(!updTelaSegura()) return false;
+  if(document.hidden) return true;
+  return Date.now()-UPD.ultimoToque>=UPD_PARADO_MS;
+}
+function updAgendar(){
+  if(UPD.timer) return;
+  UPD.timer=setInterval(function(){
+    if(!UPD.alvo){ clearInterval(UPD.timer); UPD.timer=null; return; }
+    if(updPodeAgora()) updAplicar(false);
+  },5000);
+}
+
+// Proteção contra laço: o GitHub pode levar alguns minutos para entregar o arquivo novo em todo lugar. Se recarregou
+// 2 vezes e a versão nova não veio, espera 15 min antes de tentar de novo sozinho.
+function updLerTentativa(){ try{ return JSON.parse(localStorage.getItem(UPD_K)||'null'); }catch(e){ return null; } }
+function updGravarTentativa(o){ try{ if(o) localStorage.setItem(UPD_K,JSON.stringify(o)); else localStorage.removeItem(UPD_K); }catch(e){} }
+function updAplicar(manual){
+  if(!UPD.alvo || UPD.aplicando) return;
+  var t=updLerTentativa(), mesma=!!(t && t.alvo===UPD.alvo);
+  if(!manual && mesma && t.n>=2 && Date.now()-t.em<15*60*1000) return;
+  var bip=document.getElementById('scr-bip'), tela=(bip && bip.classList.contains('active'))?'bip':'';
+  updGravarTentativa({alvo:UPD.alvo, n:(mesma?t.n:0)+1, em:Date.now(), de:APP_VERSAO, tela:tela});
+  UPD.aplicando=true;
+  try{ if(typeof salvarSess==='function') salvarSess(); }catch(e){}
+  try{ if(typeof salvarFila==='function') salvarFila(); }catch(e){}
+  location.replace(location.pathname+'?v='+encodeURIComponent(UPD.alvo)+location.hash);
+}
+(function(){   // depois de trocar: volta para a Bipagem (se estava nela) e, se já é a versão esperada, limpa a tentativa e avisa
+  var t=updLerTentativa(); if(!t) return;
+  if(t.tela==='bip'){ t.tela=''; updGravarTentativa(t); setTimeout(function(){ try{ if(typeof sess!=='undefined' && sess && sess.ped) irPara('bip'); }catch(e){} },800); }
+  if(t.alvo===APP_VERSAO){ updGravarTentativa(null); setTimeout(function(){ try{ toast('✔ App atualizado para a '+APP_VERSAO); }catch(e){} },1200); }
+})();
+
+function updPintar(){
+  var b=document.getElementById('updBanner');
+  if(!UPD.alvo){ if(b) b.parentNode.removeChild(b); return; }
+  if(!b){ b=document.createElement('div'); b.id='updBanner'; b.className='upd-banner'; b.setAttribute('role','status'); document.body.appendChild(b); }
+  var seguro=updTelaSegura();
+  b.innerHTML='<span><b>Versão nova do app ('+escAttr(UPD.alvo)+')</b>'+(seguro?' · troca sozinha quando o tablet ficar parado':' · toque para atualizar')+'</span>'+
+    '<button type="button" onclick="updAplicar(true)">Atualizar agora</button>';
+}
+
+// app instalável + cópia para abrir sem internet (só em https ou no próprio computador)
+(function(){
+  var el=document.getElementById('appVersao'); if(el) el.textContent='versão '+APP_VERSAO;
+  if(!('serviceWorker' in navigator)) return;
+  if(!(location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')) return;
+  function registrar(){
+    navigator.serviceWorker.register('sw-embalagem.js',{scope:location.pathname})
+      .catch(function(e){ console.warn('[app] cópia offline não ativada:',(e&&e.message)||e); });
+  }
+  if(document.readyState==='complete') registrar(); else window.addEventListener('load',registrar);
+})();
+
+UPD.tIni=setTimeout(function(){ updChecar(true); },20000);
+setInterval(function(){ updChecar(false); },UPD_INTERVALO_MS);
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) updChecar(false); });
+window.addEventListener('online',function(){ updChecar(false); });
+</script>
 </body>
+<!--APP-FIM-->
 </html>
