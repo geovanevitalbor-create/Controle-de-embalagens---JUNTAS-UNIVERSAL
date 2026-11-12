@@ -1597,6 +1597,25 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 /* ───────────── RELATÓRIOS v10 — Ao vivo, por operador (reaproveita a tabela hx-* do Histórico) ───────────── */
 #pane-rel{font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .rl-head{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;margin-bottom:8px}
+.rl-dia{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin:0 0 12px}
+.rl-dia .hx-seg{width:auto}
+.rl-dia-nav{display:inline-flex;align-items:center;gap:6px}
+.rl-dia-in{width:auto;min-width:150px}
+.rl-dia-pas{min-width:38px;padding:0 10px}
+.rl-dia-pas:disabled{opacity:.35;cursor:default}
+.rl-live.past .rl-dot{background:var(--tm);box-shadow:none;animation:none}
+.rl-ped{margin-bottom:16px}
+.rl-ped-h{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--bd)}
+.rl-ped-h b{font-size:15px}
+.rl-ped-h span{font-size:12.5px;color:var(--tm)}
+.rl-av{display:flex;margin:12px 16px 0}
+.rl-nota{padding:14px 16px 16px;border-top:1px solid var(--bd)}
+.rl-lt{display:inline-block;padding:1px 7px;margin:1px 4px 1px 0;border-radius:6px;background:rgba(255,255,255,.05);border:1px solid var(--bd2);font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap}
+.rl-lt.warn{border-color:rgba(251,191,36,.6);color:#fcd34d;background:rgba(251,191,36,.08)}
+/* cartão estreito (tablet em pé, celular): sai EAN e Nº no sistema; Lote, Quantidade e Peso nunca saem */
+@container (max-width:659px){ .rl-it .c-ean,.rl-nota .c-ean,.rl-c-t .c-id{display:none} }
+@supports not (container-type:inline-size){ @media (max-width:900px){ .rl-it .c-ean,.rl-nota .c-ean,.rl-c-t .c-id{display:none} } }
+@media (max-width:640px){.rl-dia .hx-seg{width:100%}.rl-dia-nav{width:100%}.rl-dia-in{flex:1}}
 .rl-head .adm-panel-title{margin:0}
 .rl-live{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin:0 0 14px;font-size:12.5px;color:var(--tm)}
 .rl-live b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums}
@@ -2525,6 +2544,22 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
 
       <section class="adm-panel" id="pane-rel">
         <div class="rl-head"><h2 class="adm-panel-title">Relatórios</h2></div>
+        <div class="rl-dia" id="relDiaBar">
+          <div class="hx-seg" role="group" aria-label="Dia">
+            <button type="button" data-d="hoje" onclick="relIrDia('hoje')">Hoje</button>
+            <button type="button" data-d="ontem" onclick="relIrDia('ontem')">Ontem</button>
+          </div>
+          <div class="rl-dia-nav">
+            <button type="button" class="hx-btn sm rl-dia-pas" onclick="relPassoDia(-1)" aria-label="Dia anterior" title="Dia anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <input autocomplete="off" class="rp-in rl-dia-in" id="rlDia" type="date" aria-label="Dia do relatório" onchange="relIrDia(this.value)">
+            <button type="button" class="hx-btn sm rl-dia-pas" id="rlDiaProx" onclick="relPassoDia(1)" aria-label="Dia seguinte" title="Dia seguinte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+          </div>
+          <span class="hx-sp"></span>
+          <div class="hx-seg" role="group" aria-label="Ver por">
+            <button type="button" data-v="op" onclick="relVista('op')">Por operador</button>
+            <button type="button" data-v="item" onclick="relVista('item')">Por item</button>
+          </div>
+        </div>
         <div class="rl-live" id="relLive"></div>
         <div class="rl-kpis" id="relKpis"></div>
         <div class="rl-aviso" id="relAviso" style="display:none"></div>
@@ -3113,7 +3148,7 @@ const Backend={
         if(item.tipo==='scan'){ r=await Backend.registrarScanApp(item); }
         else if(item.tipo==='finalizar'){ r=await Backend.registrarFinalizacaoApp(item.dados); }
         else if(item.tipo==='iniciarSessao'){ r=await Backend.iniciarSessaoEmbalagem(item.dados); }
-        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa); if(r&&r.status==='ok'&&r.caixaId&&item.dados.caixa&&item.dados.caixa.uid) caixasIds.push({uid:item.dados.caixa.uid,caixaId:r.caixaId}); }
+        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa,{reenvio:true}); if(r&&r.status==='ok'&&r.caixaId&&item.dados.caixa&&item.dados.caixa.uid) caixasIds.push({uid:item.dados.caixa.uid,caixaId:r.caixaId}); }
         else if(item.tipo==='finalizarSimples'){ r=await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); }
         else { r={status:'ok'}; } // tipo desconhecido na fila — não trava tentando de novo pra sempre
       }catch(e){ r={status:'erro',msg:String(e)}; }
@@ -3368,7 +3403,41 @@ const Backend={
   // que permite Faturamento enxergar progresso em andamento, não só sessões já terminadas.
   async iniciarSessaoEmbalagem(s){ try{ await sbFetch('POST','/embalagens',{sessao:s.id,pedido:s.pedido,data_embalagem:_dataISO(s.data),hora_embalagem:_hora(s.hora),operador:s.operador,baia:s.baia,total_caixas:0,total_unidades:0,peso_total:0,cliente_lote:s.lote||null,tipo_embalagem:s.tipo||null,finalizada:false},{'Prefer':'return=representation'}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   // Grava UMA caixa (e seus itens) assim que ela fecha, em vez de esperar o fim da sessão inteira.
-  async registrarCaixaFechada(sessaoId,cx){ try{ var cr=await sbFetch('POST','/caixas',{sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'}); var cid=cr&&cr[0]&&cr[0].id; if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } if(cid){ await Backend.recalcularEsalvarAgregados(sessaoId); } return {status:'ok',caixaId:cid||null}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // v29: no REENVIO pela fila, confere antes se a caixa já está no banco — o envio anterior pode ter gravado e só a
+  // resposta se perdeu (rede caiu no meio). Sem isso, cada reenvio criava uma caixa repetida (saldo e faturamento em dobro).
+  async registrarCaixaFechada(sessaoId,cx,opts){ try{
+    var cid=null;
+    if(opts&&opts.reenvio){ cid=await Backend.acharCaixaJaGravada(sessaoId,cx); }
+    if(!cid){
+      var cr=await sbFetch('POST','/caixas',{sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'});
+      cid=cr&&cr[0]&&cr[0].id;
+      if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); }
+    }
+    if(cid){ await Backend.recalcularEsalvarAgregados(sessaoId); }
+    return {status:'ok',caixaId:cid||null};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // A mesma caixa = mesma sessão, mesmo número, mesmo peso, mesmo total e as mesmas peças. Caixa gravada sem as peças
+  // (a 2ª parte do envio falhou) é completada e reaproveitada.
+  async acharCaixaJaGravada(sessaoId,cx){
+    var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s) return null;
+    var cands=await sbFetch('GET','/caixas?sessao=eq.'+s+'&numero=eq.'+(Number(cx.num)||0)+'&select=id,peso,total_unidades&order=id.asc',null);
+    var pesoCx=parseFloat(cx.peso)||0, totCx=Number(cx.totalUnid)||0;
+    cands=(cands||[]).filter(function(c){ return Math.abs((parseFloat(c.peso)||0)-pesoCx)<0.0005 && Number(c.total_unidades)===totCx; });
+    if(!cands.length) return null;
+    var its=await sbFetch('GET','/itens_caixa?caixa_id=in.('+cands.map(function(c){return c.id;}).join(',')+')&select=caixa_id,codigo_produto,quantidade&order=caixa_id.asc,codigo_produto.asc',null);
+    function assinatura(lista){ return lista.map(function(it){ return String(it.c)+':'+String(it.q); }).sort().join('|'); }
+    var minha=assinatura((cx.itens||[]).map(function(it){ return {c:it.codigo||it.nome,q:Number(it.qty)||0}; }));
+    for(var i=0;i<cands.length;i++){
+      var idc=cands[i].id;
+      var dela=(its||[]).filter(function(x){ return String(x.caixa_id)===String(idc); }).map(function(x){ return {c:x.codigo_produto,q:Number(x.quantidade)||0}; });
+      if(!dela.length){
+        if(cx.itens&&cx.itens.length) await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:idc,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};}));
+        return idc;
+      }
+      if(assinatura(dela)===minha) return idc;
+    }
+    return null;
+  },
   // Progresso de um pedido: esperado (de itens_pedido) vs. embalado (somando itens_caixa de
   // TODAS as sessões desse pedido, em andamento ou finalizadas) vs. saldo. Base de tudo: cartões
   // na bipagem, bloqueio de bipagem fora do esperado, e a tela de tempo real do Faturamento.
@@ -3658,6 +3727,10 @@ function setConn(ok,msg){
 }
 verificarConn();
 setInterval(verificarConn,30000);
+// v29: com item na fila, tenta reenviar a cada 10 s (antes só junto da checagem de 30 s) e na hora em que o
+// aparelho avisa que a rede voltou.
+setInterval(function(){ if(fila.length) sincFila(); },10000);
+window.addEventListener('online',function(){ verificarConn(); });
 
 // ═══════════════════════════════════════
 // CADASTRO DE PEÇAS — cache local para validação instantânea
@@ -3683,30 +3756,48 @@ function carregarProdutos(){
 // ═══════════════════════════════════════
 // FILA OFFLINE
 // ═══════════════════════════════════════
+// v29: estado do envio das caixas. caixaEnviando[uid] = a caixa está indo direto para o servidor agora
+// (a fila não a manda junto, senão grava duas vezes). sincEmAndamento = um envio da fila por vez.
+var caixaEnviando={}, sincEmAndamento=false, sincIniciadoEm=0, sincAvisos=[];
 function addFila(item){fila.push(item);salvarFila();atualizaOffl();}
-function atualizaOffl(){const el=document.getElementById('offlEl');if(fila.length){el.className='offl show';el.textContent='⏳ '+fila.length+' item(ns) pendente(s)';}else{el.className='offl';}}
-function sincFila(){
-  if(!fila.length)return;
-  var snapshot=fila.slice();
+// Pendentes de verdade = fila menos as caixas que estão sendo enviadas direto neste instante.
+function atualizaOffl(){const el=document.getElementById('offlEl');var n=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); }).length;if(n){el.className='offl show';el.textContent='⏳ '+n+' item(ns) pendente(s)';}else{el.className='offl';}}
+function tirarCaixaDaFila(uid){
+  if(!uid) return;
+  var antes=fila.length;
+  fila=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&it.dados.caixa.uid===uid); });
+  if(fila.length!==antes){ salvarFila(); atualizaOffl(); }
+}
+// v29: um envio da fila por vez — dois envios juntos (a checagem de 30 s + a de 10 s, ou um envio lento) mandavam a
+// mesma caixa duas vezes. Quem chama pode passar uma função para saber quando este envio terminou.
+function sincFila(aoTerminar){
+  if(typeof aoTerminar==='function') sincAvisos.push(aoTerminar);
+  if(sincEmAndamento && Date.now()-sincIniciadoEm<90000) return;
+  var snapshot=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); });
+  function terminou(r){ sincEmAndamento=false; var av=sincAvisos; sincAvisos=[]; av.forEach(function(f){ try{ f(r); }catch(e){ console.error(e); } }); }
+  if(!snapshot.length){ terminou(null); return; }
+  sincEmAndamento=true; sincIniciadoEm=Date.now();
   try{
     google.script.run
       .withSuccessHandler(function(r){
-        if(!r||r.status!=='ok') return;
-        // tira da fila só o que o servidor confirmou (ou recusou); o que falhou fica, mais o que entrou na fila nesse meio-tempo
-        var okStrs={}; (r.ok||[]).forEach(function(it){ var k=JSON.stringify(it); okStrs[k]=(okStrs[k]||0)+1; });
-        fila=fila.filter(function(item){
-          var k=JSON.stringify(item);
-          if(okStrs[k]>0){ okStrs[k]--; return false; }
-          return true;
-        });
-        salvarFila();atualizaOffl();
-        try{ aplicarIdsCaixasSincronizadas(r.caixasIds); }catch(e){ console.error(e); }   // v28
-        if(!r.falhas) toast('✔ Fila sincronizada');
-        if(r.recusados&&r.recusados.length){ try{ abRecusados(r.recusados); }catch(e){ console.error(e); } }
+        try{
+          if(!r||r.status!=='ok') return;
+          // tira da fila só o que o servidor confirmou (ou recusou); o que falhou fica, mais o que entrou na fila nesse meio-tempo
+          var okStrs={}; (r.ok||[]).forEach(function(it){ var k=JSON.stringify(it); okStrs[k]=(okStrs[k]||0)+1; });
+          fila=fila.filter(function(item){
+            var k=JSON.stringify(item);
+            if(okStrs[k]>0){ okStrs[k]--; return false; }
+            return true;
+          });
+          salvarFila();atualizaOffl();
+          try{ aplicarIdsCaixasSincronizadas(r.caixasIds); }catch(e){ console.error(e); }   // v28
+          if(!r.falhas) toast('✔ Fila sincronizada');
+          if(r.recusados&&r.recusados.length){ try{ abRecusados(r.recusados); }catch(e){ console.error(e); } }
+        }finally{ terminou(r); }
       })
-      .withFailureHandler(function(){})
+      .withFailureHandler(function(){ terminou(null); })
       .sincronizarFila(snapshot);
-  }catch{}
+  }catch(e){ terminou(null); }
 }
 atualizaOffl();
 
@@ -4247,7 +4338,9 @@ function renderCxFech(){
   var w=document.getElementById('cxList');
   if(!cxFech.length){w.innerHTML='';return;}
   w.innerHTML=cxFech.map(function(cx,idx){
+    var pendCli=cx.etqClientePendente===true;   // v29
     var etqBtn = (cx.etqImpressa?'<span class="cx-etq-ok">✓ etiqueta impressa</span>':'')
+      +(pendCli?'<span class="cx-etq-ok" style="color:#fcd34d">'+(gerarSSCCCaixa(cx)?'⚠ falta a etiqueta do cliente':'⏳ cliente: esperando o servidor')+'</span>':'')
       +'<button class="cx-etq-pend" onclick="imprimirEtiquetaCaixaIdx('+idx+')">🏷️ da caixa</button>'
       +'<button class="cx-etq-pend" onclick="imprimirEtiquetaClienteCaixaIdx('+idx+')">📦 do cliente</button>';
     return '<div class="cx-item">'+
@@ -4333,19 +4426,23 @@ function okPeso(){
 
   // Grava a caixa no servidor agora — não mais só no fim da sessão inteira. É isso que dá
   // pro Faturamento enxergar progresso enquanto o operador ainda está bipando.
+  // v29: a caixa entra na fila ANTES do envio (fica salva no tablet) e sai quando o servidor confirma. Se a
+  // internet cair ou a página fechar no meio, ela não se perde: a fila reenvia sozinha (e confere se já gravou).
+  // O envio é tentado sempre, mesmo com "Sem conexão" na tela — esse aviso só é atualizado a cada 30 s.
   var sessaoIdAtual=sess.id;
   var payloadFila={tipo:'fecharCaixa',dados:{sessaoId:sessaoIdAtual,caixa:novaCaixa}};
-  if(online){
-    try{
-      google.script.run
-        .withSuccessHandler(function(r){
-          if(r&&r.status==='ok'&&r.caixaId){ novaCaixa.id=r.caixaId; aplicarIdCaixaPorUid(novaCaixa.uid,r.caixaId); salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
-          else{ addFila(payloadFila); }
-        })
-        .withFailureHandler(function(){ addFila(payloadFila); })
-        .registrarCaixaFechada(sessaoIdAtual,novaCaixa);
-    }catch(e){ addFila(payloadFila); }
-  }else{ addFila(payloadFila); }
+  caixaEnviando[novaCaixa.uid]=true;
+  addFila(payloadFila);
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        delete caixaEnviando[novaCaixa.uid];
+        if(r&&r.status==='ok'&&r.caixaId){ tirarCaixaDaFila(novaCaixa.uid); novaCaixa.id=r.caixaId; aplicarIdCaixaPorUid(novaCaixa.uid,r.caixaId); salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
+        else{ atualizaOffl(); setTimeout(function(){ sincFila(); },1500); }   // não gravou: a fila tenta de novo já
+      })
+      .withFailureHandler(function(){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); setTimeout(function(){ sincFila(); },1500); })
+      .registrarCaixaFechada(sessaoIdAtual,novaCaixa);
+  }catch(e){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); }
 
   setTimeout(function(){
     fechandoCaixa=false;
@@ -4360,7 +4457,7 @@ function okPeso(){
 function atualizarBtnFin(){
   var btn=document.getElementById('btnFin');
   var temCaixa=cxFech.length>0;
-  var todasImpressas=cxFech.every(function(cx){return cx.etqImpressa===true;});
+  var todasImpressas=cxFech.every(function(cx){return cx.etqImpressa===true && cx.etqClientePendente!==true;});   // v29: etiqueta do cliente pendente também segura
   btn.disabled=!(temCaixa&&todasImpressas);
 }
 
@@ -4425,9 +4522,10 @@ function imprimirEtiquetaClienteCaixaAtual(){
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
   var cxRef=caixaAguardandoEtq;
   fecharOv('ovEtqCx');
-  esperarIdCaixa(cxRef,function(){   // v28: espera o número do banco chegar (até 6 s)
+  garantirIdCaixa(cxRef,function(ok){   // v29: grava a caixa na hora se ainda não chegou no servidor (até 15 s)
+    if(!ok){ caixaAguardandoEtq=null; focusScan(); return; }   // não chegou: fica pendente (o aviso já apareceu)
     abrirFormEtqCliente([cxRef], sess.ped, sess.id, sess.lote, function(){
-      cxRef.etqImpressa=true;
+      cxRef.etqImpressa=true; marcarEtqClienteFeita(cxRef);
       caixaAguardandoEtq=null;
       salvarSess();renderCxFech();atualizarBtnFin();
       focusScan();
@@ -4446,9 +4544,10 @@ function imprimirEtiquetaCaixaIdx(idx){
 function imprimirEtiquetaClienteCaixaIdx(idx){
   var cx=cxFech[idx]; if(!cx)return;
   if(!sess.lote){toast('⚠ Sem lote na sessão — reabra "Quem está embalando?"');return;}
-  esperarIdCaixa(cx,function(){   // v28
+  garantirIdCaixa(cx,function(ok){   // v29
+    if(!ok) return;
     abrirFormEtqCliente([cx], sess.ped, sess.id, sess.lote, function(){
-      cx.etqImpressa=true;
+      cx.etqImpressa=true; marcarEtqClienteFeita(cx);
       salvarSess();renderCxFech();atualizarBtnFin();
     });
   });
@@ -4494,6 +4593,11 @@ function abrirFin(){
   var semPeso=cxs.filter(function(cx){return !cx.peso||cx.peso<=0;});
   if(semPeso.length){
     showFb('⚠ Há caixas sem peso informado. Isso não deveria acontecer — contate o suporte.','err');
+    return;
+  }
+  var pendCli=cxs.filter(function(cx){return cx.etqClientePendente===true;});   // v29
+  if(pendCli.length){
+    showFb('⚠ Falta a etiqueta do cliente da caixa '+pendCli.map(function(c){return c.num;}).join(', ')+' — imprima antes de finalizar','err');
     return;
   }
   var semEtq=cxs.filter(function(cx){return !cx.etqImpressa;});
@@ -8620,6 +8724,7 @@ function delBaia(idx){
 var REL_INIT=false, REL_DADOS=null, REL_SEL={}, REL_ABERTO={};
 var REL_TIMER=null, REL_CARREGANDO=false, REL_PEND=false, REL_ATUALIZADO=null, REL_ERRO=false;
 var REL_LIVE_MS=15000;
+var REL_DIA=null, REL_VISTA='op', REL_ABERTO_IT={};   // v30: dia escolhido (null = hoje), vista (operador/item), itens abertos
 var REL_CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 var REL_ICO_DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 19h14"/></svg>';
 
@@ -8647,6 +8752,7 @@ function relNomeCx(it){ return it.nome||it.codigo||'—'; }
 // ── ciclo de vida ─────────────────────────────────────────────
 function relInicializar(){
   REL_INIT=true;
+  relAtualizaControles();
   relCarregar();
   relIniciarLive();
 }
@@ -8656,17 +8762,243 @@ function relIniciarLive(){
   REL_TIMER=setInterval(function(){
     var pane=document.getElementById('pane-rel'), scr=document.getElementById('scr-adm');
     if(!pane || !pane.classList.contains('active') || !scr || !scr.classList.contains('active')){ relPararLive(); return; }
-    if(document.hidden || REL_CARREGANDO) return;
+    if(document.hidden || REL_CARREGANDO || !relEhHoje()) return;   // v30: dia passado não muda sozinho
     if(document.querySelector('.ov:not(.hidden)')) return; // não mexe na tela enquanto há um painel aberto
     relCarregar({silent:true});
   },REL_LIVE_MS);
 }
 function relAtualizaInfo(){
   var el=document.getElementById('relLive'); if(!el) return;
-  el.className='rl-live'+(REL_ERRO?' off':'');
-  el.innerHTML='<span class="rl-badge"><i class="rl-dot"></i>'+(REL_ERRO?'Sem conexão':'Ao vivo')+'</span>'+
-    '<span>'+(REL_ERRO?'mostrando a leitura das ':'atualizado às ')+'<b>'+(REL_ATUALIZADO?relHMS(REL_ATUALIZADO.getTime()):'—')+'</b> · só entram sessões finalizadas · confere sozinho a cada '+Math.round(REL_LIVE_MS/1000)+' s</span>'+
+  var hoje=relEhHoje();   // v30: dia passado não fica "ao vivo"
+  el.className='rl-live'+(REL_ERRO?' off':'')+(hoje?'':' past');
+  var badge=REL_ERRO?'Sem conexão':(hoje?'Ao vivo':'Dia '+_dataBR(relDiaAtual()));
+  var txt=REL_ERRO?'mostrando a leitura das ':(hoje?'atualizado às ':'lido às ');
+  el.innerHTML='<span class="rl-badge"><i class="rl-dot"></i>'+escAttr(badge)+'</span>'+
+    '<span>'+txt+'<b>'+(REL_ATUALIZADO?relHMS(REL_ATUALIZADO.getTime()):'—')+'</b> · só entram sessões finalizadas'+(hoje?' · confere sozinho a cada '+Math.round(REL_LIVE_MS/1000)+' s':'')+'</span>'+
     '<button type="button" class="hx-btn sm" onclick="relCarregar({silent:true})" title="Atualizar agora"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>Atualizar</button>';
+}
+// ── v30: relatório de expediente — escolhe o dia (hoje, ao vivo, ou um dia passado) e vê por operador
+// ou por item (pedido → peça → caixas, com a quantidade de cada caixa e o lote). Só sessões finalizadas.
+function relDiaAtual(){ return REL_DIA||relDataLocal(new Date()); }
+function relEhHoje(){ return relDiaAtual()===relDataLocal(new Date()); }
+function relSomaDias(iso,n){ var p=String(iso).split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]); d.setDate(d.getDate()+n); return relDataLocal(d); }
+function relAtualizaControles(){
+  var hoje=relDataLocal(new Date()), dia=relDiaAtual();
+  var inp=document.getElementById('rlDia'); if(inp){ inp.max=hoje; if(inp.value!==dia) inp.value=dia; }
+  var segD=document.querySelectorAll('#relDiaBar [data-d]');
+  for(var i=0;i<segD.length;i++){ var q=segD[i].getAttribute('data-d'); segD[i].classList.toggle('on',(q==='hoje'&&dia===hoje)||(q==='ontem'&&dia===relSomaDias(hoje,-1))); }
+  var segV=document.querySelectorAll('#relDiaBar [data-v]');
+  for(var j=0;j<segV.length;j++) segV[j].classList.toggle('on',segV[j].getAttribute('data-v')===REL_VISTA);
+  var prox=document.getElementById('rlDiaProx'); if(prox) prox.disabled=(dia>=hoje);
+}
+function relIrDia(v){
+  var hoje=relDataLocal(new Date()), alvo;
+  if(v==='hoje') alvo=hoje; else if(v==='ontem') alvo=relSomaDias(hoje,-1); else alvo=String(v||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(alvo)){ relAtualizaControles(); return; }
+  if(alvo>hoje){ toast('Esse dia ainda não chegou'); relAtualizaControles(); return; }
+  var novo=(alvo===hoje)?null:alvo;
+  if(novo===REL_DIA){ relAtualizaControles(); return; }
+  REL_DIA=novo; REL_DADOS=null; REL_SEL={}; REL_ABERTO={}; REL_ABERTO_IT={};
+  relAtualizaControles();
+  relCarregar();
+  relIniciarLive();
+}
+function relPassoDia(n){ relIrDia(relSomaDias(relDiaAtual(),n)); }
+function relVista(v){ REL_VISTA=(v==='item')?'item':'op'; relAtualizaControles(); if(REL_DADOS) relRenderizar(); else relAtualizaBarra(); }
+
+// Lote no padrão 0085426 + letra do mês (A = jan … L = dez) + dia → a data do lote (null se não seguir o padrão).
+function relLoteData(lote,diaEmb){
+  var m=/^0085426([A-L])(\d{2})$/.exec(String(lote||'')); if(!m) return null;
+  var mes='ABCDEFGHIJKL'.indexOf(m[1])+1, dia=+m[2];
+  var p=String(diaEmb).split('-'), ano=+p[0], emb=new Date(+p[0],+p[1]-1,+p[2]);
+  var d=new Date(ano,mes-1,dia); if(dia<1||d.getMonth()!==mes-1) return null;   // 31/11 não existe
+  if(d-emb>45*864e5) d=new Date(ano-1,mes-1,dia);   // lote de dezembro embalado em janeiro
+  return d;
+}
+// Lote com data depois da embalagem, ou de mais de 7 dias antes, merece conferência (ex.: J no lugar de K).
+function relLoteAviso(lote,diaEmb){
+  var d=relLoteData(lote,diaEmb); if(!d) return '';
+  var p=String(diaEmb).split('-'), emb=new Date(+p[0],+p[1]-1,+p[2]);
+  var dias=Math.round((emb-d)/864e5), dt=relP2(d.getDate())+'/'+relP2(d.getMonth()+1);
+  if(dias<0) return 'O lote diz '+dt+', depois do dia da embalagem — confira a letra do mês e o dia';
+  if(dias>7) return 'O lote diz '+dt+', '+dias+' dias antes da embalagem — confira a letra do mês';
+  return '';
+}
+
+// pedido → peça → caixas. Caixa com mais de uma peça entra em cada peça (com a quantidade daquela peça).
+function relPorItem(ops,dia){
+  var peds={}, ordem=[];
+  ops.forEach(function(o){ o.sess.forEach(function(s){
+    var pk=s.pedido||'(sem pedido)', P=peds[pk];
+    if(!P){ P=peds[pk]={pedido:pk,itens:{},ordem:[],cx:{},un:0,kg:0,semItens:0,mistas:0,ops:{}}; ordem.push(P); }
+    P.ops[o.nome]=1;
+    var aviso=relLoteAviso(s.lote,dia);
+    s.cx.forEach(function(c){
+      if(!P.cx[c.id]){ P.cx[c.id]=1; P.kg+=c.peso; if(!c.itens.length) P.semItens++; if(c.itens.length>1) P.mistas++; }
+      c.itens.forEach(function(it){
+        var k=it.codigo||it.nome, I=P.itens[k];
+        if(!I){ I=P.itens[k]={codigo:it.codigo||'',nome:it.nome||it.codigo||'',cx:[],un:0,lotes:{},lotesOrd:[]}; P.ordem.push(I); }
+        I.cx.push({id:c.id,num:c.num,op:o.nome,sessao:s.sessao,lote:s.lote||'',aviso:aviso,qty:it.qty,unidCx:c.unid,peso:c.peso,mista:c.itens.length>1});
+        I.un+=it.qty; P.un+=it.qty;
+        var lk=s.lote||'', L=I.lotes[lk];
+        if(!L){ L=I.lotes[lk]={lote:lk,cx:0,un:0,aviso:aviso}; I.lotesOrd.push(L); }
+        L.cx++; L.un+=it.qty;
+      });
+    });
+  }); });
+  ordem.forEach(function(P){
+    P.ncx=Object.keys(P.cx).length;
+    P.nops=Object.keys(P.ops).length;
+    P.ordem.sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR',{numeric:true}); });
+    P.ordem.forEach(function(I){
+      I.cx.sort(function(a,b){ return a.op.localeCompare(b.op,'pt-BR')||(a.num-b.num)||(a.id-b.id); });
+      I.lotesOrd.sort(function(a,b){ return a.lote.localeCompare(b.lote); });
+    });
+  });
+  ordem.sort(function(a,b){ return String(a.pedido).localeCompare(String(b.pedido),'pt-BR',{numeric:true}); });
+  return ordem;
+}
+// peça × lote (o que vai na nota)
+function relNotaLinhas(P){
+  var out=[];
+  P.ordem.forEach(function(I){ I.lotesOrd.forEach(function(L){ out.push({nome:I.nome,codigo:I.codigo,lote:L.lote,cx:L.cx,un:L.un,aviso:L.aviso}); }); });
+  return out;
+}
+function relLtBadge(lote,aviso,extra){
+  return '<span class="rl-lt'+(aviso?' warn':'')+'"'+(aviso?' title="'+escAttr(aviso)+'"':'')+'>'+(lote?escAttr(lote):'sem lote')+(extra||'')+(aviso?' ⚠':'')+'</span>';
+}
+
+// ── tela: vista por item ──────────────────────────────────────
+function relHtmlItens(D){
+  var PS=relPorItem(D.ops,D.hoje);
+  return PS.map(function(P,pi){
+    var avisos='';
+    if(P.semItens) avisos+='<div class="hx-aviso rl-av">'+relPl(P.semItens,'caixa','caixas')+' sem peças registradas — fica'+(P.semItens===1?'':'m')+' fora da relação por item.</div>';
+    if(P.mistas) avisos+='<div class="hx-aviso rl-av">'+relPl(P.mistas,'caixa tem','caixas têm')+' mais de uma peça: aparece'+(P.mistas===1?'':'m')+' em cada peça, com a quantidade daquela peça. O total conta cada caixa uma vez.</div>';
+    var linhas=P.ordem.map(function(I,ii){ return relLinhaItem(P,I,pi,ii); }).join('');
+    var nota=relNotaLinhas(P).map(function(r){ return ['<b>'+escAttr(r.nome)+'</b>','<span class="mut">'+escAttr(r.codigo)+'</span>',relLtBadge(r.lote,r.aviso),relFmt(r.cx),relFmt(r.un)]; });
+    return '<div class="hx-card rl-card rl-ped">'+
+      '<div class="rl-ped-h"><b>Pedido '+escAttr(P.pedido)+'</b><span>'+relPl(P.ncx,'caixa','caixas')+' · '+relFmt(P.un)+' '+(P.un===1?'peça':'peças')+' · '+relPl(P.ordem.length,'item','itens')+' · '+relFmt(P.kg,1)+' kg · '+relPl(P.nops,'operador','operadores')+'</span></div>'+
+      avisos+
+      '<table class="hx-tb hx-tb-p rl-o rl-it" aria-label="Itens do pedido '+escAttr(P.pedido)+'"><thead><tr>'+
+        '<th class="g"><span class="rl-sr">Abrir</span></th><th>Peça (Cód. Sabó)</th><th class="c-ean">EAN</th><th>Lote</th><th class="n">Caixas</th><th class="n">Peças</th></tr></thead><tbody>'+linhas+'</tbody>'+
+        '<tfoot><tr><td class="g"></td><td class="k">Total do pedido</td><td class="c-ean"></td><td></td><td class="n">'+relFmt(P.ncx)+'</td><td class="n">'+relFmt(P.un)+'</td></tr></tfoot></table>'+
+      '<div class="rl-nota"><div class="rl-sh">Resumo para a nota — peça × lote</div>'+
+        '<div class="hx-sub">'+relTbl([{h:'Peça (Cód. Sabó)',c:'k nw'},{h:'EAN',c:'c-ean'},{h:'Lote',c:'nw'},{h:'Caixas',c:'n'},{h:'Peças',c:'n'}],nota,'hx-tb','',['Total','','',relFmt(P.ncx),relFmt(P.un)])+'</div></div>'+
+    '</div>';
+  }).join('');
+}
+function relLinhaItem(P,I,pi,ii){
+  var k=P.pedido+'|'+(I.codigo||I.nome), aberto=!!REL_ABERTO_IT[k];
+  var lotes=I.lotesOrd.map(function(L){ return relLtBadge(L.lote,L.aviso,I.lotesOrd.length>1?' · '+L.cx+' cx':''); }).join('');
+  var r='<tr class="hx-r rl-r'+(aberto?' open':'')+'" onclick="relTogItem('+pi+','+ii+')">'+
+    '<td class="g"><button type="button" class="hx-tg" aria-expanded="'+aberto+'" aria-label="'+(aberto?'Recolher':'Abrir')+' '+escAttr(I.nome)+'">'+REL_CHEV+'</button></td>'+
+    '<td class="k">'+escAttr(I.nome)+'</td><td class="c-ean mut">'+escAttr(I.codigo)+'</td><td>'+lotes+'</td>'+
+    '<td class="n">'+relFmt(I.cx.length)+'</td><td class="n">'+relFmt(I.un)+'</td></tr>';
+  if(aberto){
+    var rows=I.cx.map(function(c){ return ['Caixa '+c.num,'<span class="mut">'+c.id+'</span>',escAttr(c.op),relLtBadge(c.lote,c.aviso),
+      relFmt(c.qty)+(c.mista?' <span class="mut">de '+relFmt(c.unidCx)+' (caixa com mais de uma peça)</span>':''),relFmt(c.peso,2)]; });
+    r+='<tr class="hx-dt"><td colspan="6"><div class="hx-dt-in rl-dt-in"><div class="rl-sh">Caixas de '+escAttr(I.nome)+' ('+I.cx.length+')</div><div class="hx-sub">'+
+      relTbl([{h:'Caixa',c:'k nw'},{h:'Nº no sistema',c:'nw c-id'},{h:'Operador'},{h:'Lote',c:'nw'},{h:'Quantidade',c:'n'},{h:'Peso (kg)',c:'n'}],rows,'hx-tb rl-c-t','',['Total','','','',relFmt(I.un),''])+
+      '</div></div></td></tr>';
+  }
+  return r;
+}
+function relTogItem(pi,ii){
+  var D=REL_DADOS; if(!D) return;
+  var P=relPorItem(D.ops,D.hoje)[pi], I=P&&P.ordem[ii]; if(!I) return;
+  var k=P.pedido+'|'+(I.codigo||I.nome); REL_ABERTO_IT[k]=!REL_ABERTO_IT[k]; relRenderizar();
+}
+function relBarraItens(D,info,bx,bp){
+  var tem=!!(D&&D.ops.length);
+  if(bx) bx.disabled=!tem; if(bp) bp.disabled=!tem;
+  if(!info) return;
+  if(!tem){ info.innerHTML=''; return; }
+  var PS=relPorItem(D.ops,D.hoje), T=relTotais(D.ops);
+  info.innerHTML='<b>Relatório do expediente</b> de '+escAttr(_dataBR(D.hoje))+' · '+relPl(PS.length,'pedido','pedidos')+' · <b>'+relFmt(T.cx)+'</b> '+(T.cx===1?'caixa':'caixas')+' · <b>'+relFmt(T.un)+'</b> '+(T.un===1?'peça':'peças')+' · todos os operadores';
+}
+
+// ── exportação do expediente por item (todos os operadores do dia) ──
+function relExportarItensXLSX(){
+  var D=REL_DADOS; if(!D||!D.ops.length){ toast('Nenhuma sessão finalizada nesse dia'); return; }
+  if(typeof XLSX==='undefined'||!XLSX.utils||!XLSX.writeFile){ toast('⚠ A biblioteca de Excel não carregou — confira a internet e tente de novo'); return; }
+  var PS=relPorItem(D.ops,D.hoje), T=relTotais(D.ops), agora=new Date();
+  function num(v,z){ return {t:'n',v:Math.round((Number(v)||0)*10000)/10000,z:z||'0'}; }
+  function ws(aoa,larg){ var s=XLSX.utils.aoa_to_sheet(aoa); s['!cols']=larg.map(function(w){ return {wch:w}; }); return s; }
+  var wb=XLSX.utils.book_new();
+  var res=[['Controle de Embalagem — Relatório de expediente (sessões finalizadas)'],['Dia: '+_dataBR(D.hoje)+' · gerado em '+agora.toLocaleString('pt-BR')],[],
+    ['Operador','Sessões','Pedidos','Caixas','Peças','Peso (kg)']];
+  D.ops.forEach(function(o){ res.push([o.nome,num(o.tot.sess),num(o.pedidos.length),num(o.tot.cx),num(o.tot.un),num(o.tot.kg,'#,##0.00')]); });
+  res.push(['Total',num(T.sess),num(T.ped),num(T.cx),num(T.un),num(T.kg,'#,##0.00')]);
+  XLSX.utils.book_append_sheet(wb,ws(res,[26,10,10,10,12,12]),'Resumo');
+  // lote e EAN sempre como TEXTO (zero à esquerda)
+  var nota=[['Pedido','Peça (Cód. Sabó)','EAN','Lote','Caixas','Peças','Observação']];
+  var cxs=[['Pedido','Peça (Cód. Sabó)','EAN','Lote','Operador','Sessão','Caixa','Nº no sistema','Quantidade da peça','Peças na caixa','Peso da caixa (kg)','Observação']];
+  PS.forEach(function(P){
+    relNotaLinhas(P).forEach(function(r){ nota.push([String(P.pedido),String(r.nome),String(r.codigo),String(r.lote),num(r.cx),num(r.un),r.aviso||'']); });
+    P.ordem.forEach(function(I){ I.cx.forEach(function(c){
+      var obs=[]; if(c.mista) obs.push('caixa com mais de uma peça'); if(c.aviso) obs.push(c.aviso);
+      cxs.push([String(P.pedido),String(I.nome),String(I.codigo),String(c.lote),c.op,c.sessao,num(c.num),num(c.id),num(c.qty),num(c.unidCx),num(c.peso,'#,##0.00'),obs.join('; ')]);
+    }); });
+  });
+  XLSX.utils.book_append_sheet(wb,ws(nota,[14,18,16,13,8,10,50]),'Peça x lote (nota)');
+  XLSX.utils.book_append_sheet(wb,ws(cxs,[14,18,16,13,18,18,7,13,12,12,12,50]),'Caixas por peça');
+  try{ XLSX.writeFile(wb,'expediente_'+D.hoje+'.xlsx'); toast('✔ Excel do expediente gerado'); }
+  catch(e){ console.error(e); toast('⚠ Não consegui gerar o Excel'); }
+}
+function relExportarItensPDF(){
+  var D=REL_DADOS; if(!D||!D.ops.length){ toast('Nenhuma sessão finalizada nesse dia'); return; }
+  var PS=relPorItem(D.ops,D.hoje), T=relTotais(D.ops), agora=new Date();
+  var logoEl=document.querySelector('.start-logo-img'), logoSrc=logoEl?logoEl.src:'';
+  function lt(lote,aviso){ return '<span class="lt'+(aviso?' w':'')+'">'+(lote?escAttr(lote):'sem lote')+(aviso?' ⚠':'')+'</span>'; }
+  var resCols=[{h:'Operador',c:'k'},{h:'Sessões',c:'r'},{h:'Pedidos',c:'r'},{h:'Caixas',c:'r'},{h:'Peças',c:'r'},{h:'Peso (kg)',c:'r'}];
+  var resRows=D.ops.map(function(o){ return ['<b>'+escAttr(o.nome)+'</b>',relFmt(o.tot.sess),relFmt(o.pedidos.length),relFmt(o.tot.cx),relFmt(o.tot.un),relFmt(o.tot.kg,2)]; });
+  var avisosPdf=[];
+  var secs=PS.map(function(P){
+    var nota=relNotaLinhas(P).map(function(r){ if(r.aviso) avisosPdf.push('Pedido '+P.pedido+', peça '+r.nome+', lote '+r.lote+': '+r.aviso+'.'); return ['<b>'+escAttr(r.nome)+'</b>',escAttr(r.codigo),lt(r.lote,r.aviso),relFmt(r.cx),relFmt(r.un)]; });
+    var itens=P.ordem.map(function(I){
+      var lotes=I.lotesOrd.map(function(L){ return lt(L.lote,L.aviso)+(I.lotesOrd.length>1?' ('+L.cx+' cx · '+relFmt(L.un)+')':''); }).join(' ');
+      var rows=I.cx.map(function(c){ return ['Caixa '+c.num,String(c.id),escAttr(c.op),lt(c.lote,c.aviso),relFmt(c.qty)+(c.mista?' <span class="mut">de '+relFmt(c.unidCx)+'</span>':''),relFmt(c.peso,2)]; });
+      return '<div class="it"><div class="ih"><h4>'+escAttr(I.nome)+(I.codigo?' <span class="mut">· EAN '+escAttr(I.codigo)+'</span>':'')+'</h4>'+
+        '<div class="tot">'+relPl(I.cx.length,'caixa','caixas')+' · <b>'+relFmt(I.un)+'</b> '+(I.un===1?'peça':'peças')+' · lote '+lotes+'</div></div>'+
+        relTbl([{h:'Caixa',c:'k'},{h:'Nº no sistema'},{h:'Operador'},{h:'Lote',c:'k'},{h:'Quantidade',c:'r'},{h:'Peso cx (kg)',c:'r'}],rows,'','',['Total','','','',relFmt(I.un),''])+'</div>';
+    }).join('');
+    return '<section class="op"><div class="ph"><h2>Pedido '+escAttr(P.pedido)+'</h2>'+
+      '<div class="tot">'+relPl(P.ncx,'caixa','caixas')+' · <b>'+relFmt(P.un)+'</b> '+(P.un===1?'peça':'peças')+' · '+relPl(P.ordem.length,'item','itens')+' · '+relFmt(P.kg,2)+' kg</div>'+
+      (P.mistas?'<div class="mut" style="margin-top:4px">'+relPl(P.mistas,'caixa tem','caixas têm')+' mais de uma peça e aparece'+(P.mistas===1?'':'m')+' em cada peça; o total conta cada caixa uma vez.</div>':'')+
+      (P.semItens?'<div class="mut" style="margin-top:4px">'+relPl(P.semItens,'caixa','caixas')+' sem peças registradas, fora da relação por item.</div>':'')+'</div>'+
+      '<h3>Resumo para a nota — peça × lote</h3>'+relTbl([{h:'Peça (Cód. Sabó)',c:'k'},{h:'EAN'},{h:'Lote',c:'k'},{h:'Caixas',c:'r'},{h:'Peças',c:'r'}],nota,'','',['Total','','',relFmt(P.ncx),relFmt(P.un)])+
+      '<h3>Relação por item</h3>'+itens+
+    '</section>';
+  }).join('');
+  var h='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Expediente '+escAttr(_dataBR(D.hoje))+'</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Segoe UI,Arial,sans-serif;color:#111;font-size:10.5px}'+
+    '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #00833E;padding-bottom:14px;margin-bottom:18px;gap:20px}'+
+    '.hdr img{height:40px;display:block}.hdr-t{text-align:right}.hdr-t h1{font-size:19px;color:#00833E}.hdr-t .sub{font-size:10.5px;color:#666;margin-top:4px}'+
+    'h2{font-size:15px;color:#00833E;margin:0 0 4px}h2.g{font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}h3{font-size:11.5px;color:#00833E;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}'+
+    'h4{font-size:11.5px;margin:0 0 2px}.it{margin:12px 0 0}.tot{font-size:10.5px;color:#555;margin-bottom:5px}.tot b{color:#111}'+
+    'table{width:100%;border-collapse:collapse;font-size:9.5px}thead{display:table-header-group}tr{page-break-inside:avoid}'+
+    'th{background:#00833E;color:#fff;padding:5px 4px;text-align:left;font-size:7.5px;text-transform:uppercase;letter-spacing:.03em}'+
+    'td{padding:4px;border-bottom:1px solid #e3e3e3;vertical-align:top}tr:nth-child(even) td{background:#f8f9f8}'+
+    '.r{text-align:right;white-space:nowrap}.k{font-weight:700;white-space:nowrap}.mut{color:#888;font-size:9px}'+
+    '.lt{white-space:nowrap;font-weight:700}.lt.w{color:#b45309}'+
+    'tfoot{display:table-row-group}tfoot td{font-weight:800;background:#e8f1ec!important;border-top:2px solid #00833E}'+
+    '.op{margin-top:22px;padding-top:12px;border-top:2px solid #00833E}h2,h3,h4,.ph,.ih{break-after:avoid;page-break-after:avoid}.ph,.ih{break-inside:avoid;page-break-inside:avoid}'+
+    '.avs{margin-top:16px;padding:8px 10px;border:1px solid #f59e0b;background:#fffbeb;font-size:9.5px}.avs b{color:#b45309}'+
+    '.foot{margin-top:16px;font-size:9px;color:#999;text-align:center}'+
+    '@page{size:A4 portrait;margin:12mm}'+
+    '</style></head><body>'+
+    '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+'<div class="hdr-t"><h1>Relatório de expediente</h1><div class="sub">'+escAttr(_dataBR(D.hoje))+' · só sessões finalizadas · '+relPl(D.ops.length,'operador','operadores')+' · gerado em '+agora.toLocaleString('pt-BR')+'</div></div></div>'+
+    '<h2 class="g">Resumo do dia</h2><div class="tot">'+relPl(PS.length,'pedido','pedidos')+' · '+relPl(T.cx,'caixa','caixas')+' · <b>'+relFmt(T.un)+'</b> '+(T.un===1?'peça':'peças')+' · '+relFmt(T.kg,2)+' kg</div>'+
+    relTbl(resCols,resRows,'','',['Total',relFmt(T.sess),relFmt(T.ped),relFmt(T.cx),relFmt(T.un),relFmt(T.kg,2)])+
+    secs+
+    (avisosPdf.length?'<div class="avs"><b>⚠ Lotes para conferir</b><br>'+avisosPdf.map(escAttr).join('<br>')+'</div>':'')+
+    '<div class="foot">Controle de Embalagem — Juntas Universal / Vitalbor</div>'+
+    '<script>window.onload=function(){window.onafterprint=function(){window.close();};setTimeout(function(){window.print();},400);setTimeout(function(){try{window.close();}catch(e){}},60000);};<\/script>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){ toast('Libere pop-ups para gerar o PDF'); return; }
+  w.document.write(h); w.document.close();
 }
 
 // ── dados ─────────────────────────────────────────────────────
@@ -8676,7 +9008,7 @@ async function relCarregar(opts){
   REL_CARREGANDO=true;
   if(!REL_DADOS){ var c=document.getElementById('relConteudo'); if(c) c.innerHTML='<div class="adm-spin-wrap"><div class="fat-spinner"></div></div>'; }
   try{
-    var hoje=relDataLocal(new Date());
+    var hoje=relDiaAtual();   // v30: o dia escolhido (hoje ou um dia passado)
     // só sessões finalizadas (finalizada vazio conta como finalizada, igual ao Histórico)
     var embs=await sbFetchAll('/embalagens?select=id,sessao,pedido,data_embalagem,hora_embalagem,operador,baia,finalizada,cliente_lote&data_embalagem=eq.'+hoje+'&or=(finalizada.eq.true,finalizada.is.null)&order=hora_embalagem.asc,id.asc');
     embs=embs.filter(function(e){ return e.finalizada!==false; });
@@ -8685,6 +9017,7 @@ async function relCarregar(opts){
     var cxs=lista.length ? await sbFetchPorLista('/caixas?sessao=in.({LISTA})&select=id,sessao,numero,peso,total_unidades&order=numero.asc,id.asc',lista,100) : [];
     var cxIds=cxs.map(function(c){ return c.id; });
     var its=cxIds.length ? await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,nome_produto.asc,quantidade.asc',cxIds,150) : [];
+    if(hoje!==relDiaAtual()){ REL_PEND=true; return; }   // v30: trocaram o dia no meio da leitura
     REL_DADOS=relMontar(hoje,embs,cxs,its);
     REL_ATUALIZADO=new Date(); REL_ERRO=false;
     relRenderizar();
@@ -8736,10 +9069,10 @@ function relRenderKpis(){
   var D=REL_DADOS; if(!D){ el.innerHTML=''; return; }
   var T=relTotais(D.ops);
   function k(c,rot,v,un,dica){ return '<div class="rl-kpi" style="--c:'+c+'" title="'+escAttr(dica)+'"><span>'+rot+'</span><b>'+v+(un?' <small>'+un+'</small>':'')+'</b></div>'; }
-  el.innerHTML=k('#f59e0b','Peso total',relFmt(T.kg,1),'kg','Peso de todas as caixas fechadas hoje, todos os operadores')+
-    k('#16a34a','Caixas',relFmt(T.cx),'','Caixas fechadas hoje, todos os operadores')+
-    k('#2563eb','Peças',relFmt(T.un),'','Unidades embaladas hoje, todos os operadores')+
-    k('#8b5cf6','Tipos de peças',relFmt(T.tipos),'','Quantos produtos diferentes foram embalados hoje');
+  el.innerHTML=k('#f59e0b','Peso total',relFmt(T.kg,1),'kg','Peso de todas as caixas fechadas no dia, todos os operadores')+
+    k('#16a34a','Caixas',relFmt(T.cx),'','Caixas fechadas no dia, todos os operadores')+
+    k('#2563eb','Peças',relFmt(T.un),'','Unidades embaladas no dia, todos os operadores')+
+    k('#8b5cf6','Tipos de peças',relFmt(T.tipos),'','Quantos produtos diferentes foram embalados no dia');
 }
 
 // ── tabela genérica (tela e PDF usam a mesma) ─────────────────
@@ -8765,17 +9098,18 @@ function relRodapeCaixas(o){ return ['Total','','','',relFmt(o.tot.un),relFmt(o.
 // ── tela ──────────────────────────────────────────────────────
 function relRenderizar(){
   var D=REL_DADOS, el=document.getElementById('relConteudo'); if(!D||!el) return;
-  relAtualizaInfo();
+  relAtualizaInfo(); relAtualizaControles();
   var av=document.getElementById('relAviso'); if(av) av.style.display='none';
   relRenderKpis();
   var nomes={}; D.ops.forEach(function(o){ nomes[o.nome]=1; });
   Object.keys(REL_SEL).forEach(function(n){ if(!nomes[n]) delete REL_SEL[n]; });
   if(!D.ops.length){
-    el.innerHTML='<div class="hx-vazio"><b>Nenhuma sessão encerrada hoje</b><p>O operador aparece aqui quando clicar em Finalizar sessão.</p></div>';
+    el.innerHTML='<div class="hx-vazio"><b>Nenhuma sessão finalizada '+(relEhHoje()?'hoje':'em '+escAttr(_dataBR(D.hoje)))+'</b><p>'+(relEhHoje()?'O operador aparece aqui quando clicar em Finalizar sessão.':'Escolha outro dia acima.')+'</p></div>';
     relAtualizaBarra(); return;
   }
+  if(REL_VISTA==='item'){ el.innerHTML=relHtmlItens(D); relAtualizaBarra(); return; }   // v30: relação por item
   var T=relTotais(D.ops);
-  var h='<div class="hx-card rl-card"><table class="hx-tb hx-tb-p rl-o" aria-label="Operadores de hoje"><thead><tr>'+
+  var h='<div class="hx-card rl-card"><table class="hx-tb hx-tb-p rl-o" aria-label="Operadores do dia"><thead><tr>'+
     '<th class="rl-c"><label class="rl-cbw"><input type="checkbox" class="rl-cb" id="relSelTodos" onchange="relSelTodos(this.checked)" aria-label="Selecionar todos os operadores"></label></th>'+
     '<th class="g"><span class="rl-sr">Abrir</span></th><th>Operador</th><th class="c-ped">Pedidos</th><th class="n c-se">Sessões</th><th class="n">Caixas</th>'+
     '<th class="n" title="Unidades que ficaram nas caixas fechadas">Peças</th><th class="n">Peso (kg)</th></tr></thead><tbody>'+
@@ -8813,6 +9147,7 @@ function relSelecionados(){ return REL_DADOS?REL_DADOS.ops.filter(function(o){ r
 function relAtualizaBarra(){
   var D=REL_DADOS, L=relSelecionados(), info=document.getElementById('relSelInfo');
   var bx=document.getElementById('relBtnXls'), bp=document.getElementById('relBtnPdf');
+  if(REL_VISTA==='item'){ relBarraItens(D,info,bx,bp); return; }   // v30: expediente inteiro, todos os operadores
   if(bx) bx.disabled=!L.length; if(bp) bp.disabled=!L.length;
   var todos=document.getElementById('relSelTodos');
   if(todos&&D){ todos.checked=(L.length>0&&L.length===D.ops.length); todos.indeterminate=(L.length>0&&L.length<D.ops.length); }
@@ -8832,6 +9167,7 @@ function relNomeArquivo(L,ext){
 function relTituloSel(L){ return 'Operadores: '+L.map(function(o){ return o.nome; }).join(', '); }
 
 function relExportarXLSX(){
+  if(REL_VISTA==='item'){ relExportarItensXLSX(); return; }   // v30
   var L=relSelecionados(); if(!L.length){ toast('Marque ao menos um operador'); return; }
   if(typeof XLSX==='undefined'||!XLSX.utils||!XLSX.writeFile){ toast('⚠ A biblioteca de Excel não carregou — confira a internet e tente de novo'); return; }
   var D=REL_DADOS, T=relTotais(L), agora=new Date();
@@ -8859,6 +9195,7 @@ function relExportarXLSX(){
 }
 
 function relExportarPDF(){
+  if(REL_VISTA==='item'){ relExportarItensPDF(); return; }   // v30
   var L=relSelecionados(); if(!L.length){ toast('Marque ao menos um operador'); return; }
   var D=REL_DADOS, T=relTotais(L), agora=new Date();
   var logoEl=document.querySelector('.start-logo-img'), logoSrc=logoEl?logoEl.src:'';
@@ -11023,6 +11360,18 @@ function rCliCaixaUnica(sessao,caixaId){
 // ═══════════════════════════════════════
 // IMPRESSÃO — Relatório da embalagem (todas as caixas de uma sessão)
 // ═══════════════════════════════════════
+// v30: relatório da sessão — peça por peça: quantas caixas, a quantidade de cada caixa e o total.
+function impRelItens(cxs){
+  var mapa={}, ordem=[];
+  (cxs||[]).forEach(function(cx){ (cx.itens||[]).forEach(function(it){
+    var k=String(it.codigo||it.nome||''), I=mapa[k];
+    if(!I){ I=mapa[k]={codigo:String(it.codigo||''),nome:String(it.nome||it.codigo||''),cx:[],un:0}; ordem.push(I); }
+    I.cx.push({num:cx.num,qty:Number(it.qty)||0}); I.un+=Number(it.qty)||0;
+  }); });
+  ordem.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR',{numeric:true}); });
+  ordem.forEach(function(I){ I.cx.sort(function(a,b){ return a.num-b.num; }); });
+  return ordem;
+}
 function impRel(){
   if(!dadosFin){toast('Nada para imprimir');return;}
   var s=dadosFin.session, cxs=dadosFin.caixas||[];
@@ -11056,16 +11405,16 @@ function impRel(){
     '@page{size:A4;margin:14mm}'+
     '</style></head><body>'+
     '<div class="hdr">'+(logoSrc?'<img src="'+logoSrc+'" alt="logo">':'<div></div>')+
-    '<div class="hdr-t"><h1>Relatório de Embalagem</h1><div class="sub">Pedido '+escAttr(s.pedido)+' · '+dadosFin.dataEmbalagem+(dadosFin.horaEmbalagem?' '+dadosFin.horaEmbalagem:'')+' · '+escAttr(s.operador||'—')+' · '+escAttr(s.baia||'—')+'</div></div></div>'+
+    '<div class="hdr-t"><h1>Relatório de Embalagem</h1><div class="sub">Pedido '+escAttr(s.pedido)+' · '+dadosFin.dataEmbalagem+(dadosFin.horaEmbalagem?' '+dadosFin.horaEmbalagem:'')+' · '+escAttr(s.operador||'—')+' · '+escAttr(s.baia||'—')+' · Lote '+escAttr(s.lote||'—')+'</div></div></div>'+
     '<div class="kpis">'+
       '<div class="kpi"><div class="v">'+cxs.length+'</div><div class="l">Caixas</div></div>'+
       '<div class="kpi"><div class="v">'+totalUnid+'</div><div class="l">Unidades</div></div>'+
       '<div class="kpi"><div class="v">'+totalPeso.toFixed(2)+' kg</div><div class="l">Peso total</div></div>'+
       '<div class="kpi"><div class="v">'+itens.length+'</div><div class="l">Produtos</div></div>'+
     '</div>'+
-    '<div class="sec-ttl">Itens consolidados</div>'+
-    '<table><thead><tr><th>Produto</th><th style="text-align:right">Quantidade</th></tr></thead><tbody>'+
-      itens.map(function(e){return '<tr><td>'+escAttr(e[0])+'</td><td style="text-align:right">'+e[1]+'</td></tr>';}).join('')+
+    '<div class="sec-ttl">Relação por item</div>'+
+    '<table><thead><tr><th>Peça (Cód. Sabó)</th><th>Lote</th><th style="text-align:right">Caixas</th><th>Quantidade em cada caixa</th><th style="text-align:right">Total</th></tr></thead><tbody>'+
+      impRelItens(cxs).map(function(I){ return '<tr><td><b>'+escAttr(I.nome)+'</b>'+(I.codigo&&I.codigo!==I.nome?'<div style="font-size:9px;color:#777">EAN '+escAttr(I.codigo)+'</div>':'')+'</td><td style="white-space:nowrap;font-weight:700">'+escAttr(s.lote||'—')+'</td><td style="text-align:right">'+I.cx.length+'</td><td>'+I.cx.map(function(c){ return 'Cx '+c.num+': '+c.qty; }).join(' · ')+'</td><td style="text-align:right"><b>'+I.un+'</b></td></tr>'; }).join('')+
     '</tbody></table>'+
     '<div class="sec-ttl">Detalhamento por caixa</div>'+
     '<table><thead><tr><th>Caixa</th><th>Conteúdo</th><th style="text-align:right">Unidades</th><th style="text-align:right">Peso</th></tr></thead><tbody>'+linhasCx+'</tbody></table>'+
@@ -11202,9 +11551,7 @@ function etqClienteConferir(caixas,lote){
   });
   if(!probs.length) return true;
   var dica='';
-  if(semServidor) dica=(online&&!naFila)
-    ? '\n\nA caixa ainda está sendo gravada no servidor. Espere alguns segundos e tente de novo.'
-    : '\n\nSem conexão (a caixa está na fila para gravar): imprima a etiqueta INTERNA agora. A do cliente sai pelo botão "reimprimir cliente" quando a caixa sincronizar (ou pelo Admin › Histórico).';
+  if(semServidor) dica='\n\nA caixa ainda não chegou no servidor. O tablet continua tentando sozinho; tente de novo em alguns segundos.';
   alert('ETIQUETA DO CLIENTE NÃO IMPRESSA — nada foi impresso.\n\n'+probs.join('\n')+dica);
   return false;
 }
@@ -11217,6 +11564,7 @@ function aplicarIdCaixaPorUid(uid,caixaId){
   var alvos=(cxFech||[]).filter(function(c){ return c&&c.uid===uid; });
   if(alvos.length!==1) return false;
   if(!alvos[0].id) alvos[0].id=caixaId;
+  avisarCaixaLiberada(alvos[0]);   // v29: caixa que estava esperando o servidor → bipe e aviso
   return true;
 }
 function aplicarIdsCaixasSincronizadas(lista){
@@ -11224,15 +11572,70 @@ function aplicarIdsCaixasSincronizadas(lista){
   (lista||[]).forEach(function(c){ if(c&&aplicarIdCaixaPorUid(c.uid,c.caixaId)) mudou=true; });
   if(mudou){ salvarSess(); try{ renderCxFech(); }catch(e){ console.error(e); } }
 }
-// Na bipagem: se a caixa ainda não tem o número do banco (gravação a caminho), espera até 6 s
-// antes de abrir o formulário da etiqueta do cliente. Sem conexão não espera: a trava avisa.
-function esperarIdCaixa(cx,cb){
-  if(!cx||gerarSSCCCaixa(cx)||!online||caixaNaFila(cx)){ cb(); return; }
-  toast('Gravando a caixa no servidor…');
-  var t0=Date.now();
-  (function espera(){
-    if(gerarSSCCCaixa(cx)||!online||caixaNaFila(cx)||Date.now()-t0>6000){ cb(); return; }
-    setTimeout(espera,200);
+// v29: antes de abrir a etiqueta do cliente na bipagem, garante que a caixa já está no banco (o SSCC é o número dela
+// lá). Se ainda não está, manda gravar NA HORA e espera até 15 s com aviso na tela. Só se não conseguir (sem internet
+// de verdade) a etiqueta fica bloqueada — e pendente: o tablet segue tentando sozinho a cada 10 s, avisa com bipe
+// quando a caixa chegar e a sessão não finaliza sem essa etiqueta.
+var esperandoCaixa=false;
+function caixaPorUid(uid){
+  if(!uid) return null;
+  var a=(cxFech||[]).filter(function(c){ return c&&c.uid===uid; });
+  return a.length===1?a[0]:null;
+}
+function marcarEtqClienteFeita(cx){
+  [cx, caixaPorUid(cx&&cx.uid)].forEach(function(c){ if(c){ c.etqImpressa=true; c.etqClientePendente=false; c.avisoLiberada=false; } });
+}
+function avisarCaixaLiberada(cx){
+  if(!cx||cx.etqClientePendente!==true||cx.avisoLiberada||!gerarSSCCCaixa(cx)) return;
+  cx.avisoLiberada=true;
+  try{ beepSucesso(); setTimeout(beepSucesso,180); }catch(e){}
+  showFb('Caixa '+cx.num+' chegou no servidor — toque em "📦 do cliente" nela para imprimir a etiqueta','ok');
+  toast('✔ Caixa '+cx.num+': etiqueta do cliente liberada');
+  try{ renderCxFech(); atualizarBtnFin(); }catch(e){ console.error(e); }
+}
+function mostrarEsperaCaixa(cx){
+  var ov=document.getElementById('ovEsperaCx');
+  if(!ov){
+    ov=document.createElement('div'); ov.className='ov hidden'; ov.id='ovEsperaCx';
+    ov.innerHTML='<div class="md" style="max-width:420px"><div class="md-body" style="text-align:center;padding:26px 18px">'+
+      '<div class="fat-spinner" style="margin:0 auto 14px"></div>'+
+      '<div id="ovEsperaCxTxt" style="font-weight:700;font-size:16px"></div>'+
+      '<div style="font-size:13px;opacity:.75;margin-top:8px">A etiqueta do cliente abre sozinha quando a caixa chegar.</div></div></div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('ovEsperaCxTxt').textContent='Gravando a caixa '+cx.num+' no servidor…';
+  ov.classList.remove('hidden');
+}
+function garantirIdCaixa(cx,cb){
+  if(!cx){ cb(false); return; }
+  if(gerarSSCCCaixa(cx)){ cb(true); return; }
+  if(esperandoCaixa) return;   // segundo toque enquanto espera: ignora
+  esperandoCaixa=true;
+  if(!cx.uid){ cx.uid=gerarUidCaixa(); salvarSess(); }   // caixa fechada antes da v28 não tinha a chave
+  var t0=Date.now(), tentativas=0, ultima=0, atual=cx;
+  mostrarEsperaCaixa(cx);
+  function fim(ok){
+    esperandoCaixa=false;
+    fecharOv('ovEsperaCx');
+    if(!ok){
+      atual.etqClientePendente=true; atual.avisoLiberada=false; salvarSess();
+      try{ renderCxFech(); atualizarBtnFin(); }catch(e){ console.error(e); }
+      alert('ETIQUETA DO CLIENTE NÃO SAIU — nada foi impresso.\n\n'+
+        'Caixa '+atual.num+': ainda não chegou no servidor (a internet caiu?).\n\n'+
+        'O tablet continua tentando sozinho. Quando a caixa chegar, toca um bipe e aparece "Caixa '+atual.num+' chegou no servidor". Aí é só tocar em "📦 do cliente" na caixa '+atual.num+'.\n\n'+
+        'Pode continuar embalando. A sessão só finaliza depois dessa etiqueta.');
+    }
+    cb(ok);
+  }
+  (function passo(){
+    atual=caixaPorUid(cx.uid)||cx;
+    if(gerarSSCCCaixa(atual)){ fim(true); return; }
+    var enviando=!!caixaEnviando[atual.uid];
+    if(!enviando && !caixaNaFila(atual)) addFila({tipo:'fecharCaixa',dados:{sessaoId:sess.id,caixa:atual}});   // recuperação: caixa sem número e fora da fila
+    if(!enviando && !sincEmAndamento && Date.now()-ultima>1500){ ultima=Date.now(); tentativas++; sincFila(); }
+    var semChance=tentativas>=4 && Date.now()-t0>5000 && !sincEmAndamento && !caixaEnviando[atual.uid];
+    if(Date.now()-t0>15000 || semChance){ fim(false); return; }
+    setTimeout(passo,250);
   })();
 }
 // Monta e imprime a etiqueta do cliente para uma OU várias caixas de uma vez. totalCaixas,
