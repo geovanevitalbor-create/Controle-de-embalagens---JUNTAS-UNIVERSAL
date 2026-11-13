@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="app-versao" content="v32">
+<meta name="app-versao" content="v33">
 <meta name="theme-color" content="#00833E">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-embalagem.json">
@@ -1842,6 +1842,8 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 #scr-bip .btn-fin.v32-pend{box-shadow:inset 0 0 0 2px rgba(251,191,36,.75)}
 .offl{cursor:pointer}
 @media (max-width:560px){.v32-fl{flex-direction:column;align-items:stretch}.v32-fl-a{justify-content:stretch}.v32-bt{flex:1}}
+/* v33: aviso na lista do Finalizar */
+.v33-nota{display:block;font-size:11px;font-weight:600;color:#fcd34d;margin-top:2px;white-space:normal;overflow:visible;text-overflow:clip}
 /* v31: aviso de versão nova + versão na tela inicial */
 .upd-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:590;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:10px 10px 10px 16px;border-radius:14px;background:#0f2a1a;border:1px solid rgba(0,161,77,.55);color:#dff2e6;font:500 13px/1.4 'Inter',system-ui,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.5)}
 .upd-banner b{color:#fff}
@@ -3065,14 +3067,24 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
 const SB_URL='https://kulwjcfbsggnkmevfdik.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHdqY2Zic2dnbmttZXZmZGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MDYxMTcsImV4cCI6MjA5ODM4MjExN30.QJCJByqcpC8LnoTEiQqGQsXGkNoA3akg3jlG9vf662s';
 const SB_REST=SB_URL+'/rest/v1';
-async function sbFetch(method, path, body, extraHeaders){
+// v33: toda conversa com o servidor tem tempo limite. Antes, uma requisição que pendurava (rede oscilando) nunca terminava:
+// a caixa ficava "sendo enviada" para sempre, a fila não tentava de novo e a etiqueta do cliente travava até recarregar.
+var SB_TEMPO_MS=20000;
+async function sbFetch(method, path, body, extraHeaders, tempoMs){
   const headers=Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}, extraHeaders||{});
   const opt={method:method, headers:headers};
   if(body!==null && body!==undefined) opt.body=JSON.stringify(body);
-  const resp=await fetch(SB_REST+path, opt);
-  const text=await resp.text();
-  if(resp.ok){ try{ return text?JSON.parse(text):[]; }catch(e){ return []; } }
-  throw new Error('Supabase '+method+' '+path+' HTTP '+resp.status+': '+text);
+  var ms=tempoMs||SB_TEMPO_MS, ctrl=(typeof AbortController==='function')?new AbortController():null, tm=null;
+  if(ctrl){ opt.signal=ctrl.signal; tm=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} },ms); }
+  try{
+    const resp=await fetch(SB_REST+path, opt);
+    const text=await resp.text();
+    if(resp.ok){ try{ return text?JSON.parse(text):[]; }catch(e){ return []; } }
+    throw new Error('Supabase '+method+' '+path+' HTTP '+resp.status+': '+text);
+  }catch(e){
+    if(e && e.name==='AbortError') throw new Error('Supabase '+method+' '+path+' TEMPO esgotado: '+Math.round(ms/1000)+' s sem resposta');
+    throw e;
+  }finally{ if(tm) clearTimeout(tm); }
 }
 // ── Paginação ────────────────────────────────────────────────────────────────────────────
 // O Supabase devolve no máximo 1000 linhas por consulta e, quando passa disso, CORTA EM
@@ -3087,8 +3099,11 @@ async function sbFetchAll(path){
   var headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'count=exact'};
   for(var volta=0; volta<1000; volta++){
     var url=SB_REST+path+(path.indexOf('?')===-1?'?':'&')+'limit='+PAGINA+'&offset='+offset;
-    var resp=await fetch(url,{method:'GET',headers:headers});
-    var text=await resp.text();
+    var ctrlP=(typeof AbortController==='function')?new AbortController():null, tmP=ctrlP?setTimeout(function(){ try{ ctrlP.abort(); }catch(e){} },60000):null;   // v33: tempo limite por página
+    var resp, text;
+    try{ resp=await fetch(url,{method:'GET',headers:headers,signal:ctrlP?ctrlP.signal:undefined}); text=await resp.text(); }
+    catch(eP){ if(eP&&eP.name==='AbortError') throw new Error('Supabase GET '+path+' TEMPO esgotado: 60 s sem resposta'); throw eP; }
+    finally{ if(tmP) clearTimeout(tmP); }
     if(resp.status===416 && offset>0){ fim=true; break; } // pediu além do fim: acabou
     if(!resp.ok) throw new Error('Supabase GET '+path+' HTTP '+resp.status+': '+text);
     var rows=text?JSON.parse(text):[]; // se vier lixo, estoura de propósito em vez de seguir com dado cortado
@@ -3179,28 +3194,53 @@ const Backend={
   // sempre voltava "ok" pro front-end, que então apagava a fila inteira — inclusive o que
   // tinha falhado silenciosamente. Agora devolve exatamente quais itens deram certo, pra só
   // esses saírem da fila local; o que falhar continua lá e tenta de novo na próxima sincronização.
-  async sincronizarFila(fila){ try{
+  async sincronizarFila(fila,ocupadas){ try{
     var ok=[], falhas=0, recusados=[], caixasIds=[], erros=[];   // v28: ids das caixas gravadas pela fila; v32: erro de cada item
+    // v33: ordem só onde importa — a caixa N espera o "apagar a caixa N antiga" da mesma sessão; a finalização espera
+    // tudo da sessão (inclusive caixa que está indo direto agora, em "ocupadas").
+    var excPend={}, sesPend={}; (ocupadas||[]).forEach(function(x){ sesPend[x]=1; });
     for(var i=0;i<(fila||[]).length;i++){
-      var item=fila[i], r=null;
+      var item=fila[i], r=null, d=(item&&item.dados)||{};
       try{
         if(item.tipo==='scan'){ r=await Backend.registrarScanApp(item); }
         else if(item.tipo==='finalizar'){ r=await Backend.registrarFinalizacaoApp(item.dados); }
         else if(item.tipo==='iniciarSessao'){ r=await Backend.iniciarSessaoEmbalagem(item.dados); }
-        else if(item.tipo==='fecharCaixa'){ r=await Backend.registrarCaixaFechada(item.dados.sessaoId,item.dados.caixa,{reenvio:true}); if(r&&r.status==='ok'&&r.caixaId&&item.dados.caixa&&item.dados.caixa.uid) caixasIds.push({uid:item.dados.caixa.uid,caixaId:r.caixaId}); }
-        else if(item.tipo==='finalizarSimples'){ r=await Backend.marcarEmbalagemFinalizada(item.dados.sessaoId); }
+        else if(item.tipo==='fecharCaixa'){
+          var cxF=d.caixa||{};
+          if(excPend[d.sessaoId+'|'+cxF.num]) r={status:'erro',espera:true,msg:'esperando apagar a caixa '+cxF.num+' antiga no servidor'};
+          else{ r=await Backend.registrarCaixaFechada(d.sessaoId,cxF,{reenvio:true}); if(r&&r.status==='ok'&&r.caixaId&&cxF.uid) caixasIds.push({uid:cxF.uid,caixaId:r.caixaId}); }
+        }
+        else if(item.tipo==='excluirCaixa'){ r=d.caixaId?await Backend.excluirCaixaTablet(d.sessaoId,d.caixaId):await Backend.excluirCaixaPorConteudo(d.sessaoId,d.conteudo||{}); }
+        else if(item.tipo==='finalizarSimples'){
+          if(sesPend[d.sessaoId]) r={status:'erro',espera:true,msg:'esperando as caixas desta sessão chegarem no servidor'};
+          else r=await Backend.marcarEmbalagemFinalizada(d.sessaoId);
+        }
         else { r={status:'ok'}; } // tipo desconhecido na fila — não trava tentando de novo pra sempre
       }catch(e){ r={status:'erro',msg:String(e)}; }
       if(r&&r.status==='ok'){ ok.push(item); }
       else if(r&&r.status==='recusado'){ ok.push(item); recusados.push({item:item,detalhe:r.detalhe}); }   // v24: o servidor disse NÃO (pedido completo): sai da fila e o tablet é avisado
       else if(item.tipo==='scan' && r && r.status==='erro' && r.rede===false){ ok.push(item); }   // v32: bipe que o banco recusou de vez sai da fila (igual ao envio direto)
-      else { falhas++; erros.push({i:i,msg:String((r&&r.msg)||'sem resposta do servidor').slice(0,300)}); }
+      else {
+        falhas++; erros.push({i:i,msg:String((r&&r.msg)||'sem resposta do servidor').slice(0,300),permanente:!!(r&&r.permanente),trocarId:!!(r&&r.trocarId),espera:!!(r&&r.espera)});
+        if(item.tipo==='excluirCaixa') excPend[d.sessaoId+'|'+d.num]=1;
+        if(item.tipo==='fecharCaixa'||item.tipo==='excluirCaixa'||item.tipo==='iniciarSessao') sesPend[d.sessaoId||d.id]=1;
+      }
     }
     return {status:'ok',ok:ok,processados:ok.length,falhas:falhas,recusados:recusados,caixasIds:caixasIds,erros:erros};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
   // v32: confere no servidor se um pendente da fila já está lá (para tirar da fila sem perder nada)
   async conferirItemFila(item){ try{
     var d=(item&&item.dados)||{};
+    if(item.tipo==='excluirCaixa'){   // v33
+      var existe=false;
+      if(d.caixaId){ var ce=await sbFetch('GET','/caixas?id=eq.'+Number(d.caixaId)+'&select=id',null); existe=!!(ce&&ce.length); }
+      else existe=!!(await Backend.acharCaixaIgual(d.sessaoId,d.conteudo||{},function(x){ return typeof v33IdVivo==='function' && v33IdVivo(x); }));
+      return {status:'ok',podeDescartar:!existe,texto:existe?'A caixa ainda está no servidor: descartar deixa ela lá (contando no Saldo e no Faturamento).':'A caixa já não está no servidor.'};
+    }
+    if(item.tipo==='fecharCaixa' && d.caixa && d.caixa.idReservado===true && Number(d.caixa.id)>0){   // v33: caixa com número reservado: confere pelo número
+      var cr2=await sbFetch('GET','/caixas?id=eq.'+Number(d.caixa.id)+'&select=id,sessao',null), tem2=!!(cr2&&cr2.length&&String(cr2[0].sessao)===String(d.sessaoId));
+      return {status:'ok',podeDescartar:tem2,caixaId:tem2?Number(d.caixa.id):null,texto:tem2?('A caixa já está no servidor (nº '+d.caixa.id+').'):'Esta caixa NÃO está no servidor: descartar perde a caixa.'};
+    }
     if(item.tipo==='fecharCaixa'){ var id=await Backend.acharCaixaJaGravada(d.sessaoId,d.caixa||{}); return {status:'ok',podeDescartar:!!id,caixaId:id||null,texto:id?('A caixa já está no servidor (nº '+id+').'):'Esta caixa NÃO está no servidor: descartar perde a caixa.'}; }
     if(item.tipo==='iniciarSessao'){ var e=await sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(String(d.id||''))+'&select=id&limit=1',null); var tem=!!(e&&e.length); return {status:'ok',podeDescartar:tem,texto:tem?'A sessão já existe no servidor.':'A sessão NÃO existe no servidor.'}; }
     if(item.tipo==='finalizarSimples'){ var f=await sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(String(d.sessaoId||''))+'&select=finalizada',null); var fin=!!(f&&f.length&&f.every(function(x){ return x.finalizada!==false; })); return {status:'ok',podeDescartar:fin,texto:fin?'A sessão já está finalizada no servidor.':'A sessão ainda NÃO está finalizada no servidor.'}; }
@@ -3465,23 +3505,107 @@ const Backend={
   // v29: no REENVIO pela fila, confere antes se a caixa já está no banco — o envio anterior pode ter gravado e só a
   // resposta se perdeu (rede caiu no meio). Sem isso, cada reenvio criava uma caixa repetida (saldo e faturamento em dobro).
   async registrarCaixaFechada(sessaoId,cx,opts){ try{
+    if(cx && cx.idReservado===true && Number(cx.id)>0) return await Backend.gravarCaixaComId(sessaoId,cx);   // v33: número reservado → envio idempotente
     var cid=null;
     if(opts&&opts.reenvio){ cid=await Backend.acharCaixaJaGravada(sessaoId,cx); }
     if(!cid){
-      var cr=await sbFetch('POST','/caixas',{sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid},{'Prefer':'return=representation'});
+      var corpoCx={sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid}, cr;
+      try{ cr=await sbFetch('POST','/caixas',corpoCx,{'Prefer':'return=representation'}); }
+      catch(e1){   // v33: o número está ocupado por uma caixa que este tablet apagou → apaga de novo e grava
+        if(/HTTP 409/.test(String(e1)) && /caixas_sessao_numero_key/.test(String(e1)) && await Backend.liberarNumeroCaixa(sessaoId,cx.num,null)) cr=await sbFetch('POST','/caixas',corpoCx,{'Prefer':'return=representation'});
+        else throw e1;
+      }
       cid=cr&&cr[0]&&cr[0].id;
       if(cid&&cx.itens&&cx.itens.length){ await sbFetch('POST','/itens_caixa',cx.itens.map(function(it){return {caixa_id:cid,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); }
     }
     if(cid){ await Backend.recalcularEsalvarAgregados(sessaoId); }
     return {status:'ok',caixaId:cid||null};
+  }catch(e){ var m=String(e); return {status:'erro',msg:/caixas_sessao_numero_key/.test(m)?'Já existe outra caixa '+(cx&&cx.num)+' nesta sessão no servidor. Admin: confira no Histórico qual é a certa. ('+m.slice(0,160)+')':m,permanente:/caixas_sessao_numero_key/.test(m)}; } },
+  // v33: grava a caixa com o número que ela já tem (reservado ao fechar). Repetir o envio nunca duplica: se o banco disser
+  // que o número já existe, confere se é esta mesma caixa (envio anterior gravou e só a resposta se perdeu).
+  async gravarCaixaComId(sessaoId,cx){
+    var id=Number(cx.id);
+    var linha={id:id,sessao:sessaoId,numero:cx.num,peso:parseFloat(cx.peso)||0,total_unidades:cx.totalUnid};
+    var itens=(cx.itens||[]).map(function(it){ return {caixa_id:id,codigo_produto:it.codigo||it.nome,nome_produto:it.nome,quantidade:Number(it.qty)||0}; });
+    for(var volta=0; volta<2; volta++){
+      try{
+        await sbFetch('POST','/caixas',linha,{'Prefer':'return=minimal'});
+        await Backend.garantirItensCaixa(id,itens,true);
+        await Backend.recalcularEsalvarAgregados(sessaoId);
+        return {status:'ok',caixaId:id};
+      }catch(e){
+        var m=String(e&&e.message||e);
+        if(/HTTP 409/.test(m) && /caixas_pkey/.test(m)){
+          var ex=await sbFetch('GET','/caixas?id=eq.'+id+'&select=id,sessao,numero,peso,total_unidades',null), row=ex&&ex[0];
+          if(row && String(row.sessao)===String(sessaoId) && Number(row.numero)===Number(cx.num) && Math.abs((parseFloat(row.peso)||0)-(parseFloat(cx.peso)||0))<0.0005 && Number(row.total_unidades)===Number(cx.totalUnid)){
+            await Backend.garantirItensCaixa(id,itens,false);
+            await Backend.recalcularEsalvarAgregados(sessaoId);
+            return {status:'ok',caixaId:id};
+          }
+          return {status:'erro',permanente:true,trocarId:true,msg:'O número '+id+' do banco já é de outra caixa — a caixa '+cx.num+' ganha outro número e a etiqueta do cliente dela precisa ser reimpressa.'};
+        }
+        if(/HTTP 409/.test(m) && /caixas_sessao_numero_key/.test(m)){
+          if(volta===0 && await Backend.liberarNumeroCaixa(sessaoId,cx.num,id)) continue;
+          return {status:'erro',permanente:true,msg:'Já existe outra caixa '+cx.num+' nesta sessão no servidor. Admin: confira no Histórico qual é a certa (pode ser uma caixa apagada só no tablet numa versão antiga).'};
+        }
+        return {status:'erro',msg:m};
+      }
+    }
+    return {status:'erro',msg:'não consegui gravar a caixa '+cx.num};
+  },
+  // Peças da caixa: grava se ainda não tem (o INSERT das peças é um só, então ou foram todas ou nenhuma).
+  async garantirItensCaixa(caixaId,itens,acabouDeGravar){
+    if(!itens||!itens.length) return;
+    if(!acabouDeGravar){ var ja=await sbFetch('GET','/itens_caixa?caixa_id=eq.'+Number(caixaId)+'&select=id&limit=1',null); if(ja&&ja.length) return; }
+    await sbFetch('POST','/itens_caixa',itens);
+  },
+  // O número da caixa está ocupado no servidor por uma caixa que ESTE tablet mandou apagar (lápide)? Apaga e libera.
+  async liberarNumeroCaixa(sessaoId,num,meuId){
+    var cf=await sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(String(sessaoId||''))+'&numero=eq.'+(Number(num)||0)+'&select=id',null);
+    var outra=cf&&cf[0]&&cf[0].id;
+    if(!outra || String(outra)===String(meuId)) return false;
+    if(typeof v33TemLapide!=='function' || !v33TemLapide(outra) || (typeof v33IdVivo==='function' && v33IdVivo(outra))) return false;
+    var r=await Backend.excluirCaixaTablet(sessaoId,outra);
+    return !!(r && r.status==='ok' && !r.ignorada);
+  },
+  // v33: o X do tablet apaga a caixa no servidor. Nunca apaga caixa que ainda está viva neste tablet.
+  async excluirCaixaTablet(sessaoId,caixaId){ try{
+    if(!(Number(caixaId)>0)) return {status:'erro',msg:'Caixa sem número.'};
+    if(typeof v33IdVivo==='function' && v33IdVivo(caixaId)) return {status:'ok',ignorada:true};
+    await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+Number(caixaId),null);
+    await sbFetch('DELETE','/caixas?id=eq.'+Number(caixaId),null);
+    if(sessaoId) await Backend.recalcularEsalvarAgregados(sessaoId);
+    return {status:'ok'};
   }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Caixa da v32 sem número do banco: acha pelo conteúdo exato (sessão, número, peso, total e peças) e apaga.
+  async excluirCaixaPorConteudo(sessaoId,c){ try{
+    var id=await Backend.acharCaixaIgual(sessaoId,c,function(x){ return typeof v33IdVivo==='function' && v33IdVivo(x); });
+    if(!id) return {status:'ok',naoAchou:true};
+    return await Backend.excluirCaixaTablet(sessaoId,id);
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // Só procura (não grava nada). ignorar(id) → true pula a candidata. Caixa sem peças no banco conta como a mesma.
+  async acharCaixaIgual(sessaoId,cx,ignorar){
+    var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s||!cx) return null;
+    var cands=await sbFetch('GET','/caixas?sessao=eq.'+s+'&numero=eq.'+(Number(cx.num)||0)+'&select=id,peso,total_unidades&order=id.asc',null);
+    var pesoCx=parseFloat(cx.peso)||0, totCx=Number(cx.totalUnid)||0;
+    cands=(cands||[]).filter(function(c){ return Math.abs((parseFloat(c.peso)||0)-pesoCx)<0.0005 && Number(c.total_unidades)===totCx && !(ignorar&&ignorar(c.id)); });
+    if(!cands.length) return null;
+    var its=await sbFetch('GET','/itens_caixa?caixa_id=in.('+cands.map(function(c){return c.id;}).join(',')+')&select=caixa_id,codigo_produto,quantidade&order=caixa_id.asc,codigo_produto.asc',null);
+    function ass(l){ return l.map(function(it){ return String(it.c)+':'+String(it.q); }).sort().join('|'); }
+    var minha=ass((cx.itens||[]).map(function(it){ return {c:it.codigo||it.nome,q:Number(it.qty)||0}; }));
+    for(var i=0;i<cands.length;i++){
+      var idc=cands[i].id, dela=(its||[]).filter(function(x){ return String(x.caixa_id)===String(idc); }).map(function(x){ return {c:x.codigo_produto,q:Number(x.quantidade)||0}; });
+      if(!dela.length || ass(dela)===minha) return idc;
+    }
+    return null;
+  },
   // A mesma caixa = mesma sessão, mesmo número, mesmo peso, mesmo total e as mesmas peças. Caixa gravada sem as peças
   // (a 2ª parte do envio falhou) é completada e reaproveitada.
   async acharCaixaJaGravada(sessaoId,cx){
     var s=encodeURIComponent(String(sessaoId||'').trim()); if(!s) return null;
     var cands=await sbFetch('GET','/caixas?sessao=eq.'+s+'&numero=eq.'+(Number(cx.num)||0)+'&select=id,peso,total_unidades&order=id.asc',null);
     var pesoCx=parseFloat(cx.peso)||0, totCx=Number(cx.totalUnid)||0;
-    cands=(cands||[]).filter(function(c){ return Math.abs((parseFloat(c.peso)||0)-pesoCx)<0.0005 && Number(c.total_unidades)===totCx; });
+    cands=(cands||[]).filter(function(c){ return Math.abs((parseFloat(c.peso)||0)-pesoCx)<0.0005 && Number(c.total_unidades)===totCx && !(typeof v33TemLapide==='function' && v33TemLapide(c.id)); });   // v33: nunca reaproveita caixa que o tablet apagou
     if(!cands.length) return null;
     var its=await sbFetch('GET','/itens_caixa?caixa_id=in.('+cands.map(function(c){return c.id;}).join(',')+')&select=caixa_id,codigo_produto,quantidade&order=caixa_id.asc,codigo_produto.asc',null);
     function assinatura(lista){ return lista.map(function(it){ return String(it.c)+':'+String(it.q); }).sort().join('|'); }
@@ -3818,15 +3942,25 @@ function carregarProdutos(){
 // v29: estado do envio das caixas. caixaEnviando[uid] = a caixa está indo direto para o servidor agora
 // (a fila não a manda junto, senão grava duas vezes). sincEmAndamento = um envio da fila por vez.
 var caixaEnviando={}, sincEmAndamento=false, sincIniciadoEm=0, sincAvisos=[];
+// v33: caixaEnviando[uid] guarda a hora do envio direto. Depois de 30 s sem resposta a fila assume (antes ficava preso
+// para sempre: a caixa nem era reenviada nem aparecia como pendente).
+function caixaIndoAgora(uid){ var t=uid&&caixaEnviando[uid]; return typeof t==='number' && Date.now()-t<30000; }
 function addFila(item){ if(item && typeof item==='object' && !item._em) item._em=Date.now(); fila.push(item);salvarFila();atualizaOffl();}   // v32: _em = desde quando está na fila
 // Pendentes de verdade = fila menos as caixas que estão sendo enviadas direto neste instante.
-function atualizaOffl(){
+function atualizaOffl(semPainel){
   const el=document.getElementById('offlEl');
-  var n=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); }).length;
+  // v33: o selo só aparece para o que está preso de verdade (na fila há mais de 1 min) ou que o servidor recusou de vez.
+  // Pendente que acabou de entrar sai sozinho em segundos — não precisa assustar o operador.
+  var E=(typeof v32LerErros==='function')?v32LerErros():{}, agora=Date.now();
+  var n=fila.filter(function(it){
+    if(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaIndoAgora(it.dados.caixa.uid)) return false;
+    var e=E[(typeof v32ChaveItem==='function')?v32ChaveItem(it):''];
+    return !it || !it._em || agora-it._em>60000 || !!(e&&e.permanente);
+  }).length;
   if(n){ el.className='offl show'; el.textContent='⏳ '+n+' pendente'+(n===1?'':'s')+' · ver'; el.title='Ver o que ainda não chegou no servidor'; el.setAttribute('role','button');
          el.onclick=function(){ if(typeof v32AbrirFila==='function') v32AbrirFila(); }; }   // v32: tocar mostra o que está preso
   else{ el.className='offl'; }
-  try{ if(typeof v32FilaAberta==='function' && v32FilaAberta()) v32PintarFila(); }catch(e){}
+  if(!semPainel){ try{ if(typeof v32FilaAberta==='function' && v32FilaAberta()) v32PintarFila(); }catch(e){} }
 }
 function tirarCaixaDaFila(uid){
   if(!uid) return;
@@ -3839,7 +3973,17 @@ function tirarCaixaDaFila(uid){
 function sincFila(aoTerminar){
   if(typeof aoTerminar==='function') sincAvisos.push(aoTerminar);
   if(sincEmAndamento && Date.now()-sincIniciadoEm<90000) return;
-  var snapshot=fila.filter(function(it){ return !(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&caixaEnviando[it.dados.caixa.uid]); });
+  // v33: caixa que está indo direto agora não vai junto (senão grava duas vezes); "apagar" dela espera o envio terminar;
+  // a finalização da sessão dela espera também.
+  var indo={}, ocupadas={};
+  Object.keys(caixaEnviando).forEach(function(uid){ if(caixaIndoAgora(uid)) indo[uid]=1; });
+  var snapshot=fila.filter(function(it){
+    if(!it) return false;
+    var d=it.dados||{};
+    if(it.tipo==='fecharCaixa'&&d.caixa&&indo[d.caixa.uid]){ ocupadas[d.sessaoId]=1; return false; }
+    if(it.tipo==='excluirCaixa'&&d.uid&&indo[d.uid]){ ocupadas[d.sessaoId]=1; return false; }
+    return true;
+  });
   function terminou(r){ sincEmAndamento=false; var av=sincAvisos; sincAvisos=[]; av.forEach(function(f){ try{ f(r); }catch(e){ console.error(e); } }); }
   if(!snapshot.length){ terminou(null); return; }
   sincEmAndamento=true; sincIniciadoEm=Date.now();
@@ -3858,12 +4002,13 @@ function sincFila(aoTerminar){
           salvarFila();atualizaOffl();
           try{ if(typeof v32RegistrarErros==='function') v32RegistrarErros(snapshot,r.erros); }catch(e){ console.error(e); }   // v32
           try{ aplicarIdsCaixasSincronizadas(r.caixasIds); }catch(e){ console.error(e); }   // v28
+          try{ (r.erros||[]).forEach(function(e){ var it=e&&e.trocarId&&snapshot[e.i], c=it&&it.dados&&it.dados.caixa; if(c&&c.uid&&typeof v33TrocarIdCaixa==='function') v33TrocarIdCaixa(c.uid); }); }catch(e){ console.error(e); }   // v33
           if(!r.falhas) toast('✔ Fila sincronizada');
           if(r.recusados&&r.recusados.length){ try{ abRecusados(r.recusados); }catch(e){ console.error(e); } }
         }finally{ terminou(r); }
       })
       .withFailureHandler(function(){ try{ if(typeof v32RegistrarErros==='function') v32RegistrarErros(snapshot,snapshot.map(function(x,i){ return {i:i,msg:'sem conexão com o servidor'}; })); }catch(e){} terminou(null); })
-      .sincronizarFila(snapshot);
+      .sincronizarFila(snapshot,Object.keys(ocupadas));
   }catch(e){ terminou(null); }
 }
 atualizaOffl();
@@ -4367,7 +4512,7 @@ function renderTabela(codNw){
   var itens=Object.entries(cxAtual);
   var c=document.getElementById('tblCont');
   var n=cxFech.length;
-  document.getElementById('tblTtl').textContent=n>0?'Caixa '+(n+1)+' (atual)':'Caixa atual';
+  document.getElementById('tblTtl').textContent=n>0?'Caixa '+((typeof v33ProximoNumero==='function')?v33ProximoNumero():(n+1))+' (atual)':'Caixa atual';   // v33
   document.getElementById('tblBdg').textContent=itens.length;
   if(!itens.length){c.innerHTML='<div class="empty"><div class="empty-ico">📋</div><div style="font-weight:600;margin-bottom:3px">Caixa vazia</div><div style="font-size:11px">Bipe produtos para esta caixa</div></div>';return;}
   c.innerHTML='<table><thead><tr><th>Código</th><th>Produto</th><th>Caixa</th><th>Total</th><th></th></tr></thead><tbody>'+
@@ -4429,20 +4574,19 @@ function pedirSenhaRemoverCx(idx){
 function removerCaixaFechada(idx){
   var cx=cxFech[idx];
   if(!cx)return;
-  cx.itens.forEach(function(it){
-    var cod=it.codigo;
-    if(cod&&sess.itens[cod]){
-      sess.itens[cod].qty=Math.max(0,sess.itens[cod].qty-it.qty);
-      if(sess.itens[cod].qty===0) delete sess.itens[cod];
-    }
-  });
-  sess.scans=Math.max(0,sess.scans-cx.totalUnid);
-  cxFech.splice(idx,1);
-  cxFech=cxFech.map(function(c,i){return Object.assign({},c,{num:i+1});});
-  salvarSess();
-  renderCxFech();
-  renderStats();
-  showFb('🗑 Caixa removida — peças descontadas da sessão','warn');
+  // v33: a caixa sai do tablet E do servidor (pela fila, funciona sem internet). Antes saía só do tablet: no banco ela
+  // continuava (contando no Saldo e no Faturamento) e a trava do banco (sessão + número) recusava a caixa nova com o
+  // mesmo número — foi o caso da caixa 28 em 13/11. As outras caixas NÃO são renumeradas (as etiquetas delas já estão
+  // coladas e o banco tem os números delas). Antes de sair, a caixa ganha uma cópia no tablet (emb_lix1).
+  v33Arquivar(cx,'removida no tablet');
+  tirarCaixaDaFila(cx.uid);   // envio que ainda não foi não vai mais
+  var exc={tipo:'excluirCaixa',dados:{sessaoId:sess.id,caixaId:(Number(cx.id)>0?Number(cx.id):null),num:cx.num,uid:cx.uid||null}};
+  if(!exc.dados.caixaId) exc.dados.conteudo={num:cx.num,peso:cx.peso,totalUnid:cx.totalUnid,itens:cx.itens};   // caixa da v32 sem número do banco: acha pelo conteúdo
+  else v33Lapide(exc.dados.caixaId,sess.id,cx.num,cx.uid);
+  addFila(exc);
+  v33TirarDoTablet(cx);
+  showFb('🗑 Caixa '+cx.num+' removida do tablet e do servidor — jogue fora as etiquetas dela','warn');
+  setTimeout(function(){ sincFila(); },300);
 }
 
 function showFb(msg,tipo){var b=document.getElementById('fb');b.innerHTML='<span>'+(tipo==='ok'?'✔':'⚠')+'</span> '+msg;b.className='fb show '+tipo;clearTimeout(b._t);b._t=setTimeout(function(){b.classList.remove('show');},3500);}
@@ -4464,7 +4608,7 @@ function fecharCaixa(){
   if(!itens.length){showFb('⚠ Nenhum item na caixa','err');return;}
   var mapa={};itens.forEach(function(e){mapa[e[0]]={codigo:e[0],nome:e[1].nome,qty:e[1].qty};});
   var tot=Object.values(mapa).reduce(function(s,i){return s+i.qty;},0);
-  var num=cxFech.length+1;
+  var num=(typeof v33ProximoNumero==='function')?v33ProximoNumero():cxFech.length+1;   // v33: sem renumerar, o próximo é o maior + 1
   pendingCx={num:num,itens:Object.values(mapa),totalUnid:tot};
   document.getElementById('pesoNum').textContent='Caixa '+num;
   document.getElementById('pesoIts').textContent=Object.values(mapa).map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+' — '+tot+' un.';
@@ -4485,6 +4629,9 @@ function okPeso(){
   document.getElementById('btnOkPeso').textContent='Fechando...';
 
   var novaCaixa=Object.assign({},pendingCx,{peso:peso,etqImpressa:false,uid:gerarUidCaixa()});   // v28: uid = chave da caixa no tablet
+  // v33: a caixa já nasce com o número do banco (reservado antes) → SSCC e etiqueta do cliente na hora, sem esperar o servidor
+  var idRes=(typeof v33TirarId==='function')?v33TirarId():null;
+  if(idRes){ novaCaixa.id=idRes; novaCaixa.idReservado=true; }
   cxFech.push(novaCaixa);
   sess.ultimaAtividade=Date.now();   // v32
   pendingCx=null;cxAtual={};
@@ -4498,21 +4645,25 @@ function okPeso(){
   // pro Faturamento enxergar progresso enquanto o operador ainda está bipando.
   // v29: a caixa entra na fila ANTES do envio (fica salva no tablet) e sai quando o servidor confirma. Se a
   // internet cair ou a página fechar no meio, ela não se perde: a fila reenvia sozinha (e confere se já gravou).
-  // O envio é tentado sempre, mesmo com "Sem conexão" na tela — esse aviso só é atualizado a cada 30 s.
+  // v33: com caixa apagada desta sessão esperando sair do servidor, a nova vai pela fila (que apaga antes de gravar).
   var sessaoIdAtual=sess.id;
   var payloadFila={tipo:'fecharCaixa',dados:{sessaoId:sessaoIdAtual,caixa:novaCaixa}};
-  caixaEnviando[novaCaixa.uid]=true;
   addFila(payloadFila);
-  try{
-    google.script.run
-      .withSuccessHandler(function(r){
-        delete caixaEnviando[novaCaixa.uid];
-        if(r&&r.status==='ok'&&r.caixaId){ tirarCaixaDaFila(novaCaixa.uid); novaCaixa.id=r.caixaId; aplicarIdCaixaPorUid(novaCaixa.uid,r.caixaId); salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
-        else{ atualizaOffl(); setTimeout(function(){ sincFila(); },1500); }   // não gravou: a fila tenta de novo já
-      })
-      .withFailureHandler(function(){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); setTimeout(function(){ sincFila(); },1500); })
-      .registrarCaixaFechada(sessaoIdAtual,novaCaixa);
-  }catch(e){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); }
+  if(typeof v33ExclusaoPendente==='function' && v33ExclusaoPendente(sessaoIdAtual)){
+    setTimeout(function(){ sincFila(); },300);
+  }else{
+    caixaEnviando[novaCaixa.uid]=Date.now();   // v33: com a hora — vence em 30 s e a fila assume
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){
+          delete caixaEnviando[novaCaixa.uid];
+          if(r&&r.status==='ok'&&r.caixaId){ tirarCaixaDaFila(novaCaixa.uid); if(!novaCaixa.id) novaCaixa.id=r.caixaId; novaCaixa.noServidor=true; aplicarIdCaixaPorUid(novaCaixa.uid,r.caixaId); salvarSess(); exAtualizarSaldo(true); }   // v22: caixa gravada → refaz o saldo do pedido (outras sessões)
+          else{ if(r&&r.trocarId&&typeof v33TrocarIdCaixa==='function') v33TrocarIdCaixa(novaCaixa.uid); atualizaOffl(); setTimeout(function(){ sincFila(); },1500); }   // não gravou: a fila tenta de novo já
+        })
+        .withFailureHandler(function(){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); setTimeout(function(){ sincFila(); },1500); })
+        .registrarCaixaFechada(sessaoIdAtual,novaCaixa);
+    }catch(e){ delete caixaEnviando[novaCaixa.uid]; atualizaOffl(); }
+  }
 
   setTimeout(function(){
     fechandoCaixa=false;
@@ -4651,7 +4802,7 @@ function imprimirEtiquetaCaixaUnica(cx){
 // CALCULAR CAIXAS
 // ═══════════════════════════════════════
 function calcCaixas(){
-  return cxFech.map(function(cx,i){return Object.assign({},cx,{num:i+1});});
+  return cxFech.map(function(cx){return Object.assign({},cx);});   // v33: mantém o número de cada caixa (é o da etiqueta e o do banco)
 }
 
 // ═══════════════════════════════════════
@@ -4670,7 +4821,7 @@ function abrirFin(){
   if(v32Faltando().length){ v32MostrarFaltando('fin'); return; }
   document.getElementById('finPedDisplay').textContent=sess.ped||'—';
   document.getElementById('cxPrev').innerHTML=cxs.map(function(cx){
-    return '<div class="cx-prev-r"><span class="cx-prev-n">Cx '+cx.num+'</span><span class="cx-prev-i">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+'</span><span class="cx-prev-u">'+cx.totalUnid+' un. · '+(cx.peso||0)+' kg</span></div>';
+    return '<div class="cx-prev-r"><span class="cx-prev-n">Cx '+cx.num+'</span><span class="cx-prev-i">'+cx.itens.map(function(i){return i.nome+' × '+i.qty;}).join(' · ')+(cx.etqClientePendente===true&&!gerarSSCCCaixa(cx)?'<span class="v33-nota">etiqueta do cliente: reimprimir pelo Histórico</span>':'')+'</span><span class="cx-prev-u">'+cx.totalUnid+' un. · '+(cx.peso||0)+' kg</span></div>';
   }).join('');
   document.getElementById('ovFin').classList.remove('hidden');
 }
@@ -4708,6 +4859,7 @@ function confirmarFin(){
   // quando a chamada direta "funciona".
   var sessaoIdAtual=sess.id;
   var payload={tipo:'finalizarSimples',dados:{sessaoId:sessaoIdAtual}};
+  if(typeof v33SessaoComPendencia==='function' && v33SessaoComPendencia(sessaoIdAtual)){ addFila(payload); setTimeout(function(){ sincFila(); },300); finalizar(); return; }   // v33: caixa desta sessão ainda subindo → finaliza no servidor depois dela
   if(online){
     try{
       google.script.run
@@ -8839,6 +8991,7 @@ function relAtualizaInfo(){
   var txt=REL_ERRO?'mostrando a leitura das ':(hoje?'atualizado às ':'lido às ');
   el.innerHTML='<span class="rl-badge"><i class="rl-dot"></i>'+escAttr(badge)+'</span>'+
     '<span>'+txt+'<b>'+(REL_ATUALIZADO?relHMS(REL_ATUALIZADO.getTime()):'—')+'</b> · só entram sessões finalizadas'+(hoje?' · confere sozinho a cada '+Math.round(REL_LIVE_MS/1000)+' s':'')+'</span>'+
+    ((REL_DADOS&&REL_DADOS.abertas&&REL_DADOS.abertas.length)?'<span class="v33-nota" style="display:inline">⚠ '+REL_DADOS.abertas.length+(REL_DADOS.abertas.length===1?' sessão do dia ainda em andamento':' sessões do dia ainda em andamento')+' ('+escAttr(REL_DADOS.abertas.map(function(a){ return (a.operador||'?')+(a.baia?' · '+a.baia:''); }).join('; '))+') — entram quando finalizarem</span>':'')+
     '<button type="button" class="hx-btn sm" onclick="relCarregar({silent:true})" title="Atualizar agora"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>Atualizar</button>';
 }
 // ── v30: relatório de expediente — escolhe o dia (hoje, ao vivo, ou um dia passado) e vê por operador
@@ -9082,7 +9235,10 @@ async function relCarregar(opts){
     var cxIds=cxs.map(function(c){ return c.id; });
     var its=cxIds.length ? await sbFetchPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,nome_produto.asc,quantidade.asc',cxIds,150) : [];
     if(hoje!==relDiaAtual()){ REL_PEND=true; return; }   // v30: trocaram o dia no meio da leitura
+    var abertasRel=[]; try{ abertasRel=await sbFetchAll('/embalagens?select=sessao,operador,baia&data_embalagem=eq.'+hoje+'&finalizada=eq.false&order=id.asc'); }catch(eAb){}   // v33
+    if(hoje!==relDiaAtual()){ REL_PEND=true; return; }
     REL_DADOS=relMontar(hoje,embs,cxs,its);
+    REL_DADOS.abertas=abertasRel||[];
     REL_ATUALIZADO=new Date(); REL_ERRO=false;
     relRenderizar();
   }catch(err){
@@ -11628,6 +11784,7 @@ function aplicarIdCaixaPorUid(uid,caixaId){
   var alvos=(cxFech||[]).filter(function(c){ return c&&c.uid===uid; });
   if(alvos.length!==1) return false;
   if(!alvos[0].id) alvos[0].id=caixaId;
+  alvos[0].noServidor=true;   // v33: o servidor confirmou
   avisarCaixaLiberada(alvos[0]);   // v29: caixa que estava esperando o servidor → bipe e aviso
   return true;
 }
@@ -11694,10 +11851,10 @@ function garantirIdCaixa(cx,cb){
   (function passo(){
     atual=caixaPorUid(cx.uid)||cx;
     if(gerarSSCCCaixa(atual)){ fim(true); return; }
-    var enviando=!!caixaEnviando[atual.uid];
+    var enviando=caixaIndoAgora(atual.uid);   // v33
     if(!enviando && !caixaNaFila(atual)) addFila({tipo:'fecharCaixa',dados:{sessaoId:sess.id,caixa:atual}});   // recuperação: caixa sem número e fora da fila
     if(!enviando && !sincEmAndamento && Date.now()-ultima>1500){ ultima=Date.now(); tentativas++; sincFila(); }
-    var semChance=tentativas>=4 && Date.now()-t0>5000 && !sincEmAndamento && !caixaEnviando[atual.uid];
+    var semChance=tentativas>=4 && Date.now()-t0>5000 && !sincEmAndamento && !caixaIndoAgora(atual.uid);
     if(Date.now()-t0>15000 || semChance){ fim(false); return; }
     setTimeout(passo,250);
   })();
@@ -11809,7 +11966,7 @@ function impOffline(){
   if(!itens.length){toast('Nenhum item na caixa atual para gerar etiqueta');return;}
   var mapa={};itens.forEach(function(e){mapa[e[0]]={codigo:e[0],nome:e[1].nome,qty:e[1].qty};});
   var tot=Object.values(mapa).reduce(function(s,i){return s+i.qty;},0);
-  var num=cxFech.length+1;
+  var num=(typeof v33ProximoNumero==='function')?v33ProximoNumero():cxFech.length+1;   // v33
   var cxTemp={num:num,itens:Object.values(mapa),totalUnid:tot,peso:0};
   rSimples(cxTemp);
 }
@@ -12103,7 +12260,8 @@ function v32TrocarSessao(){
   // 1) finaliza a de ontem: o mesmo que o "Confirmar" do Finalizar faz no servidor (sem internet vai para a fila)
   var payload={tipo:'finalizarSimples',dados:{sessaoId:idVelha}};
   try{
-    if(online){
+    if(typeof v33SessaoComPendencia==='function' && v33SessaoComPendencia(idVelha)){ addFila(payload); setTimeout(function(){ sincFila(); },300); }   // v33
+    else if(online){
       google.script.run
         .withSuccessHandler(function(r){ if(!r||r.status!=='ok') addFila(payload); })
         .withFailureHandler(function(){ addFila(payload); })
@@ -12135,7 +12293,7 @@ function v32Faltando(){
   (cxFech||[]).forEach(function(cx,idx){
     if(!cx) return;
     if(!(parseFloat(cx.peso)>0)) L.push({idx:idx,cx:cx,tipo:'peso'});
-    else if(cx.etqClientePendente===true) L.push({idx:idx,cx:cx,tipo:gerarSSCCCaixa(cx)?'cliente':'servidor'});
+    else if(cx.etqClientePendente===true){ if(gerarSSCCCaixa(cx)) L.push({idx:idx,cx:cx,tipo:'cliente'}); else if(!cx.etqImpressa) L.push({idx:idx,cx:cx,tipo:'servidor'}); }   // v33: sem número do banco mas com a etiqueta interna, não segura o Finalizar (a do cliente sai depois pelo Histórico)
     else if(!cx.etqImpressa) L.push({idx:idx,cx:cx,tipo:'semetq'});
   });
   return L;
@@ -12149,7 +12307,7 @@ function v32MostrarFaltando(origem){
   var linhas=L.map(function(f){
     var cx=f.cx, txt, bts='';
     if(f.tipo==='cliente'){ txt='falta a etiqueta do cliente'; bts='<button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Imprimir do cliente</button>'; }
-    else if(f.tipo==='servidor'){ txt='ainda não chegou no servidor (internet) — a etiqueta do cliente precisa do número dela'; bts='<button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Tentar a do cliente</button>'; }
+    else if(f.tipo==='servidor'){ txt='ainda sem o número do banco (internet) — imprima a da caixa; a do cliente sai depois pelo Histórico'; bts='<button type="button" class="v32-bt" onclick="v32Imprimir('+f.idx+',\'caixa\')">🏷️ Da caixa</button><button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Tentar a do cliente</button>'; }
     else if(f.tipo==='semetq'){ txt='nenhuma etiqueta impressa'; bts='<button type="button" class="v32-bt" onclick="v32Imprimir('+f.idx+',\'caixa\')">🏷️ Da caixa</button><button type="button" class="v32-bt cli" onclick="v32Imprimir('+f.idx+',\'cliente\')">📦 Do cliente</button>'; }
     else txt='caixa sem peso — chame o suporte';
     return '<div class="v32-fl" data-cx="'+cx.num+'"><div class="v32-fl-t"><b>Caixa '+cx.num+'</b> <span>'+(Number(cx.totalUnid)||0)+' un.</span><div class="v32-fl-s">'+txt+'</div></div><div class="v32-fl-a">'+bts+'</div></div>';
@@ -12207,7 +12365,16 @@ function v32LimparComSenha(){
 
 // ── 4) SELO DE PENDENTES: O QUE ESTÁ PRESO E POR QUÊ ──────────────────────────────────────────
 var V32_ERR_K='emb_ferr3';
-function v32ChaveItem(it){ try{ return JSON.stringify(it); }catch(e){ return ''; } }
+function v32ChaveItem(it){
+  // v33: chave estável. A caixa dentro do pendente é o mesmo objeto da tela e muda (etiqueta impressa etc.); com o JSON
+  // inteiro como chave o erro registrado "sumia" e o selo de recusa não aparecia.
+  try{
+    var d=(it&&it.dados)||{};
+    if(it&&it.tipo==='fecharCaixa'&&d.caixa&&d.caixa.uid) return 'cx:'+d.caixa.uid;
+    if(it&&it.tipo==='excluirCaixa') return 'exc:'+(d.caixaId||d.uid||JSON.stringify(d.conteudo||{}));
+    return JSON.stringify(it);
+  }catch(e){ return ''; }
+}
 function v32LerErros(){ try{ return JSON.parse(localStorage.getItem(V32_ERR_K)||'{}')||{}; }catch(e){ return {}; } }
 function v32GravarErros(o){ try{ localStorage.setItem(V32_ERR_K,JSON.stringify(o)); }catch(e){} }
 function v32RegistrarErros(snapshot,erros){
@@ -12217,7 +12384,7 @@ function v32RegistrarErros(snapshot,erros){
   (erros||[]).forEach(function(e){
     var it=snapshot&&snapshot[e.i]; if(!it) return;
     var k=v32ChaveItem(it); if(!vivos[k]) return;
-    var o=E[k]||{n:0}; o.n++; o.msg=e.msg; o.em=agora; E[k]=o;
+    var o=E[k]||{n:0}; o.n++; o.msg=e.msg; o.em=agora; o.permanente=!!e.permanente; o.espera=!!e.espera; E[k]=o;   // v33
   });
   v32GravarErros(E);
 }
@@ -12226,6 +12393,7 @@ function v32AbrirFila(){ v32PintarFila(); document.getElementById('ovV32Fila').c
 function v32DescItem(it){
   var d=(it&&it.dados)||{};
   if(it.tipo==='fecharCaixa'){ var c=d.caixa||{}; return {t:'📦 Caixa '+(c.num||'?')+' · '+(c.totalUnid||0)+' un. · '+(c.peso||0)+' kg', s:'sessão '+(d.sessaoId||'—')}; }
+  if(it.tipo==='excluirCaixa') return {t:'🗑 Apagar no servidor a caixa '+(d.num||'?')+' (removida no tablet)', s:'sessão '+(d.sessaoId||'—')+(d.caixaId?' · nº '+d.caixaId:'')};   // v33
   if(it.tipo==='scan') return {t:'🔹 Bipe · '+(it.nome||it.codigo||'?')+' +'+(it.qty||1), s:'sessão '+(it.sessaoId||'—')+(it.ts?' · '+new Date(it.ts).toLocaleString('pt-BR'):'')};
   if(it.tipo==='iniciarSessao') return {t:'▶️ Início da sessão · pedido '+(d.pedido||'—')+' · '+(d.operador||''), s:'sessão '+(d.id||'—')};
   if(it.tipo==='finalizarSimples'||it.tipo==='finalizar') return {t:'✅ Finalização da sessão', s:'sessão '+(d.sessaoId||(d.session&&d.session.id)||'—')};
@@ -12233,6 +12401,11 @@ function v32DescItem(it){
 }
 function v32ErroAmigavel(msg){
   var m=String(msg||'');
+  if(/TEMPO esgotado/.test(m)) return 'o servidor não respondeu a tempo';   // v33
+  if(/23503|foreign key/.test(m)) return 'a sessão ainda não chegou no servidor';
+  if(/^esperando/.test(m)) return m;
+  if(/outra caixa \d+ nesta sessão|caixas_sessao_numero_key/.test(m)) return 'já existe outra caixa com esse número nesta sessão no servidor';
+  if(/já é de outra caixa/.test(m)) return 'número repetido — a caixa ganhou outro número';
   if(/Failed to fetch|NetworkError|Load failed|sem conex/i.test(m)) return 'sem conexão com o servidor';
   if(/HTTP 409|23505|duplicate/i.test(m)) return 'o servidor diz que já existe (repetido)';
   if(/HTTP 4\d\d/.test(m)) return 'o servidor recusou';
@@ -12289,6 +12462,168 @@ function v32DescartarItem(i){
 })();
 </script>
 <script>
+// ═══════════════════════════════════════
+// v33 — caixas sincronizadas sem travar e sem perder dado (13/11/2026)
+// 1) Números de caixa reservados: o tablet guarda números do banco (função reservar_ids_caixa, SQL v33) e a caixa já
+//    nasce com o número dela → SSCC e etiqueta do cliente na hora, mesmo com a internet oscilando. Sem o SQL, funciona
+//    como a v32 (número dado pelo servidor ao gravar).
+// 2) O X da caixa fechada apaga no tablet E no servidor (pela fila), sem renumerar as outras caixas.
+// 3) Caixa excluída pelo Admin numa sessão aberta some do tablet (com cópia guardada no tablet).
+// Nada é apagado sem cópia: o tablet guarda o que tirou da tela (emb_lix1) e o banco guarda o que apagou (lixeira).
+// ═══════════════════════════════════════
+var V33_IDS_K='emb_ids1', V33_TOMB_K='emb_tomb1', V33_LIX_K='emb_lix1';
+var V33_POOL_ALVO=50, V33_POOL_MIN=25;
+var V33={ semRpcAte:0, repondo:false, espelhando:false };
+function v33Ler(k,padrao){ try{ var v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?padrao:v; }catch(e){ return padrao; } }
+function v33Gravar(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+function v33IdOk(x){ x=Number(x); return x>0 && Math.floor(x)===x && x<1e11; }   // o SSCC comporta até 11 dígitos
+
+// ── 1) números reservados ─────────────────────────────────────────────────────────────────────
+function v33Pool(){ var p=v33Ler(V33_IDS_K,null); if(!p||!Array.isArray(p.ids)) p={ids:[]}; return p; }
+// Tira um número do estoque do tablet. Só usa se conseguiu gravar a retirada (senão o número poderia voltar depois).
+function v33TirarId(){
+  var p=v33Pool(), id=null;
+  while(p.ids.length && id==null){ var x=Number(p.ids.shift()); if(v33IdOk(x)) id=x; }
+  if(id!=null && !v33Gravar(V33_IDS_K,p)) id=null;
+  setTimeout(function(){ v33ReporIds(); },50);
+  return id;
+}
+function v33ReporIds(forcar){
+  if(V33.repondo) return;
+  if(!forcar && Date.now()<V33.semRpcAte) return;
+  var falta=V33_POOL_ALVO-v33Pool().ids.length;
+  if(!forcar && V33_POOL_ALVO-falta>=V33_POOL_MIN) return;
+  if(falta<=0) return;
+  V33.repondo=true;
+  sbFetch('POST','/rpc/reservar_ids_caixa',{qtd:falta},null,15000).then(function(r){
+    var novos=(Array.isArray(r)?r:[]).map(Number).filter(v33IdOk);
+    if(novos.length){
+      var p=v33Pool(), tem={}; p.ids.forEach(function(x){ tem[x]=1; });
+      novos.forEach(function(x){ if(!tem[x]){ p.ids.push(x); tem[x]=1; } });
+      p.em=Date.now(); v33Gravar(V33_IDS_K,p);
+    }
+    V33.semRpcAte=0;
+  }).catch(function(e){
+    if(/HTTP 404/.test(String(e&&e.message||e))) V33.semRpcAte=Date.now()+10*60*1000;   // SQL da v33 ainda não rodado: confere de novo em 10 min
+  }).then(function(){ V33.repondo=false; });
+}
+// O número do banco já era de outra caixa (duas janelas abertas no tablet, por exemplo): a caixa ganha outro número e
+// a etiqueta do cliente dela volta a ficar pendente (a impressa tem o SSCC errado).
+function v33TrocarIdCaixa(uid){
+  if(!uid) return;
+  var novo=v33TirarId(), num=null;
+  function troca(c){ if(!c) return; num=c.num; if(novo){ c.id=novo; c.idReservado=true; } else { delete c.id; delete c.idReservado; } c.noServidor=false; c.etqClientePendente=true; c.avisoLiberada=false; }
+  troca(caixaPorUid(uid));
+  (fila||[]).forEach(function(it){ if(it&&it.tipo==='fecharCaixa'&&it.dados&&it.dados.caixa&&it.dados.caixa.uid===uid) troca(it.dados.caixa); });
+  salvarSess(); salvarFila();
+  try{ renderCxFech(); atualizarBtnFin(); }catch(e){}
+  if(num!=null){ showFb('Caixa '+num+': o número dela no banco mudou — reimprima a etiqueta do cliente dela','warn'); toast('⚠ Caixa '+num+': reimprima a etiqueta do cliente'); }
+}
+
+// ── 2) lápides, cópia local e estado da fila ─────────────────────────────────────────────────
+// Lápide = caixa que o tablet mandou apagar. Serve para nunca reaproveitar essa caixa no servidor por engano e para
+// apagar de novo se ela reaparecer.
+function v33Lapides(){ var l=v33Ler(V33_TOMB_K,[]); return Array.isArray(l)?l:[]; }
+function v33Lapide(caixaId,sessaoId,num,uid){
+  if(!v33IdOk(caixaId)) return;
+  var l=v33Lapides().filter(function(x){ return x && String(x.caixaId)!==String(caixaId) && Date.now()-(x.em||0)<30*864e5; });
+  l.push({caixaId:Number(caixaId),sessaoId:sessaoId,num:num,uid:uid||null,em:Date.now()});
+  v33Gravar(V33_TOMB_K,l.slice(-300));
+}
+function v33TemLapide(id){ return v33Lapides().some(function(x){ return x && String(x.caixaId)===String(id); }); }
+// Cópia de toda caixa que sai da tela (X ou Admin). Nada some do tablet sem deixar rastro.
+function v33Arquivar(cx,motivo){
+  var l=v33Ler(V33_LIX_K,[]); if(!Array.isArray(l)) l=[];
+  l.push({em:Date.now(),motivo:motivo,sessao:sess&&sess.id,pedido:sess&&sess.ped,operador:sess&&sess.op,caixa:JSON.parse(JSON.stringify(cx))});
+  v33Gravar(V33_LIX_K,l.slice(-200));
+}
+// Id que pertence a uma caixa viva deste tablet (na tela ou esperando na fila) — essa nunca é apagada no servidor.
+function v33IdVivo(id){
+  if(!v33IdOk(id)) return false;
+  if((cxFech||[]).some(function(c){ return c && String(c.id)===String(id); })) return true;
+  return (fila||[]).some(function(it){ return it && it.tipo==='fecharCaixa' && it.dados && it.dados.caixa && String(it.dados.caixa.id)===String(id); });
+}
+function v33ExclusaoPendente(sessaoId){ return (fila||[]).some(function(it){ return it && it.tipo==='excluirCaixa' && it.dados && it.dados.sessaoId===sessaoId; }); }
+function v33ExclusaoNaFila(caixaId){ return (fila||[]).some(function(it){ return it && it.tipo==='excluirCaixa' && it.dados && String(it.dados.caixaId)===String(caixaId); }); }
+// Ainda tem coisa desta sessão para chegar no servidor (então a finalização espera na fila, atrás delas).
+function v33SessaoComPendencia(sessaoId){
+  if(!sessaoId) return false;
+  var naFila=(fila||[]).some(function(it){
+    if(!it||!it.dados) return false;
+    if(it.tipo==='fecharCaixa'||it.tipo==='excluirCaixa') return it.dados.sessaoId===sessaoId;
+    if(it.tipo==='iniciarSessao') return it.dados.id===sessaoId;
+    return false;
+  });
+  if(naFila) return true;
+  return !!(sess && sess.id===sessaoId && (cxFech||[]).some(function(c){ return c && caixaIndoAgora(c.uid); }));
+}
+// Próximo número de caixa: o maior + 1. Sem renumerar, a caixa removida do meio deixa o número vago; a última removida
+// devolve o número dela.
+function v33ProximoNumero(){ var m=0; (cxFech||[]).forEach(function(c){ var n=Number(c&&c.num)||0; if(n>m) m=n; }); return m+1; }
+// Tira a caixa da tela e desconta as peças da sessão. NÃO renumera as outras.
+function v33TirarDoTablet(cx){
+  var i=(cxFech||[]).indexOf(cx); if(i<0) return false;
+  (cx.itens||[]).forEach(function(it){
+    var cod=it.codigo;
+    if(cod&&sess.itens[cod]){ sess.itens[cod].qty=Math.max(0,sess.itens[cod].qty-it.qty); if(sess.itens[cod].qty===0) delete sess.itens[cod]; }
+  });
+  sess.scans=Math.max(0,sess.scans-(Number(cx.totalUnid)||0));
+  cxFech.splice(i,1);
+  if(typeof caixaAguardandoEtq!=='undefined' && caixaAguardandoEtq===cx){ caixaAguardandoEtq=null; try{ fecharOv('ovEtqCx'); }catch(e){} }
+  salvarSess();
+  try{ renderCxFech(); renderTabela(null); renderStats(); atualizarBtnFin(); }catch(e){ console.error(e); }
+  return true;
+}
+
+// ── 3) caixa excluída pelo Admin numa sessão aberta ───────────────────────────────────────────
+// A cada 30 s, na bipagem: pega os ids das caixas desta sessão no servidor. Caixa que o servidor já tinha confirmado e
+// que sumiu de lá foi excluída pelo Admin → sai da tela (com cópia). Só mexe quando a sessão existe no servidor e a
+// lista veio certa e não vazia. Aproveita para reapagar caixa com lápide que tenha reaparecido.
+function v33Espelho(){
+  if(V33.espelhando) return;
+  var tela=document.getElementById('scr-bip'); if(!tela || !tela.classList.contains('active')) return;
+  if(!sess || !sess.id || !sess.ped) return;
+  var sid=sess.id;
+  var alvo=(cxFech||[]).filter(function(c){ return c && c.noServidor===true && v33IdOk(c.id) && !caixaNaFila(c) && !caixaIndoAgora(c.uid); });
+  var lap=v33Lapides().filter(function(l){ return l && l.sessaoId===sid; });
+  if(!alvo.length && !lap.length) return;
+  V33.espelhando=true;
+  Promise.all([
+    sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(sid)+'&select=sessao&limit=1',null,15000),
+    sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(sid)+'&select=id&order=id.asc',null,15000)
+  ]).then(function(rs){
+    if(!sess || sess.id!==sid) return;
+    var e=rs[0], c=rs[1];
+    if(!Array.isArray(e) || !e.length || !Array.isArray(c)) return;   // sessão não está no servidor (ou resposta estranha): não mexe em nada
+    var noBanco={}; c.forEach(function(x){ if(x) noBanco[String(x.id)]=1; });
+    lap.forEach(function(l){ if(noBanco[String(l.caixaId)] && !v33IdVivo(l.caixaId) && !v33ExclusaoNaFila(l.caixaId)) addFila({tipo:'excluirCaixa',dados:{sessaoId:sid,caixaId:l.caixaId,num:l.num,uid:l.uid||null}}); });
+    if(!c.length) return;   // lista vazia: não confia
+    var sumiram=alvo.filter(function(cx){ return !noBanco[String(cx.id)] && cxFech.indexOf(cx)>=0 && cx.noServidor===true && !caixaNaFila(cx); });
+    sumiram.forEach(function(cx){ v33Arquivar(cx,'excluída pelo Admin'); v33TirarDoTablet(cx); });
+    if(sumiram.length){
+      var nums=sumiram.map(function(cx){ return cx.num; }).join(', ');
+      showFb('🗑 '+(sumiram.length===1?'A caixa '+nums+' foi excluída':'As caixas '+nums+' foram excluídas')+' pelo Admin — saiu desta sessão','warn');
+      toast('Admin excluiu: caixa '+nums);
+    }
+  }).catch(function(){}).then(function(){ V33.espelhando=false; });
+}
+
+// ── partida ───────────────────────────────────────────────────────────────────────────────────
+(function(){
+  // caixas da v32 com número do banco já estavam gravadas
+  try{
+    var mudou=false;
+    (cxFech||[]).forEach(function(c){ if(c && c.id && !c.idReservado && c.noServidor===undefined){ c.noServidor=true; mudou=true; } });
+    if(mudou) salvarSess();
+  }catch(e){ console.error(e); }
+  setTimeout(function(){ v33ReporIds(); },1000);
+  setInterval(function(){ v33ReporIds(); },60000);
+  window.addEventListener('online',function(){ setTimeout(function(){ v33ReporIds(); },1500); });
+  setInterval(function(){ try{ atualizaOffl(true); }catch(e){} },5000);
+  setInterval(v33Espelho,30000);
+})();
+</script>
+<script>
 /* v31 — app instalado no tablet + atualização sozinha pelo GitHub.
    Como funciona: a cada 5 min (e quando o tablet acorda ou a internet volta) o app confere no GitHub se o Index.html
    mudou. Se a versão do arquivo novo (marcador <meta name="app-versao">) for outra e o arquivo estiver INTEIRO
@@ -12296,7 +12631,7 @@ function v32DescartarItem(i){
    aberta, nada sendo gravado e 45 s sem toque nem bipe. A sessão, as caixas e a fila ficam no tablet (localStorage),
    então recarregar não perde nada. Em Faturamento/Admin/Pedidos só aparece o aviso com o botão "Atualizar agora".
    O build troca a versão aqui e no <meta> do topo — os dois têm de ser iguais. */
-var APP_VERSAO='v32';
+var APP_VERSAO='v33';
 var UPD={alvo:null, assinatura:null, ultimaChecagem:0, ultimoGet:0, ultimoToque:Date.now(), timer:null, aplicando:false};
 var UPD_INTERVALO_MS=5*60*1000, UPD_PARADO_MS=45*1000, UPD_GET_MS=30*60*1000, UPD_K='emb_upd1';
 
