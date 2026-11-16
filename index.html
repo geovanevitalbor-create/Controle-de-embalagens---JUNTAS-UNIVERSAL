@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="app-versao" content="v33">
+<meta name="app-versao" content="v34">
 <meta name="theme-color" content="#00833E">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-embalagem.json">
@@ -1842,6 +1842,16 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 #scr-bip .btn-fin.v32-pend{box-shadow:inset 0 0 0 2px rgba(251,191,36,.75)}
 .offl{cursor:pointer}
 @media (max-width:560px){.v32-fl{flex-direction:column;align-items:stretch}.v32-fl-a{justify-content:stretch}.v32-bt{flex:1}}
+/* v34: lote da sessão no Histórico */
+.hx-lote{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
+.hx-lote-l{font-size:12px;font-weight:500;color:var(--tm)}
+.hx-lote-v{font-family:var(--mo);font-size:14px;letter-spacing:.04em;color:var(--tx)}
+.hx-lote-v.vazio{font-family:inherit;letter-spacing:0;color:var(--yw)}
+.hx-lote.ed{padding:12px 14px;border-radius:9px;background:rgba(0,131,62,.06);border:1px solid rgba(0,131,62,.28)}
+.hx-lote-in{width:14ch;min-width:150px;height:38px;font-family:var(--mo);letter-spacing:.06em;text-transform:uppercase}
+.hx-lote-err{flex-basis:100%;font-size:12px;font-weight:600;color:#f87171}
+.hx-lote-err:empty{display:none}
+.hx-lote-dica{flex-basis:100%;font-size:11px;color:var(--tm)}
 /* v33: aviso na lista do Finalizar */
 .v33-nota{display:block;font-size:11px;font-weight:600;color:#fcd34d;margin-top:2px;white-space:normal;overflow:visible;text-overflow:clip}
 /* v31: aviso de versão nova + versão na tela inicial */
@@ -3476,6 +3486,20 @@ const Backend={
   // Separada de salvarInfoCliente de propósito: chamar aquela aqui apagaria a transportadora
   // já salva, sobrescrevendo com null toda vez que alguém reimprime a etiqueta na bipagem.
   async salvarDataFabCliente(sessao,dataFab){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_data_fab:dataFab||null}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
+  // v34: troca o lote da sessão (todas as caixas dela usam o lote da sessão). Só mexe em cliente_lote e confere que a
+  // sessão existe. Deixa registro na linha do tempo do pedido (pedido_eventos); se isso falhar, o lote fica trocado igual.
+  async salvarLoteSessao(sessao,lote,antigo,pedido,rotulo){ try{
+    var s=encodeURIComponent(String(sessao||'').trim()); if(!s) return {status:'erro',msg:'Sessão vazia.'};
+    var r=await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{cliente_lote:lote},{'Prefer':'return=representation'});
+    if(!Array.isArray(r)||!r.length) return {status:'erro',msg:'A sessão não foi encontrada no servidor.'};
+    try{
+      if(pedido){
+        var p=await sbFetch('GET','/pedidos?pedido=eq.'+encodeURIComponent(String(pedido))+'&select=id&limit=1',null);
+        if(p&&p[0]&&p[0].id) await sbFetch('POST','/pedido_eventos',{pedido_id:p[0].id,tipo:'lote_alterado',motivo:'Sessão '+String(sessao)+(rotulo?' ('+String(rotulo).trim()+')':'')+': '+(antigo||'sem lote')+' → '+lote});
+      }
+    }catch(e2){}
+    return {status:'ok'};
+  }catch(e){ return {status:'erro',msg:String(e)}; } },
   async atualizarCaixaAdmin(caixaId,peso,itens){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; var totalUnid=(itens||[]).reduce(function(s,it){return s+(Number(it.qty)||0);},0); await sbFetch('PATCH','/caixas?id=eq.'+caixaId,{peso:parseFloat(peso)||0,total_unidades:totalUnid}); await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); if(itens&&itens.length){ await sbFetch('POST','/itens_caixa',itens.map(function(it){return {caixa_id:caixaId,codigo_produto:it.codigo,nome_produto:it.nome,quantidade:Number(it.qty)||0};})); } return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async excluirCaixaAdmin(caixaId){ try{ if(!caixaId)return {status:'erro',msg:'Caixa sem id.'}; await sbFetch('DELETE','/itens_caixa?caixa_id=eq.'+caixaId,null); await sbFetch('DELETE','/caixas?id=eq.'+caixaId,null); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
   async atualizarPedidoEmbalagem(sessao,novoPedido){ try{ var s=encodeURIComponent(String(sessao||'').trim()); if(!s)return {status:'erro',msg:'Sessao vazia.'}; await sbFetch('PATCH','/embalagens?sessao=eq.'+s,{pedido:novoPedido}); return {status:'ok'}; }catch(e){ return {status:'erro',msg:String(e)}; } },
@@ -7169,7 +7193,8 @@ function coletarRastreabilidade(p){
     var infoPorTipoEvento={
       fechado:{tipo:'warn',ico:'🔒',titulo:'Pedido fechado'},
       reaberto:{tipo:'info',ico:'↩',titulo:'Pedido reaberto'},
-      finalizado:{tipo:'ok',ico:'✔',titulo:'Pedido finalizado'}
+      finalizado:{tipo:'ok',ico:'✔',titulo:'Pedido finalizado'},
+      lote_alterado:{tipo:'warn',ico:'🏷',titulo:'Lote alterado'}   // v34
     };
     eventos.forEach(function(e){
       var info=infoPorTipoEvento[e.tipo]||{tipo:'info',ico:'•',titulo:e.tipo};
@@ -11248,12 +11273,86 @@ function hxTabelaSessoes(sessoes){
 // o que aparece ao abrir uma sessão: ações da sessão inteira + as caixas
 function hxCorpoSessao(e){
   var sA=escAttr(e.sessao), cxs=e.caixas||[];
-  return '<div class="hxd-acts">'+
+  return hxLinhaLote(e)+   // v34
+    '<div class="hxd-acts">'+
       '<button type="button" class="hx-btn sm" data-s="'+sA+'" onclick="rRel(this.dataset.s)">'+hxIcon('print')+'Relatório</button>'+
       '<button type="button" class="hx-btn sm" data-s="'+sA+'" onclick="rEtq(this.dataset.s)">'+hxIcon('tag')+'Etiquetas · todas as caixas</button>'+
       (e.cliLote?'<button type="button" class="hx-btn sm cli" data-s="'+sA+'" onclick="rCli(this.dataset.s)">'+hxIcon('box')+'Etq. Cliente · todas as caixas</button>':'')+
     '</div>'+
     (cxs.length?'<div class="hxb-list">'+cxs.map(function(cx){ return hxLinhaCaixa(e,cx); }).join('')+'</div>':'<div class="hx-semcx">Sem caixas registradas nesta sessão.</div>');
+}
+// v34: lote da sessão. O lote é da sessão inteira (todas as caixas dela saem com ele na etiqueta e no relatório).
+// Não corta nem completa o que foi digitado: um código de barras bipado no campo (13 dígitos) é recusado, nunca vira
+// "os 10 primeiros" (o defeito que já pôs EAN no lugar do lote).
+var HX_LOTE_EDIT=null, HX_LOTE_DRAFT='', HX_LOTE_SALVANDO=false, HX_LOTE_ERRO='';
+function hxLinhaLote(e){
+  var sA=escAttr(e.sessao), lote=String(e.cliLote||''), n=(e.caixas||[]).length;
+  if(!admConsulta && HX_LOTE_EDIT===e.sessao){
+    return '<div class="hx-lote ed">'+
+      '<label class="hx-lote-l" for="hxLoteInp">Lote da sessão</label>'+
+      '<input id="hxLoteInp" class="rp-in hx-lote-in" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" value="'+escAttr(HX_LOTE_DRAFT)+'" data-s="'+sA+'" oninput="histLoteDigitar(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();histLoteSalvar(this.dataset.s);}else if(event.key===\'Escape\'){histLoteCancelar();}" aria-describedby="hxLoteErr hxLoteDica">'+
+      '<button type="button" class="hx-btn sm primary" data-s="'+sA+'" onclick="histLoteSalvar(this.dataset.s)"'+(HX_LOTE_SALVANDO?' disabled':'')+'>'+hxIcon('save')+(HX_LOTE_SALVANDO?'Salvando…':'Salvar lote')+'</button>'+
+      '<button type="button" class="hx-btn sm" onclick="histLoteCancelar()"'+(HX_LOTE_SALVANDO?' disabled':'')+'>Cancelar</button>'+
+      '<div class="hx-lote-err" id="hxLoteErr" role="alert">'+escAttr(HX_LOTE_ERRO)+'</div>'+
+      '<div class="hx-lote-dica" id="hxLoteDica">10 caracteres, letras e números. Vale para '+(n===1?'a caixa':'as '+n+' caixas')+' desta sessão.</div>'+
+    '</div>';
+  }
+  return '<div class="hx-lote"><span class="hx-lote-l">Lote</span><b class="hx-lote-v'+(lote?'':' vazio')+'">'+(lote?escAttr(lote):'sem lote')+'</b>'+
+    (admConsulta?'':'<button type="button" class="hx-ib" data-s="'+sA+'" onclick="histLoteEditar(this.dataset.s)">'+hxIcon('edit')+(lote?'Alterar lote':'Definir lote')+'</button>')+
+  '</div>';
+}
+function hxSessaoPorId(s){ var e=null; (histTodas||[]).forEach(function(x){ if(x.sessao===s) e=x; }); return e; }
+function histLoteEditar(s){
+  if(admConsulta){ toast('Somente consulta'); return; }
+  var e=hxSessaoPorId(s); if(!e) return;
+  HX_LOTE_EDIT=s; HX_LOTE_DRAFT=String(e.cliLote||''); HX_LOTE_ERRO=''; HX_LOTE_SALVANDO=false;
+  filtrarHist();
+  setTimeout(function(){ var i=document.getElementById('hxLoteInp'); if(i){ i.focus(); try{ i.select(); }catch(x){} } },30);
+}
+function histLoteCancelar(){ HX_LOTE_EDIT=null; HX_LOTE_DRAFT=''; HX_LOTE_ERRO=''; HX_LOTE_SALVANDO=false; filtrarHist(); }
+function histLoteDigitar(el){
+  var p=el.selectionStart; el.value=String(el.value||'').toUpperCase(); try{ el.setSelectionRange(p,p); }catch(x){}
+  HX_LOTE_DRAFT=el.value;
+  if(HX_LOTE_ERRO){ HX_LOTE_ERRO=''; var er=document.getElementById('hxLoteErr'); if(er) er.textContent=''; }
+}
+// Mesmas regras do lote digitado no tablet: 10 caracteres, só letras e números, nunca um EAN.
+function loteValidoTexto(v){
+  v=String(v||'').trim().toUpperCase();
+  if(!v) return {ok:false,msg:'Digite o lote.'};
+  if(!/^[A-Z0-9]+$/.test(v)) return {ok:false,msg:'O lote só tem letras e números (sem espaço nem símbolo).'};
+  if(loteParecerEAN(v)) return {ok:false,msg:'Isso é um código de barras (EAN) de peça, não um lote.'};
+  if(v.length!==10) return {ok:false,msg:'O lote tem exatamente 10 caracteres (este tem '+v.length+').'};
+  return {ok:true,lote:v};
+}
+function histLoteSalvar(s){
+  if(admConsulta){ toast('Somente consulta'); return; }
+  if(HX_LOTE_SALVANDO) return;
+  var e=hxSessaoPorId(s); if(!e) return;
+  var inp=document.getElementById('hxLoteInp'); if(inp) HX_LOTE_DRAFT=String(inp.value||'').toUpperCase();
+  var v=loteValidoTexto(HX_LOTE_DRAFT);
+  if(!v.ok){ HX_LOTE_ERRO='⚠ '+v.msg; var er=document.getElementById('hxLoteErr'); if(er) er.textContent=HX_LOTE_ERRO; if(inp) inp.focus(); return; }
+  var antigo=String(e.cliLote||'');
+  if(v.lote===antigo){ histLoteCancelar(); toast('O lote já é '+antigo); return; }
+  var n=(e.caixas||[]).length, andamento=(e.finalizada===false);
+  var msg='Trocar o lote da sessão de '+(e.operador||'—')+' ('+(e.data||'—')+') '+(antigo?'de '+antigo+' ':'')+'para '+v.lote+'?\n\n'+
+    'Vale para '+(n===1?'a caixa':'as '+n+' caixas')+' desta sessão: relatórios e etiquetas impressas daqui pra frente.\n'+
+    'As etiquetas do cliente que já estão coladas continuam com o lote antigo — reimprima pelo botão "Etq. Cliente".'+
+    (andamento?'\n\nA sessão está em andamento: o tablet passa a usar o lote novo em até 30 segundos.':'');
+  if(!confirm(msg)) return;
+  HX_LOTE_SALVANDO=true; HX_LOTE_ERRO=''; filtrarHist();
+  function falhou(t){ HX_LOTE_SALVANDO=false; HX_LOTE_ERRO='⚠ Não salvou: '+t; filtrarHist(); }
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.status==='ok'){
+          HX_LOTE_SALVANDO=false; HX_LOTE_EDIT=null; HX_LOTE_DRAFT=''; e.cliLote=v.lote;
+          toast('✔ Lote da sessão alterado para '+v.lote+' — reimprima as etiquetas do cliente');
+          carregarHist();
+        }else falhou((r&&r.msg)||'tente de novo');
+      })
+      .withFailureHandler(function(){ falhou('sem conexão'); })
+      .salvarLoteSessao(s,v.lote,antigo,e.pedido||'',String((e.operador||'')+' '+(e.data||'')).trim());
+  }catch(x){ falhou('sem conexão'); }
 }
 
 // uma caixa; em modo de edição (histEditCaixaId===cx.id) vira o formulário de peso/quantidades
@@ -12586,15 +12685,17 @@ function v33Espelho(){
   var sid=sess.id;
   var alvo=(cxFech||[]).filter(function(c){ return c && c.noServidor===true && v33IdOk(c.id) && !caixaNaFila(c) && !caixaIndoAgora(c.uid); });
   var lap=v33Lapides().filter(function(l){ return l && l.sessaoId===sid; });
-  if(!alvo.length && !lap.length) return;
+  var verCaixas=!!(alvo.length || lap.length);   // v34: a sessão é conferida sempre (lote); as caixas só quando precisa
   V33.espelhando=true;
   Promise.all([
-    sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(sid)+'&select=sessao&limit=1',null,15000),
-    sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(sid)+'&select=id&order=id.asc',null,15000)
+    sbFetch('GET','/embalagens?sessao=eq.'+encodeURIComponent(sid)+'&select=sessao,cliente_lote&limit=1',null,15000),
+    verCaixas?sbFetch('GET','/caixas?sessao=eq.'+encodeURIComponent(sid)+'&select=id&order=id.asc',null,15000):Promise.resolve(null)
   ]).then(function(rs){
     if(!sess || sess.id!==sid) return;
     var e=rs[0], c=rs[1];
-    if(!Array.isArray(e) || !e.length || !Array.isArray(c)) return;   // sessão não está no servidor (ou resposta estranha): não mexe em nada
+    if(!Array.isArray(e) || !e.length) return;   // sessão não está no servidor (ou resposta estranha): não mexe em nada
+    try{ v34SincLote(e[0]&&e[0].cliente_lote); }catch(x){ console.error(x); }
+    if(!verCaixas || !Array.isArray(c)) return;
     var noBanco={}; c.forEach(function(x){ if(x) noBanco[String(x.id)]=1; });
     lap.forEach(function(l){ if(noBanco[String(l.caixaId)] && !v33IdVivo(l.caixaId) && !v33ExclusaoNaFila(l.caixaId)) addFila({tipo:'excluirCaixa',dados:{sessaoId:sid,caixaId:l.caixaId,num:l.num,uid:l.uid||null}}); });
     if(!c.length) return;   // lista vazia: não confia
@@ -12606,6 +12707,18 @@ function v33Espelho(){
       toast('Admin excluiu: caixa '+nums);
     }
   }).catch(function(){}).then(function(){ V33.espelhando=false; });
+}
+// v34: o Admin trocou o lote desta sessão no Histórico → a etiqueta do cliente daqui pra frente sai com o lote novo.
+// Só aceita lote no formato certo; não mexe durante a troca de lote da virada (v32).
+function v34SincLote(loteSrv){
+  var novo=String(loteSrv||'').trim().toUpperCase();
+  if(!/^[A-Z0-9]{10}$/.test(novo) || novo===String(sess.lote||'').toUpperCase()) return false;
+  if(typeof V32_TROCA!=='undefined' && V32_TROCA) return false;
+  var antigo=String(sess.lote||'');
+  sess.lote=novo; salvarSess();
+  showFb('🏷 Lote desta sessão alterado pelo Admin: '+(antigo||'sem lote')+' → '+novo+'. A etiqueta do cliente daqui pra frente sai com o lote novo.','warn');
+  toast('🏷 Lote alterado pelo Admin: '+novo);
+  return true;
 }
 
 // ── partida ───────────────────────────────────────────────────────────────────────────────────
@@ -12631,7 +12744,7 @@ function v33Espelho(){
    aberta, nada sendo gravado e 45 s sem toque nem bipe. A sessão, as caixas e a fila ficam no tablet (localStorage),
    então recarregar não perde nada. Em Faturamento/Admin/Pedidos só aparece o aviso com o botão "Atualizar agora".
    O build troca a versão aqui e no <meta> do topo — os dois têm de ser iguais. */
-var APP_VERSAO='v33';
+var APP_VERSAO='v34';
 var UPD={alvo:null, assinatura:null, ultimaChecagem:0, ultimoGet:0, ultimoToque:Date.now(), timer:null, aplicando:false};
 var UPD_INTERVALO_MS=5*60*1000, UPD_PARADO_MS=45*1000, UPD_GET_MS=30*60*1000, UPD_K='emb_upd1';
 
