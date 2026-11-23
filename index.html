@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="app-versao" content="v34">
+<meta name="app-versao" content="v35">
 <meta name="theme-color" content="#00833E">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-embalagem.json">
@@ -1842,6 +1842,27 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 #scr-bip .btn-fin.v32-pend{box-shadow:inset 0 0 0 2px rgba(251,191,36,.75)}
 .offl{cursor:pointer}
 @media (max-width:560px){.v32-fl{flex-direction:column;align-items:stretch}.v32-fl-a{justify-content:stretch}.v32-bt{flex:1}}
+/* v35: Admin › Exportar caixas */
+.xc-filter{container-type:inline-size}
+.xc-grid{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:12px}
+.xc-per .hx-dates .rp-in{width:auto;flex:1 1 0;min-width:0}
+.xc-filter .xc-frow{margin-top:14px}
+.xc-frow .hx-seg button{min-width:0}
+.xc-mudou{margin:-4px 0 12px;font-size:12.5px;font-weight:500;color:#fcd34d}
+.xc-dica{margin:0 0 14px;font-size:12px;line-height:1.5;color:var(--td)}
+.xc-card{margin-bottom:16px}
+.xc-tw{overflow-x:auto}
+.xc-tb td{height:40px}
+.xc-prog{color:var(--tx);font-weight:500}
+/* a grade segue a largura do painel (com a barra lateral do Admin, a tela não diz quanto sobra) */
+@container (max-width:900px){ .xc-grid{grid-template-columns:repeat(3,minmax(0,1fr))} .xc-per{grid-column:1/-1} .xc-per .hx-dates .rp-in{flex:0 1 190px} }
+@container (max-width:520px){ .xc-grid{grid-template-columns:minmax(0,1fr)} .xc-per .hx-dates{flex-wrap:wrap} .xc-per .hx-dates .rp-in{flex:1 1 100%} .xc-per .hx-dates i{display:none}
+  .xc-frow .hx-seg{flex-wrap:wrap;width:100%} .xc-frow .hx-seg button{flex:1 1 auto;min-width:0} .xc-frow .rl-gen{width:100%} .xc-frow .rl-gen .hx-btn{flex:1} }
+@container (max-width:640px){ .xc-tb .c-ean,.xc-tb .c-id{display:none} }
+@supports not (container-type:inline-size){
+  @media (max-width:1100px){ .xc-grid{grid-template-columns:repeat(3,minmax(0,1fr))} .xc-per{grid-column:1/-1} .xc-per .hx-dates .rp-in{flex:0 1 190px} .xc-tb .c-ean,.xc-tb .c-id{display:none} }
+  @media (max-width:700px){ .xc-grid{grid-template-columns:minmax(0,1fr)} .xc-per .hx-dates{flex-wrap:wrap} .xc-per .hx-dates .rp-in{flex:1 1 100%} .xc-per .hx-dates i{display:none} .xc-frow .rl-gen{width:100%} .xc-frow .rl-gen .hx-btn{flex:1} }
+}
 /* v34: lote da sessão no Histórico */
 .hx-lote{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px}
 .hx-lote-l{font-size:12px;font-weight:500;color:var(--tm)}
@@ -1875,7 +1896,7 @@ th[aria-sort=descending] .hx-sort::after{content:'↓';opacity:1;color:#4ade80}
 .sx-admbtn-lk svg{width:14px;height:14px}
 @media (max-width:900px){ .sx-left>.sx-adm{order:9} }
 /* ───────────── v13: modo consulta (entrada pelo card Relatórios, sem senha) ───────────── */
-.adm-consulta .adm-tab[data-t="op"],.adm-consulta .adm-tab[data-t="baia"],.adm-consulta .adm-tab[data-t="prod"],.adm-consulta .adm-tab[data-t="config"]{display:none}
+.adm-consulta .adm-tab[data-t="op"],.adm-consulta .adm-tab[data-t="baia"],.adm-consulta .adm-tab[data-t="prod"],.adm-consulta .adm-tab[data-t="config"],.adm-consulta .adm-tab[data-t="exp"]{display:none}
 /* ───────────── RELATÓRIOS v14: totais por operador + caixas fechadas com lote ───────────── */
 .rl-o tfoot td{height:48px;font-weight:700;background:rgba(255,255,255,.035);border-top:1px solid var(--bd2);border-bottom:0;font-variant-numeric:tabular-nums}
 .rl-o tfoot td.mut{font-weight:500}
@@ -2504,6 +2525,7 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
         <button class="adm-tab" data-t="hist" onclick="admTab('hist')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6v2.5H9z" fill="currentColor" stroke="none"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4.5"/></svg></span>Histórico</button>
         <button class="adm-tab" data-t="rel" onclick="admTab('rel')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>Relatórios</button>
         <button class="adm-tab" data-t="saldo" onclick="admTab('saldo')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none"/></svg></span>Saldo</button>
+        <button class="adm-tab" data-t="exp" onclick="admTab('exp')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M12 9v7M9 13.2l3 3 3-3"/></svg></span>Exportar caixas</button>
         <button class="adm-tab" data-t="config" onclick="admTab('config')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="1em" height="1em" style="vertical-align:-0.15em;flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.5 12H2.3M21.7 12h-2.2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg></span>Configurações</button>
       <div class="sb-conn"><i></i><span>Banco conectado</span></div>
       </nav>
@@ -2640,6 +2662,41 @@ button.sx-more:hover{color:var(--tx);background:rgba(255,255,255,.035)}
         <div class="rl-kpis" id="sdKpis"></div>
         <div class="rl-aviso" id="sdAviso" style="display:none"></div>
         <div id="sdConteudo"></div>
+      </section>
+      <section class="adm-panel" id="pane-exp">
+        <div class="rl-head"><h2 class="adm-panel-title">Exportar caixas</h2></div>
+        <div class="hx-filter xc-filter">
+          <div class="xc-grid">
+            <div class="hx-f xc-per"><span>Período (data da sessão)</span>
+              <div class="hx-dates">
+                <input autocomplete="off" class="rp-in" id="xcDe" type="date" aria-label="Data inicial" onchange="xcDataMudou()">
+                <i>até</i>
+                <input autocomplete="off" class="rp-in" id="xcAte" type="date" aria-label="Data final" onchange="xcDataMudou()">
+              </div>
+            </div>
+            <label class="hx-f"><span>Pedido</span><input autocomplete="off" class="rp-in" id="xcPed" list="xcPedLista" placeholder="Todos" spellcheck="false" oninput="xcFiltroMudou()"><datalist id="xcPedLista"></datalist></label>
+            <label class="hx-f"><span>Operador</span><select class="rp-in" id="xcOp" onchange="xcFiltroMudou()"><option value="">Todos</option></select></label>
+            <label class="hx-f"><span>Situação</span><select class="rp-in" id="xcSit" onchange="xcFiltroMudou()"><option value="">Todas</option><option value="fin">Só finalizadas</option><option value="and">Só em andamento</option></select></label>
+          </div>
+          <div class="hx-frow xc-frow">
+            <div class="hx-seg" id="xcPresets" role="group" aria-label="Atalhos de período">
+              <button type="button" data-p="3m" onclick="xcPreset('3m')" title="3 meses antes da data final escolhida">3 meses até a data final</button>
+              <button type="button" data-p="mes" onclick="xcPreset('mes')">Este mês</button>
+              <button type="button" data-p="mesant" onclick="xcPreset('mesant')">Mês passado</button>
+            </div>
+            <span class="hx-sp"></span>
+            <div class="rl-gen">
+              <button type="button" class="hx-btn" id="xcBtnCons" onclick="xcConsultar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span class="xc-bl">Consultar</span></button>
+              <button type="button" class="hx-btn primary" id="xcBtnXls" onclick="xcBaixarExcel()" disabled title="Baixa em Excel tudo o que a consulta trouxe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 19h14"/></svg>Baixar Excel</button>
+            </div>
+          </div>
+        </div>
+        <div class="xc-mudou" id="xcMudou" hidden>Os filtros mudaram — clique em Consultar para atualizar antes de baixar o Excel.</div>
+        <div class="xc-dica">Uma linha por peça de cada caixa, lida direto do banco (sem limite de linhas). Caixas excluídas não entram. O Excel traz 4 abas: Resumo, Peças por caixa, Caixas e Resumo por peça.</div>
+        <div class="rl-live" id="xcLive"></div>
+        <div class="rl-kpis" id="xcKpis"></div>
+        <div class="rl-aviso" id="xcAviso" style="display:none"></div>
+        <div id="xcConteudo"></div>
       </section>
       <section class="adm-panel" id="pane-config">
         <h2 class="adm-panel-title">Configurações</h2>
@@ -8557,6 +8614,281 @@ function carregarConfigs(){
   try{google.script.run.withSuccessHandler(function(d){if(d&&d.status==='ok'){ops=d.operadores||[];baias=d.baias||[];renderCfg('listOp',ops,'op');renderCfg('listBaia',baias,'baia');popularSels();}}).withFailureHandler(function(){}).carregarConfiguracoes();}catch{}
 }
 
+// ═══════════════════════════════════════
+// v35 — Admin › Exportar caixas (23/11/2026): relação de peças e quantidades de CADA caixa num período, com Excel completo.
+// Por quê: o Histórico mostra só as 200 finalizações mais recentes e o relatório sai em PDF; a consulta no SQL Editor
+// cortou as linhas antes do fim do período. Aqui a leitura é em páginas (sbFetchAll), então vem tudo, até o último dia.
+// Só leitura. Só no Admin com senha (aba escondida e barrada no modo consulta).
+// Data = data da sessão (data_embalagem: dia em que a embalagem começou), a mesma dos Relatórios e do Histórico.
+// Situação: "Finalizada" inclui finalizada vazia (sessões antigas), igual ao relatório do expediente (v30).
+// Prefixo xc (o "ex" já é do aviso de excesso do pedido).
+// ═══════════════════════════════════════
+var XC={dados:null,seq:0,listasOk:false,carregando:false};
+function xcISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function xcHojeISO(){ return xcISO(new Date()); }
+function xcParse(iso){
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||'')); if(!m) return null;
+  var d=new Date(+m[1],+m[2]-1,+m[3]);
+  return (d.getFullYear()===+m[1] && d.getMonth()===+m[2]-1 && d.getDate()===+m[3])?d:null;
+}
+function xcMaisDias(iso,n){ var d=xcParse(iso); if(!d) return iso; d.setDate(d.getDate()+n); return xcISO(d); }
+// Mesmo dia, N meses antes (20/11 − 3 meses = 20/08). Dia que não existe no mês vira o último dia (31/05 − 3 = 28/02).
+function xcMesesAntes(iso,n){
+  var d=xcParse(iso); if(!d) return iso;
+  var r=new Date(d.getFullYear(),d.getMonth()-n,1), ult=new Date(r.getFullYear(),r.getMonth()+1,0).getDate();
+  r.setDate(Math.min(d.getDate(),ult)); return xcISO(r);
+}
+function xcInicializar(){
+  var de=document.getElementById('xcDe'), ate=document.getElementById('xcAte');
+  if(ate && !xcParse(ate.value)) ate.value=xcHojeISO();
+  if(de && !xcParse(de.value) && ate){ de.value=xcMesesAntes(ate.value,3); xcMarcarPreset('3m'); }
+  if(!XC.listasOk) xcCarregarListas();
+  xcBotoes();
+}
+function xcCarregarListas(){
+  XC.listasOk=true;
+  sbFetchAll('/pedidos?select=pedido,cliente&order=id.desc').then(function(ps){
+    var dl=document.getElementById('xcPedLista'); if(!dl) return;
+    var vistos={};
+    dl.innerHTML=(ps||[]).filter(function(p){ var k=String((p&&p.pedido)||''); if(!k||vistos[k]) return false; vistos[k]=1; return true; })
+      .map(function(p){ return '<option value="'+escAttr(p.pedido)+'">'+escAttr(p.cliente||'')+'</option>'; }).join('');
+  }).catch(function(){ XC.listasOk=false; });
+  sbFetchAll('/operadores?select=nome&order=nome.asc,id.asc').then(function(os){
+    xcOpcoesOperador((os||[]).map(function(o){ return o&&o.nome; }));
+  }).catch(function(){ XC.listasOk=false; });
+}
+// Operadores cadastrados + os que aparecerem nas consultas (quem saiu da lista de operadores continua filtrável).
+function xcOpcoesOperador(nomes){
+  var so=document.getElementById('xcOp'); if(!so) return;
+  var atual=so.value, todos={};
+  Array.prototype.forEach.call(so.options,function(o){ if(o.value) todos[o.value]=1; });
+  (nomes||[]).forEach(function(n){ n=String(n||'').trim(); if(n) todos[n]=1; });
+  so.innerHTML='<option value="">Todos</option>'+Object.keys(todos).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); })
+    .map(function(n){ return '<option value="'+escAttr(n)+'">'+escAttr(n)+'</option>'; }).join('');
+  so.value=atual;
+}
+function xcPreset(p){
+  var de=document.getElementById('xcDe'), ate=document.getElementById('xcAte'); if(!de||!ate) return;
+  var d=new Date();
+  if(p==='3m'){ if(!xcParse(ate.value)) ate.value=xcHojeISO(); de.value=xcMesesAntes(ate.value,3); }   // 3 meses até a data final escolhida
+  else if(p==='mes'){ de.value=xcISO(new Date(d.getFullYear(),d.getMonth(),1)); ate.value=xcHojeISO(); }
+  else if(p==='mesant'){ de.value=xcISO(new Date(d.getFullYear(),d.getMonth()-1,1)); ate.value=xcISO(new Date(d.getFullYear(),d.getMonth(),0)); }
+  xcMarcarPreset(p); xcFiltroMudou();
+}
+function xcMarcarPreset(p){ Array.prototype.forEach.call(document.querySelectorAll('#xcPresets button'),function(b){ b.classList.toggle('on',b.getAttribute('data-p')===p); }); }
+function xcDataMudou(){ xcMarcarPreset(''); xcFiltroMudou(); }
+function xcFiltros(){
+  function v(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }
+  return {de:v('xcDe'),ate:v('xcAte'),ped:v('xcPed'),op:v('xcOp'),sit:v('xcSit')};
+}
+function xcMesmoFiltro(a,b){ return !!a && !!b && a.de===b.de && a.ate===b.ate && a.ped===b.ped && a.op===b.op && a.sit===b.sit; }
+function xcFiltroMudou(){ xcBotoes(); }
+// Excel só sai do que está na tela: mudou filtro depois de consultar → precisa consultar de novo.
+function xcBotoes(){
+  var bc=document.getElementById('xcBtnCons'), bx=document.getElementById('xcBtnXls'), mu=document.getElementById('xcMudou'), D=XC.dados;
+  var igual=!!D && xcMesmoFiltro(D.f,xcFiltros());
+  if(bc){ bc.disabled=XC.carregando; var s=bc.querySelector('.xc-bl'); if(s) s.textContent=XC.carregando?'Consultando…':'Consultar'; }
+  if(bx) bx.disabled=XC.carregando || !igual || !D.linhas.length;
+  if(mu) mu.hidden=XC.carregando || !D || igual;
+}
+function xcAviso(t){ var a=document.getElementById('xcAviso'); if(!a) return; a.style.display=t?'':'none'; a.textContent=t||''; }
+function xcLive(h){ var l=document.getElementById('xcLive'); if(l) l.innerHTML=h||''; }
+async function xcConsultar(){
+  if(admConsulta){ toast('Somente consulta'); return; }
+  if(XC.carregando) return;
+  var f=xcFiltros();
+  if(!xcParse(f.de)||!xcParse(f.ate)){ xcAviso('Escolha a data inicial e a data final.'); return; }
+  if(f.de>f.ate){ xcAviso('A data inicial está depois da data final.'); return; }
+  var minha=++XC.seq; XC.dados=null; XC.carregando=true; xcAviso('');
+  var k=document.getElementById('xcKpis'), c=document.getElementById('xcConteudo'); if(k) k.innerHTML=''; if(c) c.innerHTML='';
+  xcBotoes();
+  try{
+    // pedidos que ainda estavam no ar quando outro falhou terminam depois: não reescrevem a tela
+    var D=await xcCarregar(f,function(msg){ if(minha===XC.seq && XC.carregando) xcLive('<span class="xc-prog">'+escAttr(msg)+'</span>'); });
+    if(minha!==XC.seq) return;
+    XC.dados=D; xcRenderizar(D);
+  }catch(e){
+    if(minha!==XC.seq) return;
+    console.error(e); xcLive('');
+    xcAviso('Não consegui ler o banco ('+String((e&&e.message)||e).slice(0,180)+'). Confira a internet e clique em Consultar de novo.');
+  }finally{ if(minha===XC.seq){ XC.carregando=false; xcBotoes(); } }
+}
+// Igual ao sbFetchPorLista (grupos de 6 em paralelo, cada grupo paginado), contando o andamento.
+async function xcPorLista(pathComToken,lista,tamanho,prog){
+  var grupos=[]; for(var i=0;i<lista.length;i+=tamanho) grupos.push(lista.slice(i,i+tamanho));
+  var out=[], feitos=0; if(prog) prog(0,grupos.length);
+  for(var g=0;g<grupos.length;g+=6){
+    var lote=await Promise.all(grupos.slice(g,g+6).map(function(grp){
+      return sbFetchAll(pathComToken.replace('{LISTA}',grp.join(','))).then(function(r){ feitos++; if(prog) prog(feitos,grupos.length); return r; });
+    }));
+    lote.forEach(function(rows){ for(var k=0;k<rows.length;k++) out.push(rows[k]); });
+  }
+  return out;
+}
+async function xcCarregar(f,progresso){
+  progresso('Lendo as sessões do período…');
+  // "até" inclusivo: < dia seguinte (vale para coluna date, texto AAAA-MM-DD ou data com hora)
+  var q='/embalagens?select=id,sessao,pedido,data_embalagem,hora_embalagem,operador,baia,finalizada,cliente_lote,cliente_transp,cliente_data_fab,tipo_embalagem'+
+    '&data_embalagem=gte.'+f.de+'&data_embalagem=lt.'+xcMaisDias(f.ate,1);
+  if(f.ped) q+='&pedido=eq.'+encodeURIComponent(f.ped);
+  if(f.op) q+='&operador=eq.'+encodeURIComponent(f.op);
+  q+='&order=data_embalagem.asc,hora_embalagem.asc,id.asc';
+  var vistas={};
+  var embs=((await sbFetchAll(q))||[]).filter(function(e){
+    if(!e || !e.sessao || vistas[e.sessao]) return false; vistas[e.sessao]=1;
+    return f.sit==='fin'?e.finalizada!==false:(f.sit==='and'?e.finalizada===false:true);
+  });
+  var pct=function(a,b){ return b?Math.round(100*a/b)+'%':''; };
+  var cxs=embs.length?await xcPorLista('/caixas?sessao=in.({LISTA})&select=id,sessao,numero,peso,total_unidades&order=numero.asc,id.asc',
+    embs.map(function(e){ return encodeURIComponent(e.sessao); }),100,function(a,b){ progresso('Lendo as caixas de '+relFmt(embs.length)+' '+(embs.length===1?'sessão':'sessões')+'… '+pct(a,b)); }):[];
+  var ids=cxs.map(function(c){ return c&&c.id; }).filter(function(id){ return id!==null && id!==undefined && id!==''; });
+  var its=ids.length?await xcPorLista('/itens_caixa?caixa_id=in.({LISTA})&select=caixa_id,codigo_produto,nome_produto,quantidade&order=caixa_id.asc,codigo_produto.asc,quantidade.asc,nome_produto.asc',
+    ids,150,function(a,b){ progresso('Lendo as peças de '+relFmt(ids.length)+' caixas… '+pct(a,b)); }):[];
+  progresso('Lendo clientes e notas fiscais…');
+  var avisos=[], peds=[], fats=[];
+  try{ peds=await sbFetchAll('/pedidos?select=pedido,cliente&order=id.asc'); }catch(e){ avisos.push('não consegui ler o cliente dos pedidos (a coluna Cliente saiu vazia)'); }
+  try{ fats=await sbFetchAll('/faturamentos_parciais?select=pedido,data_embalagem,sessao,nf,data_faturamento&order=id.asc'); }catch(e){ avisos.push('não consegui ler as notas fiscais registradas no app (as colunas de NF saíram vazias)'); }
+  var D=xcMontar(f,embs,cxs,its,peds,fats); D.avisosLeitura=avisos; return D;
+}
+// Uma linha por peça de cada caixa (caixa sem peça registrada entra com observação, nunca some), uma linha por caixa,
+// e os resumos por pedido e por pedido × peça × lote.
+function xcMontar(f,embs,cxs,its,peds,fats){
+  var cliPed={}; (peds||[]).forEach(function(p){ if(!p||p.pedido==null) return; var k=String(p.pedido); if(!cliPed[k]) cliPed[k]=p.cliente||''; });
+  var nfSess={}, nfDia={};
+  function addNF(mapa,k,x){
+    var r=mapa[k]||(mapa[k]={nfs:[],datas:[]}), nf=String(x.nf==null?'':x.nf).trim(), dt=x.data_faturamento?String(x.data_faturamento).slice(0,10):'';
+    if(nf && r.nfs.indexOf(nf)<0) r.nfs.push(nf); if(dt && r.datas.indexOf(dt)<0) r.datas.push(dt);
+  }
+  (fats||[]).forEach(function(x){ if(!x) return; if(x.sessao) addNF(nfSess,x.sessao,x); else addNF(nfDia,String(x.pedido)+'|'+String(x.data_embalagem||'').slice(0,10),x); });
+  var cxPorSess={}; (cxs||[]).forEach(function(c){ if(c) (cxPorSess[c.sessao]=cxPorSess[c.sessao]||[]).push(c); });
+  var itPorCx={}; (its||[]).forEach(function(i){ if(i) (itPorCx[String(i.caixa_id)]=itPorCx[String(i.caixa_id)]||[]).push(i); });
+  var linhas=[], caixas=[], porPed={}, ordemPed=[], porPeca={}, ordemPeca=[], ops={};
+  var T={sess:0,sessSemCx:0,cx:0,un:0,kg:0,semItens:0,mistas:0,divergentes:0};
+  (embs||[]).forEach(function(e){
+    var data=String(e.data_embalagem||'').slice(0,10), ped=String(e.pedido==null?'':e.pedido);
+    var nf=nfSess[e.sessao]||nfDia[ped+'|'+data]||null;
+    var base={data:data,hora:_hora(e.hora_embalagem)||'',pedido:ped,cliente:cliPed[ped]||'',operador:e.operador||'',baia:e.baia||'',sessao:e.sessao,
+      situacao:e.finalizada===false?'Em andamento':'Finalizada',tipo:e.tipo_embalagem||'',lote:e.cliente_lote||'',dataFab:e.cliente_data_fab||'',transp:e.cliente_transp||'',
+      nf:nf?nf.nfs.join(', '):'',datasFat:nf?nf.datas.slice():[]};
+    if(base.operador) ops[base.operador]=1;
+    T.sess++;
+    var P=porPed[ped]; if(!P){ P=porPed[ped]={pedido:ped,cliente:base.cliente,sess:0,cx:0,un:0,kg:0,de:data,ate:data}; ordemPed.push(ped); }
+    P.sess++; if(data<P.de) P.de=data; if(data>P.ate) P.ate=data;
+    var lista=(cxPorSess[e.sessao]||[]).slice().sort(function(a,b){ return (Number(a.numero)||0)-(Number(b.numero)||0) || (Number(a.id)||0)-(Number(b.id)||0); });
+    if(!lista.length) T.sessSemCx++;
+    lista.forEach(function(c){
+      var itens=(itPorCx[String(c.id)]||[]).slice().sort(function(a,b){ return String(a.nome_produto||'').localeCompare(String(b.nome_produto||''),'pt-BR',{numeric:true}) || String(a.codigo_produto||'').localeCompare(String(b.codigo_produto||'')); });
+      var unCx=Number(c.total_unidades)||0, kg=parseFloat(c.peso)||0, mista=itens.length>1, sem=!itens.length;
+      var soma=itens.reduce(function(a,i){ return a+(Number(i.quantidade)||0); },0);
+      var obs=[]; if(sem) obs.push('caixa sem peças registradas'); if(mista) obs.push('caixa com mais de uma peça');
+      if(!sem && soma!==unCx){ obs.push('soma das peças ('+soma+') diferente do total da caixa ('+unCx+')'); T.divergentes++; }
+      var cx=Object.assign({},base,{caixa:Number(c.numero)||0,id:Number(c.id)||0,sscc:gerarSSCCCaixa({id:c.id})||'',unCx:unCx,kg:kg,nItens:itens.length,mista:mista,
+        pecas:itens.map(function(i){ return (i.nome_produto||i.codigo_produto||'?')+' × '+(Number(i.quantidade)||0); }).join(' · '),obs:obs.join('; ')});
+      caixas.push(cx);
+      T.cx++; T.un+=unCx; T.kg+=kg; if(sem) T.semItens++; if(mista) T.mistas++;
+      P.cx++; P.un+=unCx; P.kg+=kg;
+      if(sem) linhas.push(Object.assign({},cx,{peca:'',ean:'',qtd:0}));
+      itens.forEach(function(i){
+        var qd=Number(i.quantidade)||0, nome=String(i.nome_produto||''), ean=String(i.codigo_produto||'');
+        linhas.push(Object.assign({},cx,{peca:nome,ean:ean,qtd:qd}));
+        var kk=ped+'|'+(ean||nome)+'|'+base.lote, R=porPeca[kk];
+        if(!R){ R=porPeca[kk]={pedido:ped,peca:nome,ean:ean,lote:base.lote,cxs:{},cx:0,un:0,sess:{}}; ordemPeca.push(kk); }
+        if(!R.cxs[c.id]){ R.cxs[c.id]=1; R.cx++; } R.un+=qd; R.sess[e.sessao]=1;
+      });
+    });
+  });
+  var resumoPeca=ordemPeca.map(function(kk){ var R=porPeca[kk]; return {pedido:R.pedido,peca:R.peca,ean:R.ean,lote:R.lote,cx:R.cx,un:R.un,sess:Object.keys(R.sess).length}; })
+    .sort(function(a,b){ return a.pedido.localeCompare(b.pedido,'pt-BR',{numeric:true}) || a.peca.localeCompare(b.peca,'pt-BR',{numeric:true}) || a.lote.localeCompare(b.lote); });
+  return {f:f,linhas:linhas,caixas:caixas,pedidos:ordemPed.map(function(p){ return porPed[p]; }).sort(function(a,b){ return a.pedido.localeCompare(b.pedido,'pt-BR',{numeric:true}); }),resumoPeca:resumoPeca,T:T,operadores:Object.keys(ops),geradoEm:new Date()};
+}
+function xcRotuloFiltro(f){
+  return 'de '+_dataBR(f.de)+' a '+_dataBR(f.ate)+(f.ped?' · pedido '+f.ped:'')+(f.op?' · operador '+f.op:'')+(f.sit==='fin'?' · só finalizadas':(f.sit==='and'?' · só em andamento':''));
+}
+function xcRenderizar(D){
+  var T=D.T, f=D.f;
+  try{ xcOpcoesOperador(D.operadores); }catch(x){}
+  xcLive('<span>Período <b>'+escAttr(_dataBR(f.de))+'</b> a <b>'+escAttr(_dataBR(f.ate))+'</b>'+(f.ped?' · pedido <b>'+escAttr(f.ped)+'</b>':'')+(f.op?' · operador <b>'+escAttr(f.op)+'</b>':'')+
+    (f.sit==='fin'?' · só finalizadas':(f.sit==='and'?' · só em andamento':''))+' · lido do banco às <b>'+relHMS(D.geradoEm.getTime())+'</b></span>');
+  var k=document.getElementById('xcKpis'), c=document.getElementById('xcConteudo');
+  if(k) k.innerHTML=[['Sessões',T.sess,0,'#60a5fa'],['Caixas',T.cx,0,'#16a34a'],['Peças',T.un,0,'#f59e0b'],['Peso (kg)',T.kg,1,'#a78bfa']].map(function(x){
+    return '<div class="rl-kpi" style="--c:'+x[3]+'"><span>'+x[0]+'</span><b>'+relFmt(x[1],x[2])+'</b></div>'; }).join('');
+  var av=[];
+  if(D.avisosLeitura && D.avisosLeitura.length) av.push('⚠ '+D.avisosLeitura.join(' · '));
+  if(!D.linhas.length){
+    av.push(T.sess?'Nenhuma caixa nas '+relFmt(T.sess)+' sessões desse período com esses filtros.':'Nenhuma sessão nesse período com esses filtros.');
+    xcAviso(av.join(' — ')); if(c) c.innerHTML=''; return;
+  }
+  var pr=[];
+  if(T.semItens) pr.push(relPl(T.semItens,'caixa sem peças registradas','caixas sem peças registradas'));
+  if(T.divergentes) pr.push(relPl(T.divergentes,'caixa com soma das peças diferente do total','caixas com soma das peças diferente do total'));
+  if(pr.length) av.push('⚠ '+pr.join(' · ')+' — saem no Excel com a observação.');
+  xcAviso(av.join(' — '));
+  var N=Math.min(100,D.linhas.length), NP=Math.min(300,D.resumoPeca.length);
+  if(c) c.innerHTML=
+    '<div class="hx-card rl-card xc-card" id="xcPorPed"><div class="rl-ped-h"><b>Por pedido</b><span>'+relPl(D.pedidos.length,'pedido','pedidos')+' · '+relFmt(T.cx)+' '+(T.cx===1?'caixa':'caixas')+' · '+relFmt(T.un)+' '+(T.un===1?'peça':'peças')+'</span></div>'+
+      '<div class="xc-tw">'+relTbl([{h:'Pedido',c:'k nw'},{h:'Cliente'},{h:'Período',c:'nw'},{h:'Sessões',c:'n'},{h:'Caixas',c:'n'},{h:'Peças',c:'n'},{h:'Peso (kg)',c:'n'}],
+        D.pedidos.map(function(P){ return [escAttr(P.pedido),escAttr(P.cliente||'—'),escAttr(_dataBR(P.de)+(P.ate!==P.de?' a '+_dataBR(P.ate):'')),relFmt(P.sess),relFmt(P.cx),relFmt(P.un),relFmt(P.kg,1)]; }),
+        'hx-tb xc-tb rl-p-t','',['Total','','',relFmt(T.sess),relFmt(T.cx),relFmt(T.un),relFmt(T.kg,1)])+'</div></div>'+
+    '<div class="hx-card rl-card xc-card" id="xcPorPeca"><div class="rl-ped-h"><b>Por peça</b><span>pedido × peça × lote'+(NP<D.resumoPeca.length?' · primeiras '+NP+' de '+relFmt(D.resumoPeca.length)+' linhas (o Excel leva todas)':'')+'</span></div>'+
+      '<div class="xc-tw">'+relTbl([{h:'Pedido',c:'k nw'},{h:'Peça (Cód. Sabó)',c:'nw'},{h:'EAN',c:'nw c-ean'},{h:'Lote',c:'nw'},{h:'Sessões',c:'n'},{h:'Caixas',c:'n'},{h:'Peças',c:'n'}],
+        D.resumoPeca.slice(0,NP).map(function(r){ return [escAttr(r.pedido),escAttr(r.peca||'—'),'<span class="mut">'+escAttr(r.ean||'—')+'</span>',escAttr(r.lote||'—'),relFmt(r.sess),relFmt(r.cx),relFmt(r.un)]; }),
+        'hx-tb xc-tb')+'</div></div>'+
+    '<div class="hx-card rl-card xc-card" id="xcPrev"><div class="rl-ped-h"><b>Prévia: peças por caixa</b><span>'+(N<D.linhas.length?'primeiras '+N+' de '+relFmt(D.linhas.length)+' linhas':relPl(D.linhas.length,'linha','linhas'))+' · o Excel leva todas, com todas as colunas</span></div>'+
+      '<div class="xc-tw">'+relTbl([{h:'Data',c:'nw'},{h:'Pedido',c:'nw'},{h:'Operador'},{h:'Lote',c:'nw'},{h:'Caixa',c:'n'},{h:'Nº no sistema',c:'nw c-id'},{h:'Peça (Cód. Sabó)',c:'nw'},{h:'EAN',c:'nw c-ean'},{h:'Quantidade',c:'n'},{h:'Peso cx (kg)',c:'n'}],
+        D.linhas.slice(0,N).map(function(l){ return [escAttr(_dataBR(l.data)),escAttr(l.pedido),escAttr(l.operador),escAttr(l.lote||'—'),relFmt(l.caixa),String(l.id),l.peca?escAttr(l.peca):'<span class="mut">sem peças</span>',escAttr(l.ean||'—'),relFmt(l.qtd),relFmt(l.kg,2)]; }),
+        'hx-tb xc-tb')+'</div></div>';
+}
+// Excel com 4 abas. EAN, lote, SSCC, pedido e sessão como TEXTO (zero à esquerda não some); datas como data do Excel.
+function xcBaixarExcel(){
+  var D=XC.dados;
+  if(!D || !D.linhas.length){ toast('Consulte um período com caixas primeiro'); return; }
+  if(!xcMesmoFiltro(D.f,xcFiltros())){ toast('Os filtros mudaram — clique em Consultar antes de baixar'); xcBotoes(); return; }
+  if(typeof XLSX==='undefined' || !XLSX.utils || !XLSX.writeFile){ toast('⚠ A biblioteca do Excel não carregou — confira a internet e recarregue a página'); return; }
+  toast('Gerando o Excel ('+relFmt(D.linhas.length)+' linhas)…');
+  setTimeout(function(){ xcGerarExcel(D); },40);
+}
+function xcGerarExcel(D){
+  function num(v,z){ return {t:'n',v:Math.round((Number(v)||0)*10000)/10000,z:z||'0'}; }
+  function txt(v){ return {t:'s',v:String(v==null?'':v)}; }
+  function dtIso(iso){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); if(!m) return txt(iso||''); return {t:'n',v:(Date.UTC(+m[1],+m[2]-1,+m[3])-Date.UTC(1899,11,30))/864e5,z:'dd/mm/yyyy'}; }
+  function dtBR(s){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||'').trim()); return m?dtIso(m[3]+'-'+m[2]+'-'+m[1]):txt(s||''); }
+  function dtLista(a){ return !a||!a.length?txt(''):(a.length===1?dtIso(a[0]):txt(a.map(_dataBR).join(', '))); }
+  function ws(aoa,larg,filtro){
+    var s=XLSX.utils.aoa_to_sheet(aoa); s['!cols']=larg.map(function(w){ return {wch:w}; });
+    if(filtro && aoa.length>1) s['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:aoa.length-1,c:larg.length-1}})};
+    return s;
+  }
+  try{
+    var f=D.f, T=D.T, wb=XLSX.utils.book_new();
+    var res=[[txt('Controle de Embalagem — peças por caixa')],[txt('Período (data da sessão): '+_dataBR(f.de)+' a '+_dataBR(f.ate))],
+      [txt('Filtros: pedido '+(f.ped||'todos')+' · operador '+(f.op||'todos')+' · situação '+(f.sit==='fin'?'só finalizadas':(f.sit==='and'?'só em andamento':'todas')))],
+      [txt('Lido do banco em '+D.geradoEm.toLocaleString('pt-BR'))],[],
+      [txt('Sessões'),num(T.sess)],[txt('Sessões sem caixas'),num(T.sessSemCx)],[txt('Caixas'),num(T.cx,'#,##0')],[txt('Peças'),num(T.un,'#,##0')],[txt('Peso (kg)'),num(T.kg,'#,##0.00')],
+      [txt('Caixas com mais de uma peça'),num(T.mistas)],[txt('Caixas sem peças registradas'),num(T.semItens)],[txt('Caixas com soma das peças diferente do total'),num(T.divergentes)]];
+    (D.avisosLeitura||[]).forEach(function(a){ res.push([txt('Atenção: '+a)]); });
+    res.push([]);
+    res.push(['Pedido','Cliente','Primeira data','Última data','Sessões','Caixas','Peças','Peso (kg)'].map(txt));
+    D.pedidos.forEach(function(P){ res.push([txt(P.pedido),txt(P.cliente),dtIso(P.de),dtIso(P.ate),num(P.sess),num(P.cx,'#,##0'),num(P.un,'#,##0'),num(P.kg,'#,##0.00')]); });
+    res.push([txt('Total'),txt(''),txt(''),txt(''),num(T.sess),num(T.cx,'#,##0'),num(T.un,'#,##0'),num(T.kg,'#,##0.00')]);
+    XLSX.utils.book_append_sheet(wb,ws(res,[44,24,13,13,9,9,11,11]),'Resumo');
+    var det=[['Data','Hora (início da sessão)','Pedido','Cliente','Operador','Baia','Sessão','Situação','Tipo','Lote','Data de fabricação','Transportadora','Caixa','Nº no sistema','SSCC',
+      'Peça (Cód. Sabó)','EAN','Quantidade da peça','Peças na caixa','Peso da caixa (kg)','Caixa com mais de uma peça','NF (registrada no app)','Data do faturamento','Observação'].map(txt)];
+    D.linhas.forEach(function(l){ det.push([dtIso(l.data),txt(l.hora),txt(l.pedido),txt(l.cliente),txt(l.operador),txt(l.baia),txt(l.sessao),txt(l.situacao),txt(l.tipo),txt(l.lote),dtBR(l.dataFab),txt(l.transp),
+      num(l.caixa),num(l.id),txt(l.sscc),txt(l.peca),txt(l.ean),num(l.qtd,'#,##0'),num(l.unCx,'#,##0'),num(l.kg,'#,##0.00'),txt(l.mista?'sim':'não'),txt(l.nf),dtLista(l.datasFat),txt(l.obs)]); });
+    XLSX.utils.book_append_sheet(wb,ws(det,[11,10,9,16,16,10,15,13,11,12,12,18,7,13,14,16,15,10,10,11,9,12,12,40],true),'Peças por caixa');
+    var cx=[['Data','Hora (início da sessão)','Pedido','Cliente','Operador','Baia','Sessão','Situação','Tipo','Lote','Caixa','Nº no sistema','SSCC','Peças (código × quantidade)',
+      'Peças diferentes','Peças na caixa','Peso (kg)','NF (registrada no app)','Observação'].map(txt)];
+    D.caixas.forEach(function(c){ cx.push([dtIso(c.data),txt(c.hora),txt(c.pedido),txt(c.cliente),txt(c.operador),txt(c.baia),txt(c.sessao),txt(c.situacao),txt(c.tipo),txt(c.lote),
+      num(c.caixa),num(c.id),txt(c.sscc),txt(c.pecas),num(c.nItens),num(c.unCx,'#,##0'),num(c.kg,'#,##0.00'),txt(c.nf),txt(c.obs)]); });
+    XLSX.utils.book_append_sheet(wb,ws(cx,[11,10,9,16,16,10,15,13,11,12,7,13,14,34,9,10,10,12,40],true),'Caixas');
+    var rp=[['Pedido','Peça (Cód. Sabó)','EAN','Lote','Sessões','Caixas','Peças'].map(txt)];
+    D.resumoPeca.forEach(function(r){ rp.push([txt(r.pedido),txt(r.peca),txt(r.ean),txt(r.lote),num(r.sess),num(r.cx,'#,##0'),num(r.un,'#,##0')]); });
+    XLSX.utils.book_append_sheet(wb,ws(rp,[10,18,16,13,9,9,11],true),'Resumo por peça');
+    var nome='caixas_'+f.de+'_a_'+f.ate+(f.ped?'_pedido-'+String(f.ped).replace(/[^0-9A-Za-z_-]/g,''):'')+'.xlsx';
+    XLSX.writeFile(wb,nome);
+    toast('✔ Excel gerado: '+relFmt(D.linhas.length)+' linhas');
+  }catch(e){ console.error(e); toast('⚠ Não consegui gerar o Excel: '+String((e&&e.message)||e).slice(0,80)); }
+}
 // Alterna as abas internas do Admin
 function admTab(t){
   if(admConsulta && t!=='hist' && t!=='rel' && t!=='saldo') t='rel'; // consulta: nada de cadastros nem configurações
@@ -8570,6 +8902,7 @@ function admTab(t){
   if(t==='config') renderConfigPanel();
   if(t==='rel') relInicializar();
   if(t==='saldo') sdInicializar();
+  if(t==='exp') xcInicializar();   // v35
 }
 // Renderiza os switches de liga/desliga — via JS (não HTML fixo) porque precisa refletir o
 // que já está salvo no localStorage deste aparelho, não sempre aparecer "tudo ligado".
@@ -11307,7 +11640,8 @@ function histLoteEditar(s){
   var e=hxSessaoPorId(s); if(!e) return;
   HX_LOTE_EDIT=s; HX_LOTE_DRAFT=String(e.cliLote||''); HX_LOTE_ERRO=''; HX_LOTE_SALVANDO=false;
   filtrarHist();
-  setTimeout(function(){ var i=document.getElementById('hxLoteInp'); if(i){ i.focus(); try{ i.select(); }catch(x){} } },30);
+  var ini=HX_LOTE_DRAFT;   // v35: o select() adiado não pode comer o que já foi digitado
+  setTimeout(function(){ var i=document.getElementById('hxLoteInp'); if(!i) return; if(document.activeElement!==i) i.focus(); if(i.value===ini){ try{ i.select(); }catch(x){} } },30);
 }
 function histLoteCancelar(){ HX_LOTE_EDIT=null; HX_LOTE_DRAFT=''; HX_LOTE_ERRO=''; HX_LOTE_SALVANDO=false; filtrarHist(); }
 function histLoteDigitar(el){
@@ -12744,7 +13078,7 @@ function v34SincLote(loteSrv){
    aberta, nada sendo gravado e 45 s sem toque nem bipe. A sessão, as caixas e a fila ficam no tablet (localStorage),
    então recarregar não perde nada. Em Faturamento/Admin/Pedidos só aparece o aviso com o botão "Atualizar agora".
    O build troca a versão aqui e no <meta> do topo — os dois têm de ser iguais. */
-var APP_VERSAO='v34';
+var APP_VERSAO='v35';
 var UPD={alvo:null, assinatura:null, ultimaChecagem:0, ultimoGet:0, ultimoToque:Date.now(), timer:null, aplicando:false};
 var UPD_INTERVALO_MS=5*60*1000, UPD_PARADO_MS=45*1000, UPD_GET_MS=30*60*1000, UPD_K='emb_upd1';
 
